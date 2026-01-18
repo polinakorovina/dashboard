@@ -1,0 +1,26 @@
+name: WeeklyDataMerge
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Запуск каждый понедельник в 09:00 UTC (12:00 МСК)
+  workflow_dispatch:   # Эта строчка добавляет кнопку "Запустить вручную"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install pandas yadisk openpyxl
+
+      - name: Run script
+        env:
+          YANDEX_TOKEN: ${{ secrets.YANDEX_TOKEN }}
+        run: python script.py
