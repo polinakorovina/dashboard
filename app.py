@@ -43,7 +43,7 @@ df = load_data()
 if df.empty:
     st.error("База данных не найдена или пуста.")
 else:
-    st.title("📊 Аналитика дежурств")
+    st.title("Аналитика дежурств")
 
     # --- БОКОВАЯ ПАНЕЛЬ С ФИЛЬТРАМИ ---
     st.sidebar.header("Настройки фильтров")
@@ -92,7 +92,7 @@ else:
         st.markdown("---")
 
         # --- ГРАФИК НАГРУЗКИ (Горизонтальный) ---
-        st.subheader("🧱 Нагрузка по командам и резолюциям")
+        st.subheader("Нагрузка по командам и резолюциям")
         if not f_df.empty:
             team_order = f_df['Компоненты'].value_counts().index.tolist()
             fig_team = px.bar(
@@ -100,7 +100,7 @@ else:
                 x='Кол-во', y='Компоненты', color='Резолюция',
                 orientation='h', text='Кол-во',
                 category_orders={"Компоненты": team_order},
-                color_discrete_map={"Решен": "#2a9d8f", "Позже": "#e9c46a", "Отклонен": "#e76f51"},
+                color_discrete_map={"Решен": "#2a9d8f", "Позже": "#e9c46a"},
                 template="seaborn"
             )
             fig_team.update_layout(height=max(400, len(team_order) * 35), legend=dict(orientation="h", y=1.05))
@@ -109,7 +109,7 @@ else:
         st.markdown("---")
 
         # --- ДИНАМИКА ПОСТУПЛЕНИЯ С ГРУППИРОВКОЙ ---
-        st.subheader(f"📈 Динамика поступления (по {time_unit.lower()}м)")
+        st.subheader(f"📈 Динамика поступления (по {time_unit.lower()})")
         if not f_df.empty:
             # Важный момент: resample работает только если индекс - это дата
             resampled_data = f_df.set_index('Дата создания').resample(unit_map[time_unit]).size().reset_index(name='Задач')
@@ -118,17 +118,10 @@ else:
             st.plotly_chart(fig_date, use_container_width=True)
 
         # --- TTM ГИСТОГРАММА ---
-        st.subheader("⏱️ Распределение скорости решения (TTM)")
+        st.subheader("Распределение скорости решения (TTM)")
         fig_ttm = px.histogram(f_df, x='ttm_days', nbins=20, color_discrete_sequence=['#457b9d'], marginal="violin")
         st.plotly_chart(fig_ttm, use_container_width=True)
 
-        # --- ТАБЛИЦА ---
-        st.subheader("🚩 Топ-5 самых долгих задач")
-        st.dataframe(f_df.sort_values('ttm_days', ascending=False).head(5)[['Ключ', 'Компоненты', 'Резолюция', 'ttm_days']], use_container_width=True)
-
+    
     else:
         st.info("💡 Выберите диапазон дат в левом меню.")
-
-    if st.sidebar.button('🔄 Обновить данные'):
-        st.cache_data.clear()
-        st.rerun()
