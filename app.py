@@ -11,24 +11,46 @@ st.set_page_config(page_title="Аналитика дежурств", layout="wid
 # --- ИНДИВИДУАЛЬНЫЙ СТИЛЬ (Фиолетовая тема) ---
 st.markdown(f"""
     <style>
-    /* Цвет фона боковой панели */
+    /* 1. Фон боковой панели */
     [data-testid="stSidebar"] {{
         background-color: #f3f0f7;
     }}
-    /* Цвет кнопок и активных элементов */
+    
+    /* 2. Теги в мультиселекте (вместо красных) */
+    span[data-baseweb="tag"] {{
+        background-color: #9f86c0 !important;
+    }}
+    
+    /* 3. Чекбоксы (галочки) */
+    div[data-testid="stCheckbox"] [data-testid="stWidgetLabel"] p {{
+        color: #5e548e;
+        font-weight: bold;
+    }}
+    input[type="checkbox"]:checked + div {{
+        background-color: #9f86c0 !important;
+        border-color: #9f86c0 !important;
+    }}
+
+    /* 4. Радиокнопки (точки) */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] div:first-child div:nth-child(2) {{
+        background-color: #9f86c0 !important;
+    }}
+
+    /* 5. Кнопка "Обновить данные" */
     div.stButton > button:first-child {{
         background-color: #9f86c0;
         color: white;
         border: none;
+        border-radius: 8px;
     }}
-    /* Цвет чекбоксов и радиокнопок */
-    .stCheckbox [data-testid="stMarkdownContainer"] p {{
-        color: #5e548e;
-        font-weight: bold;
+    div.stButton > button:hover {{
+        background-color: #5e548e;
+        color: white;
     }}
-    /* Цвет ползунков и выбора дат */
+
+    /* 6. Заголовки фильтров */
     .st-emotion-cache-16idsys p {{
-        color: #9f86c0;
+        color: #5e548e;
     }}
     </style>
     """, unsafe_allow_html=True)
