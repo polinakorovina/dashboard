@@ -47,20 +47,36 @@ else:
     st.title("Аналитика дежурств")
 
     # --- БОКОВАЯ ПАНЕЛЬ С ФИЛЬТРАМИ ---
-    st.sidebar.header("Фильтры")
-    
-    # Фильтр по датам
-    min_date = df['Дата создания'].min()
-    max_date = df['Дата создания'].max()
-    date_range = st.sidebar.date_input("Выберите период", [min_date, max_date])
+st.sidebar.header("Фильтры")
 
+# Определяем границы данных
+min_d = df['Дата создания'].min()
+max_d = df['Дата создания'].max()
+
+# Виджет выбора диапазона с защитой
+date_range = st.sidebar.date_input(
+    "Выберите период",
+    value=(min_d, max_d), # По умолчанию выбрано всё
+    min_value=min_d,     # Нельзя выбрать раньше
+    max_value=max_d      # Нельзя выбрать позже
+)
+
+# Защита: код сработает только если выбраны ДВЕ даты (начало и конец диапазона)
+if isinstance(date_range, tuple) and len(date_range) == 2:
+    start_date, end_date = date_range
+    
     # Фильтр по командам
     all_teams = sorted(df['Компоненты'].unique().tolist())
     selected_teams = st.sidebar.multiselect("Выберите команды", all_teams, default=all_teams)
 
     # Применение фильтров
-    mask = (df['Дата создания'] >= date_range[0]) & (df['Дата создания'] <= date_range[1]) & (df['Компоненты'].isin(selected_teams))
+    mask = (df['Дата создания'] >= start_date) & \
+           (df['Дата создания'] <= end_date) & \
+           (df['Компоненты'].isin(selected_teams))
     filtered_df = df.loc[mask]
+else:
+    st.warning("⏳ Пожалуйста, выберите вторую дату (конец периода) в календаре.")
+    st.stop() # Останавливаем выполнение, пока диапазон не полный
 
     # --- ГЛАВНЫЕ МЕТРИКИ (KPI) ---
     col1, col2, col3 = st.columns(3)
