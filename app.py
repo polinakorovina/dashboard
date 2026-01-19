@@ -92,7 +92,7 @@ else:
         st.markdown("---")
 
         # --- ГРАФИК НАГРУЗКИ (Горизонтальный) ---
-        st.subheader("Нагрузка по командам и резолюциям")
+        st.subheader("Нагрузка по командам")
         if not f_df.empty:
             team_order = f_df['Компоненты'].value_counts().index.tolist()
             fig_team = px.bar(
@@ -103,8 +103,23 @@ else:
                 color_discrete_map={"Решен": "#2a9d8f", "Позже": "#e9c46a"},
                 template="seaborn"
             )
-            fig_team.update_layout(height=max(500, len(team_order) * 35), legend=dict(orientation="h", y=1.05))
+            # НАСТРОЙКИ ОТОБРАЖЕНИЯ:
+            fig_team.update_layout(
+                height=max(400, len(team_order) * 40), # Увеличили высоту для простора
+                margin=dict(t=80), # Добавили отступ сверху, чтобы заголовок не наезжал
+                legend=dict(
+                    orientation="h",   # Горизонтальная легенда
+                    yanchor="bottom", 
+                    y=-0.2,            # Перенесли ПОД график
+                    xanchor="center", 
+                    x=0.5
+                ),
+                xaxis_title="Количество задач",
+                yaxis_title=None
+            )
             st.plotly_chart(fig_team, use_container_width=True)
+        
+        st.markdown("---")
 
         st.markdown("---")
 
