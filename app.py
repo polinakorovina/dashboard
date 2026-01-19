@@ -8,6 +8,31 @@ import os
 # 1. Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
+# --- ИНДИВИДУАЛЬНЫЙ СТИЛЬ (Фиолетовая тема) ---
+st.markdown(f"""
+    <style>
+    /* Цвет фона боковой панели */
+    [data-testid="stSidebar"] {{
+        background-color: #f3f0f7;
+    }}
+    /* Цвет кнопок и активных элементов */
+    div.stButton > button:first-child {{
+        background-color: #9f86c0;
+        color: white;
+        border: none;
+    }}
+    /* Цвет чекбоксов и радиокнопок */
+    .stCheckbox [data-testid="stMarkdownContainer"] p {{
+        color: #5e548e;
+        font-weight: bold;
+    }}
+    /* Цвет ползунков и выбора дат */
+    .st-emotion-cache-16idsys p {{
+        color: #9f86c0;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
 # 2. Авторизация и загрузка базы с Яндекса
 TOKEN = os.getenv("YANDEX_TOKEN")
 y = yadisk.YaDisk(token=TOKEN)
