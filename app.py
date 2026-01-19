@@ -105,14 +105,14 @@ else:
             )
             # НАСТРОЙКИ ОТОБРАЖЕНИЯ:
             fig_team.update_layout(
-                height=max(400, len(team_order) * 40), # Увеличили высоту для простора
-                margin=dict(t=80), # Добавили отступ сверху, чтобы заголовок не наезжал
+                height=max(400, len(team_order) * 40), 
+                margin=dict(t=20, r=150), # Добавили отступ справа (r=150) для легенды
                 legend=dict(
-                    orientation="h",   # Горизонтальная легенда
-                    yanchor="bottom", 
-                    y=-0.2,            # Перенесли ПОД график
-                    xanchor="center", 
-                    x=0.5
+                    orientation="v",      # Вертикальная легенда
+                    yanchor="middle", 
+                    y=0.5,                # Центрируем по вертикали
+                    xanchor="left", 
+                    x=1.02                # Сдвигаем чуть правее границы графика
                 ),
                 xaxis_title="Количество задач",
                 yaxis_title=None
