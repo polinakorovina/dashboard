@@ -100,7 +100,7 @@ else:
                 x='Кол-во', y='Компоненты', color='Резолюция',
                 orientation='h', text='Кол-во',
                 category_orders={"Компоненты": team_order},
-                color_discrete_map={"Решен": "#2a9d8f", "Позже": "#e9c46a"},
+                color_discrete_map={"Решен": "#5e548e", "Позже": "#be95c4"},
                 template="seaborn"
             )
             # НАСТРОЙКИ ОТОБРАЖЕНИЯ:
