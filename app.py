@@ -110,7 +110,7 @@ else:
     min_d = df['Дата создания'].min().date()
     max_d = df['Дата создания'].max().date()
     # Дашборд откроется на последней доступной неделе в данных
-date_range = st.sidebar.date_input(
+    date_range = st.sidebar.date_input(
     "Период анализа", 
     value=(start_of_last_week, db_max_date), 
     min_value=db_min_date,
