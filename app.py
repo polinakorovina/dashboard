@@ -103,7 +103,7 @@ else:
                 color_discrete_map={"Решен": "#2a9d8f", "Позже": "#e9c46a"},
                 template="seaborn"
             )
-            fig_team.update_layout(height=max(400, len(team_order) * 35), legend=dict(orientation="h", y=1.05))
+            fig_team.update_layout(height=max(500, len(team_order) * 35), legend=dict(orientation="h", y=1.05))
             st.plotly_chart(fig_team, use_container_width=True)
 
         st.markdown("---")
