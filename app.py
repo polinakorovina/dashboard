@@ -92,30 +92,54 @@ else:
 
         st.markdown("---")
 
-        # --- ГРАФИКИ ---
+        st.markdown("---")
+
+        # --- ГРАФИК НАГРУЗКИ ПО КОМАНДАМ (НА ВСЮ ШИРИНУ) ---
+        st.subheader("📊 Нагрузка по командам")
+        
+        # Группируем данные и сортируем их по количеству задач для красоты
+        team_counts = filtered_df.groupby('Компоненты').size().reset_index(name='Кол-во задач')
+        team_counts = team_counts.sort_values('Кол-во задач', ascending=True) # Самые крупные — сверху
+
+        # Создаем горизонтальный график (orientation='h')
+        fig_team = px.bar(
+            team_counts, 
+            x='Кол-во задач', 
+            y='Компоненты', 
+            orientation='h',
+            text='Кол-во задач', # Добавляем цифры прямо на бары
+            template="seaborn",
+            color_discrete_sequence=['#457b9d'] # Спокойный синий цвет, чтобы не рябило
+        )
+
+        # Убираем легенду и подстраиваем отступы
+        fig_team.update_layout(
+            showlegend=False, 
+            height=500, # Можно увеличить, если команд очень много
+            xaxis_title="Количество закрытых задач",
+            yaxis_title=None
+        )
+        
+        st.plotly_chart(fig_team, use_container_width=True)
+
+        st.markdown("---")
+
+        # --- ОСТАЛЬНЫЕ ГРАФИКИ В ДВЕ КОЛОНКИ ---
         c1, c2 = st.columns(2)
 
         with c1:
-            st.subheader("Нагрузка по командам")
-            team_counts = filtered_df.groupby('Компоненты').size().reset_index(name='Кол-во задач')
-            fig_team = px.bar(team_counts, x='Компоненты', y='Кол-во задач', 
-                              color='Компоненты', template="seaborn")
-            st.plotly_chart(fig_team, use_container_width=True)
-
-        with c2:
-            st.subheader("Динамика поступления")
+            st.subheader("📈 Динамика поступления")
             date_counts = filtered_df.groupby('Дата создания').size().reset_index(name='Кол-во задач')
             fig_date = px.line(date_counts, x='Дата создания', y='Кол-во задач', 
                                markers=True, template="seaborn")
             st.plotly_chart(fig_date, use_container_width=True)
 
-        st.subheader("Распределение скорости решения (TTM)")
-        fig_ttm = px.histogram(filtered_df, x='ttm_days', nbins=30, 
-                               labels={'ttm_days':'Дни на решение'},
-                               color_discrete_sequence=['#636EFA'],
-                               marginal="box") # Добавляем "ящик с усами" сверху для наглядности
-        st.plotly_chart(fig_ttm, use_container_width=True)
-
+        with c2:
+            st.subheader("⏱️ Распределение TTM")
+            fig_ttm = px.histogram(filtered_df, x='ttm_days', nbins=20,
+                                   labels={'ttm_days':'Дни'},
+                                   color_discrete_sequence=['#e63946'])
+            st.plotly_chart(fig_ttm, use_container_width=True)
         # --- ТАБЛИЦА САМЫХ ДОЛГИХ ЗАДАЧ ---
         st.subheader("🚩 Топ-5 задач с самым долгим решением")
         top_slow = filtered_df.sort_values('ttm_days', ascending=False).head(5)
