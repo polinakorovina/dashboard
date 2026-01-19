@@ -13,18 +13,29 @@ TOKEN = os.getenv("YANDEX_TOKEN")
 y = yadisk.YaDisk(token=TOKEN)
 DB_PATH = "/Data/my_database.db"
 
-@st.cache_data(ttl=600) # Кэшируем данные на 10 минут
+@st.cache_data(ttl=600)
 def load_data():
     if y.exists(DB_PATH):
         y.download(DB_PATH, "local_view.db")
         conn = sqlite3.connect("local_view.db")
         df = pd.read_sql("SELECT * FROM tasks", conn)
         conn.close()
-        # Считаем TTM на лету
+        
+        # 1. Безопасное преобразование даты
+        # errors='coerce' превратит некорректные даты в NaT (пустоту) вместо ошибки
+        df['Дата создания'] = pd.to_datetime(df['Дата создания'], errors='coerce')
+        
+        # Удаляем строки, где дата не распозналась (если они есть)
+        df = df.dropna(subset=['Дата создания'])
+        
+        # Оставляем только дату (без времени)
+        df['Дата создания'] = df['Дата создания'].dt.date
+        
+        # 2. Считаем TTM на лету
         ttm_cols = ['Сбор данных', 'Открыт', 'Заблокирован', 'На стороне менеджера', 'Бэклог разработки', 'В работе']
         available = [c for c in ttm_cols if c in df.columns]
-        df['ttm_days'] = df[available].sum(axis=1) / 1440
-        df['Дата создания'] = pd.to_datetime(df['Дата создания']).dt.date
+        df['ttm_days'] = df[available].apply(pd.to_numeric, errors='coerce').fillna(0).sum(axis=1) / 1440
+        
         return df
     return pd.DataFrame()
 
