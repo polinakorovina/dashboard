@@ -86,15 +86,16 @@ def load_data():
 
 df = load_data()
 
-from datetime import datetime, timedelta
+# 1. Находим самую последнюю дату, которая вообще есть в данных
+last_date_in_db = df['Дата создания'].max().date()
 
-# Находим текущую дату и начало недели (понедельник)
-today = datetime.now().date()
-start_of_week = today - timedelta(days=today.weekday())
+# 2. Находим понедельник той недели, к которой относится эта дата
+# .weekday() возвращает 0 для понедельника, 6 для воскресенья
+start_of_last_week = last_date_in_db - timedelta(days=last_date_in_db.weekday())
 
-# Берем крайние даты из базы для ограничений календаря
+# 3. Границы для календаря (чтобы можно было выбрать и старые данные)
 db_min_date = df['Дата создания'].min().date()
-db_max_date = df['Дата создания'].max().date()
+db_max_date = last_date_in_db
 
 
 if df.empty:
@@ -108,10 +109,11 @@ else:
     # Фильтр дат
     min_d = df['Дата создания'].min().date()
     max_d = df['Дата создания'].max().date()
-    date_range = st.sidebar.date_input(
+    # Дашборд откроется на последней доступной неделе в данных
+date_range = st.sidebar.date_input(
     "Период анализа", 
-    value=(start_of_week, db_max_date), # Вот здесь магия: ставим понедельник
-    min_value=db_min_date,             # Но разрешаем листать до начала времен
+    value=(start_of_last_week, db_max_date), 
+    min_value=db_min_date,
     max_value=db_max_date
 )
     if isinstance(date_range, tuple) and len(date_range) == 2:
