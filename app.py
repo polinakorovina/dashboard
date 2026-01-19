@@ -27,7 +27,6 @@ st.markdown(f"""
         font-weight: bold;
     }}
     input[type="checkbox"]:checked + div {{
-        background-color: #9f86c0 !important;
         border-color: #9f86c0 !important;
     }}
 
