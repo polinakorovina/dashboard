@@ -86,6 +86,17 @@ def load_data():
 
 df = load_data()
 
+from datetime import datetime, timedelta
+
+# Находим текущую дату и начало недели (понедельник)
+today = datetime.now().date()
+start_of_week = today - timedelta(days=today.weekday())
+
+# Берем крайние даты из базы для ограничений календаря
+db_min_date = df['Дата создания'].min().date()
+db_max_date = df['Дата создания'].max().date()
+
+
 if df.empty:
     st.error("База данных не найдена или пуста.")
 else:
@@ -97,8 +108,12 @@ else:
     # Фильтр дат
     min_d = df['Дата создания'].min().date()
     max_d = df['Дата создания'].max().date()
-    date_range = st.sidebar.date_input("Период анализа", value=(min_d, max_d), min_value=min_d, max_value=max_d)
-
+    date_range = st.sidebar.date_input(
+    "Период анализа", 
+    value=(start_of_week, db_max_date), # Вот здесь магия: ставим понедельник
+    min_value=db_min_date,             # Но разрешаем листать до начала времен
+    max_value=db_max_date
+)
     if isinstance(date_range, tuple) and len(date_range) == 2:
         start_date, end_date = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1])
 
