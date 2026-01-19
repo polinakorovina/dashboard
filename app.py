@@ -29,7 +29,6 @@ st.markdown(f"""
     /* 3. Чекбоксы (галочки "Выбрать всё") */
     /* Фон квадратика при нажатии */
     div[data-testid="stCheckbox"] input[type="checkbox"]:checked + div {{
-        background-color: #9f86c0 !important;
         border-color: #9f86c0 !important;
     }}
     /* Цвет самой галочки внутри */
@@ -47,22 +46,14 @@ st.markdown(f"""
         background-color: #5e548e !important;
     }}
 
-    /* 5. Кнопка "Обновить данные" */
-    div.stButton > button {{
-        background-color: #9f86c0 !important;
-        color: white !important;
-        border: none !important;
-    }}
-    div.stButton > button:hover {{
-        background-color: #5e548e !important;
-    }}
-
-    /* 6. Календарь и общие акценты */
+    /* 5. Календарь и общие акценты */
     :root {{
         --primary-color: #9f86c0;
     }}
     </style>
     """, unsafe_allow_html=True)
+
+
 # 2. Авторизация и загрузка базы с Яндекса
 TOKEN = os.getenv("YANDEX_TOKEN")
 y = yadisk.YaDisk(token=TOKEN)
