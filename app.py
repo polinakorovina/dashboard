@@ -62,9 +62,24 @@ else:
     if isinstance(date_range, tuple) and len(date_range) == 2:
         start_date, end_date = date_range
         
-        # Фильтр по командам
+        # --- ФИЛЬТР ПО КОМАНДАМ С КНОПКОЙ "ВЫБРАТЬ ВСЁ" ---
         all_teams = sorted(df['Компоненты'].unique().tolist())
-        selected_teams = st.sidebar.multiselect("Выберите команды", all_teams, default=all_teams)
+        
+        # Добавляем чекбокс для быстрого выбора
+        select_all_teams = st.sidebar.checkbox("Выбрать все команды", value=True)
+
+        if select_all_teams:
+            selected_teams = st.sidebar.multiselect(
+                "Выберите команды", 
+                all_teams, 
+                default=all_teams # Если чекбокс нажат, по умолчанию выбраны все
+            )
+        else:
+            selected_teams = st.sidebar.multiselect(
+                "Выберите команды", 
+                all_teams
+                # Если чекбокс снят, по умолчанию пусто, пользователь выбирает сам
+            )
 
         # Фильтр по резолюциям
         all_res = sorted(df['Резолюция'].unique().tolist()) if 'Резолюция' in df.columns else []
