@@ -48,7 +48,7 @@ def process():
         return
 
     # --- ОЧИСТКА ---  
-    cols_to_drop = ['Приоритет', 'Статус', 'Дата завершения', 'DutyGPT prediction result', 
+    cols_to_drop = ['Статус', 'Дата завершения', 'DutyGPT prediction result', 
                     'Резолюция по ролям', 'Причина блокировки', 'Закрыт', 'issue_key']
     merged_df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
 
