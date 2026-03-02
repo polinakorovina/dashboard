@@ -218,12 +218,6 @@ else:
             fig_team_work_time = px.bar(team_work_time, x='Компоненты', y='ttm_days', color_discrete_sequence=['#6244BB'])
             st.plotly_chart(fig_team_work_time, use_container_width=True)
 
-        # 3. Загрузка команды
-        st.subheader("Количество задач по командам (динамика)")
-        if not f_df.empty:
-            team_workload = f_df.groupby('Компоненты').size().reset_index(name='Кол-во задач').sort_values('Кол-во задач', ascending=False)
-            fig_team_workload = px.bar(team_workload, x='Компоненты', y='Кол-во задач', color_discrete_sequence=['#5e548e'])
-            st.plotly_chart(fig_team_workload, use_container_width=True)
 
         # 4. Процент времени до работы
         st.subheader("Процент времени до начала работы")
@@ -240,4 +234,4 @@ else:
             st.plotly_chart(fig_time_before, use_container_width=True)
     
     else:
-        st.info("💡 Выберите диапазон дат в левом меню.")
+        st.info("Выберите диапазон дат в левом меню.")
