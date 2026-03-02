@@ -161,25 +161,36 @@ else:
         st.markdown("---")
 
         # --- ГРАФИК НАГРУЗКИ ---
-        st.subheader("Нагрузка по командам")
-        if not f_df.empty:
-            team_order = f_df['Компоненты'].value_counts().index.tolist()
-            fig_team = px.bar(
-                f_df.groupby(['Компоненты', 'Резолюция']).size().reset_index(name='Кол-во'),
-                x='Кол-во', y='Компоненты', color='Резолюция',
-                orientation='h', text='Кол-во',
-                category_orders={"Компоненты": team_order},
-                color_discrete_map={"Решен": "#6244BB", "Позже": "#5e548e"},
-                template="seaborn"
+        # Создаем 2 колонки, чтобы графики располагались рядом
+        col1, col2 = st.columns(2)
+        
+        # График "Нагрузка по командам" в первой колонке
+        with col1:
+            st.subheader("Нагрузка по командам")
+            fig_team_avg_time = px.bar(
+                team_avg_time_sorted, 
+                x='Компоненты', 
+                y='ttm_days', 
+                title="Среднее время, которое каждая команда тратит на решение задач",
+                labels={'ttm_days': 'Среднее время (дни)', 'Компоненты': 'Команда'},
+                color='ttm_days',  # Цвет будет зависеть от времени
+                color_continuous_scale='Viridis'
             )
-            fig_team.update_layout(
-                height=max(400, len(team_order) * 40), 
-                margin=dict(t=20, r=150),
-                legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.02),
-                xaxis_title="Количество задач",
-                yaxis_title=None
+            st.plotly_chart(fig_team_avg_time, use_container_width=True)
+        
+        # График "Среднее время работы по командам" во второй колонке
+        with col2:
+            st.subheader("Среднее время работы по командам")
+            fig_team_avg_time = px.bar(
+                team_avg_time_sorted, 
+                x='Компоненты', 
+                y='ttm_days', 
+                title="Среднее время, которое каждая команда тратит на решение задач",
+                labels={'ttm_days': 'Среднее время (дни)', 'Компоненты': 'Команда'},
+                color='ttm_days',  # Цвет будет зависеть от времени
+                color_continuous_scale='Viridis'
             )
-            st.plotly_chart(fig_team, use_container_width=True)
+            st.plotly_chart(fig_team_avg_time, use_container_width=True)
         
         st.markdown("---")
 
