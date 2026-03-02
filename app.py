@@ -14,7 +14,7 @@ st.markdown(f"""
     <style>
     /* 1. Цвет фона боковой панели */
     [data-testid="stSidebar"] {{
-        background-color: #f3f0f7;
+        background-color: #6244BB;
     }}
 
     /* 2. Радиокнопки (точки выбора периода) */
@@ -144,12 +144,27 @@ else:
                (df['Компоненты'].isin(selected_teams)) & \
                (df['Резолюция'].isin(selected_res))
         f_df = df.loc[mask].copy()
-
+        # Фильтруем задачи с резолюцией 'Позже' и приоритетом 'Критичный'
+        priority_later_count = f_df[(f_df['Резолюция'] == 'Позже') & (f_df['Приоритет'] == 'Критичный')]
+        
+        # Группировка по периоду (неделя, месяц)
+        priority_later_count['Неделя'] = priority_later_count['Дата создания'].dt.isocalendar().week  # Добавляем колонку с номером недели
+        priority_later_count['Месяц'] = priority_later_count['Дата создания'].dt.month  # Добавляем колонку с номером месяца
+        
+        # Подсчитываем количество задач по неделям или месяцам
+        tasks_per_week = priority_later_count.groupby('Неделя').size().reset_index(name='Количество задач')
+        
+        # Если задачи не было в неделю, добавляем 0 для отсутствующих недель
+        all_weeks = pd.Series(range(1, tasks_per_week['Неделя'].max() + 1))
+        tasks_per_week_full = all_weeks.to_frame(name='Неделя').merge(tasks_per_week, on='Неделя', how='left').fillna(0)
+        
+        # Получаем общее количество задач с резолюцией 'Позже'
+        total_priority_later = len(priority_later_count)
         # --- KPI ---
         col1, col2, col3 = st.columns(3)
         col1.metric("Всего задач", len(f_df))
         col2.metric("Средний TTM (дни)", f"{f_df['ttm_days'].mean():.2f}")
-        col3.metric("Средний Пинг-понг", f"{f_df['Пинг-понг обращения'].mean():.1f}")
+        col3.metric("Количество задач с критичным приоритетом и резолюцией 'Позже'", total_priority_later)
 
         st.markdown("---")
 
@@ -202,11 +217,6 @@ else:
         # --- Дополнительные метрики ---
         st.markdown("---")
 
-        # 1. Проблемы с приоритетом и резолюцией (Критичный приоритет и "Позже")
-        st.subheader("Проблемы с критичным приоритетом и резолюцией 'Позже'")
-        priority_later = f_df[f_df['Резолюция'] == 'Позже']['Приоритет'].value_counts(normalize=True)
-        fig_priority_later = px.bar(priority_later, x=priority_later.index, y=priority_later.values, labels={'y': 'Процент'}, title="Процент задач с критичным приоритетом и резолюцией 'Позже'", color_discrete_sequence=['#6244BB'])
-        st.plotly_chart(fig_priority_later, use_container_width=True)
 
         # 2. Массовые обращения (11-100 и 100+)
         st.subheader("Массовые обращения (11-100 и 100+)")
