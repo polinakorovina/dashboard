@@ -1,5 +1,6 @@
 streamlit
 pandas
+psycopg2
 yadisk
 plotly
 openpyxl
