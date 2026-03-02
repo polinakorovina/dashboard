@@ -158,39 +158,50 @@ else:
 
         st.markdown("---")
 
-        # --- ГРАФИК НАГРУЗКИ И СРЕДНЕЕ ВРЕМЯ РАБОТЫ ПО КОМАНДАМ (РЯДОМ) ---
-        col1, col2 = st.columns(2)
-
-        # График Нагрузки по командам
-        with col1:
-            st.subheader("Нагрузка по командам")
-            if not f_df.empty:
-                team_order = f_df['Компоненты'].value_counts().index.tolist()
-                fig_team = px.bar(
-                    f_df.groupby(['Компоненты', 'Резолюция']).size().reset_index(name='Кол-во'),
+        # --- ГРАФИКИ В КОЛОНКАХ ---
+        if not f_df.empty:
+            # РАСЧЕТ ДАННЫХ
+            # 1. Данные для нагрузки (Кол-во задач)
+            team_counts = f_df.groupby(['Компоненты', 'Резолюция']).size().reset_index(name='Кол-во')
+            # Сортировка по общему количеству задач для красоты
+            total_order = f_df['Компоненты'].value_counts().index.tolist()
+            
+            # 2. Данные для среднего времени (TTM)
+            team_avg_time = f_df.groupby('Компоненты')['ttm_days'].mean().reset_index()
+            # Сортируем так же, как и первый график, или по значению TTM
+            team_avg_time = team_avg_time.sort_values('ttm_days', ascending=True) 
+            
+            c1, c2 = st.columns(2)
+            
+            with c1:
+                st.subheader("Нагрузка по командам")
+                fig_load = px.bar(
+                    team_counts, 
                     x='Кол-во', y='Компоненты', color='Резолюция',
-                    orientation='h', text='Кол-во',
-                    category_orders={"Компоненты": team_order},
-                    color_discrete_map={"Решен": "#6244BB", "Позже": "#5e548e"},
-                    template="seaborn"
+                    orientation='h',
+                    text='Кол-во', # Добавляем цифры на столбцы
+                    category_orders={"Компоненты": total_order},
+                    color_discrete_map={"Решен": "#9370DB", "Позже": "#B19CD9"},
+                    template="plotly_white"
                 )
-                fig_team.update_layout(
-                    height=max(400, len(team_order) * 40), 
-                    margin=dict(t=20, r=150),
-                    legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.02),
-                    xaxis_title="Количество задач",
-                    yaxis_title=None
+                fig_load.update_layout(xaxis_title="Количество задач", yaxis_title=None)
+                st.plotly_chart(fig_load, use_container_width=True)
+
+            with c2:
+                st.subheader("Среднее время работы")
+                fig_avg = px.bar(
+                    team_avg_time, 
+                    x='ttm_days', y='Компоненты', # Делаем горизонтальным (x и y поменяли местами)
+                    orientation='h',
+                    text_auto='.1f', # Добавляем цифры (1 знак после запятой)
+                    color_discrete_sequence=['#9370DB'], # Тот же фиолетовый цвет
+                    template="plotly_white"
                 )
-                st.plotly_chart(fig_team, use_container_width=True)
+                # Убираем лишние подписи, чтобы было чисто
+                fig_avg.update_layout(xaxis_title="Среднее время (дни)", yaxis_title=None)
+                st.plotly_chart(fig_avg, use_container_width=True)
 
-        # График Среднего времени работы по командам
-        with col2:
-            st.subheader("Среднее время работы по командам")
-            if not f_df.empty:
-                team_work_time = f_df.groupby('Компоненты').agg({'ttm_days': 'mean'}).sort_values('ttm_days', ascending=False).reset_index()
-                fig_team_work_time = px.bar(team_work_time, x='Компоненты', y='ttm_days', color_discrete_sequence=['#6244BB'])
-                st.plotly_chart(fig_team_work_time, use_container_width=True)
-
+        
         st.markdown("---")
 
         # --- ДИНАМИКА ПОСТУПЛЕНИЯ ---
