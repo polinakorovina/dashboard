@@ -20,17 +20,17 @@ st.markdown(f"""
     /* 2. Радиокнопки (точки выбора периода) */
     /* Ободок активной кнопки */
     div[data-testid="stRadio"] [data-testid="stWidgetLabel"] + div div[role="radiogroup"] div[data-baseweb="radio"] div:first-child {{
-        border-color: #9f86c0 !important;
+        border-color: #6244BB !important;
     }}
     /* Внутренняя точка активной кнопки */
     div[role="radiogroup"] div[data-baseweb="radio"] div:first-child div:nth-child(2) {{
-        background-color: #9f86c0 !important;
+        background-color: #6244BB !important;
     }}
 
     /* 3. Чекбоксы (галочки "Выбрать всё") */
     /* Фон квадратика при нажатии */
     div[data-testid="stCheckbox"] input[type="checkbox"]:checked + div {{
-        border-color: #9f86c0 !important;
+        border-color: #6244BB !important;
     }}
     /* Цвет самой галочки внутри */
     div[data-testid="stCheckbox"] svg {{
@@ -40,7 +40,7 @@ st.markdown(f"""
     /* 4. Мультиселект (Теги выбранных команд) */
     /* Цвет фона плашки (тега) */
     span[data-baseweb="tag"] {{
-        background-color: #9f86c0 !important;
+        background-color: #6244BB !important;
     }}
     /* Убираем красный цвет при наведении на крестик в теге */
     span[data-baseweb="tag"] span[role="button"]:hover {{
@@ -49,11 +49,10 @@ st.markdown(f"""
 
     /* 5. Календарь и общие акценты */
     :root {{
-        --primary-color: #9f86c0;
+        --primary-color: #6244BB;
     }}
     </style>
     """, unsafe_allow_html=True)
-
 
 # 2. Авторизация и загрузка базы с Яндекса
 TOKEN = os.getenv("YANDEX_TOKEN")
@@ -97,7 +96,6 @@ start_of_last_week = last_date_in_db - timedelta(days=last_date_in_db.weekday())
 # 3. Границы для календаря (чтобы можно было выбрать и старые данные)
 db_min_date = df['Дата создания'].min().date()
 db_max_date = last_date_in_db
-
 
 if df.empty:
     st.error("База данных не найдена или пуста.")
@@ -164,7 +162,7 @@ else:
                 x='Кол-во', y='Компоненты', color='Резолюция',
                 orientation='h', text='Кол-во',
                 category_orders={"Компоненты": team_order},
-                color_discrete_map={"Решен": "#5e548e", "Позже": "#be95c4"},
+                color_discrete_map={"Решен": "#6244BB", "Позже": "#5e548e"},
                 template="seaborn"
             )
             # НАСТРОЙКИ ОТОБРАЖЕНИЯ:
@@ -198,8 +196,42 @@ else:
 
         # --- TTM ГИСТОГРАММА ---
         st.subheader("Распределение скорости решения (TTM)")
-        fig_ttm = px.histogram(f_df, x='ttm_days', nbins=20, color_discrete_sequence=['#457b9d'], marginal="violin")
+        fig_ttm = px.histogram(f_df, x='ttm_days', nbins=20, color_discrete_sequence=['#6244BB'], marginal="violin")
         st.plotly_chart(fig_ttm, use_container_width=True)
+
+        # --- Дополнительные метрики ---
+        st.markdown("---")
+
+        # 1. Проблемы с приоритетом и резолюцией (Критичный приоритет и "Позже")
+        st.subheader("Проблемы с критичным приоритетом и резолюцией 'Позже'")
+        priority_later = f_df[f_df['Резолюция'] == 'Позже']['Приоритет'].value_counts(normalize=True)
+        fig_priority_later = px.bar(priority_later, x=priority_later.index, y=priority_later.values, labels={'y': 'Процент'}, title="Процент задач с критичным приоритетом и резолюцией 'Позже'", color_discrete_sequence=['#6244BB'])
+        st.plotly_chart(fig_priority_later, use_container_width=True)
+
+        # 2. Массовые обращения (11-100 и 100+)
+        st.subheader("Массовые обращения (11-100 и 100+)")
+        mass_issues = f_df[f_df['Кол-во обращений'] >= 11].groupby('Кол-во обращений')['ttm_days'].mean().reset_index()
+        mass_issues['Кол-во обращений'] = mass_issues['Кол-во обращений'].apply(lambda x: f"{x}+")
+        fig_mass_issues = px.line(mass_issues, x='Кол-во обращений', y='ttm_days', markers=True, title="Среднее время решения массовых обращений", color_discrete_sequence=['#6244BB'])
+        st.plotly_chart(fig_mass_issues, use_container_width=True)
+
+        # 3. Время работы команды
+        st.subheader("Время работы по командам")
+        team_work_time = f_df.groupby('Компоненты').agg({'ttm_days': 'mean'}).reset_index()
+        fig_team_work_time = px.bar(team_work_time, x='Компоненты', y='ttm_days', title="Время работы по командам", color_discrete_sequence=['#6244BB'])
+        st.plotly_chart(fig_team_work_time, use_container_width=True)
+
+        # 4. Загрузка команды (Team Workload)
+        st.subheader("Загрузка команды")
+        team_workload = f_df.groupby('Компоненты').agg({'Ключ': 'count'}).reset_index()
+        fig_team_workload = px.line(team_workload, x='Компоненты', y='Ключ', title="Загрузка по командам", color_discrete_sequence=['#6244BB'])
+        st.plotly_chart(fig_team_workload, use_container_width=True)
+
+        # 5. Процент времени до работы
+        st.subheader("Процент времени до начала работы")
+        f_df['Процент времени до работы'] = (f_df['Сбор данных'] + f_df['Открыт'] + f_df['Заблокирован'] + f_df['На стороне менеджера'] + f_df['Бэклог разработки']) / f_df['ttm_days'] * 100
+        fig_time_before = px.histogram(f_df, x='Процент времени до работы', nbins=20, title="Распределение времени до начала работы", color_discrete_sequence=['#6244BB'])
+        st.plotly_chart(fig_time_before, use_container_width=True)
 
     
     else:
