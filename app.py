@@ -13,8 +13,9 @@ st.set_page_config(page_title="Аналитика дежурств", layout="wid
 st.markdown(f"""
     <style>
     /* 1. Цвет фона боковой панели и текста в ней */
-    [data-testid="stSidebar"] {{
-        background-color: #6244BB;
+    [data-testid="stSidebar"] {
+    background-color: #6244BB;
+    color: white;
     }}
     [data-testid="stSidebar"] {{
         color: white;
