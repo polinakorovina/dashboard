@@ -1,4 +1,3 @@
-SKRIPT
 import pandas as pd
 import yadisk
 import io
