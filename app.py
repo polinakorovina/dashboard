@@ -226,14 +226,14 @@ with c1:
         template="plotly_white"
     )
     fig_l.update_traces(textposition="outside")
-    fig_l.update_layout(height=400, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=40, t=0, b=0))
+    fig_l.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_l, use_container_width=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 with c2:
     st.markdown('<div class="bi-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">Среднее время работы (TTM)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">Среднее время работы</div>', unsafe_allow_html=True)
 
     t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
     t_avg["Компоненты"] = pd.Categorical(t_avg["Компоненты"], categories=t_order, ordered=True)
@@ -249,7 +249,7 @@ with c2:
         template="plotly_white"
     )
     fig_a.update_traces(textposition="outside")
-    fig_a.update_layout(height=400, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=40, t=0, b=0))
+    fig_a.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_a, use_container_width=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -259,7 +259,7 @@ st.markdown('<div class="bi-card">', unsafe_allow_html=True)
 dh1, dh2 = st.columns([5, 1])
 
 with dh1:
-    st.markdown('<div class="card-header">📈 Динамика поступления</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">Динамика поступления задач</div>', unsafe_allow_html=True)
 with dh2:
     unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
 
