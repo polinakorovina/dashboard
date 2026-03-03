@@ -23,7 +23,9 @@ def clean_components(val):
 
 def process():
     TOKEN = os.getenv("YANDEX_TOKEN")
-    DB_URL = os.getenv("DB_URL") # Должен быть: postgresql://user:pass@host:port/defaultdb
+    DB_URL = os.getenv("DB_URL")
+    if DB_URL and DB_URL.startswith("postgres://"):
+        DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
     y = yadisk.YaDisk(token=TOKEN)
 
     input_path = "/Data/Input"
