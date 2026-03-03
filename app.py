@@ -73,7 +73,7 @@ st.markdown(
         text-overflow: ellipsis;
     }
     .block-container {
-        padding-top: 1.3rem !important;
+        padding-top: 1.5rem !important;
     }
 
     .kpi-value{
