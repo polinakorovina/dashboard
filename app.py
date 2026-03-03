@@ -42,15 +42,7 @@ st.markdown(
         margin-bottom: 14px;
     }
 
-    /* Карточки для графиков */
-    .bi-card {
-        background-color: white;
-        padding: 24px;
-        border-radius: 16px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-        border: 1px solid #E6E9EF;
-        margin-bottom: 24px;
-    }
+    
 
     /* KPI карточки (как BI, но адаптивно и без конфликтов) */
     .kpi-card{
