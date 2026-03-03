@@ -18,7 +18,7 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install pandas yadisk psycopg2-binary openpyxl sqlalchemy
+        run: pip install pandas yadisk psycopg2-binary openpyxl sqlalchemy requests
 
       - name: Run script
         env:
