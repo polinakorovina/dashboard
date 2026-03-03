@@ -1,5 +1,5 @@
-streamlit
-pandas
 yadisk
-plotly
+pandas
 openpyxl
+sqlalchemy
+psycopg2-binary
