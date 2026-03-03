@@ -93,11 +93,10 @@ def process():
                 except:
                     pass 
 
-                if not merged_df.empty:
-                    merged_df.to_sql('tasks', engine, if_exists='replace', index=False)
-                    print(f"Добавлено в базу строк: {len(merged_df)}")
-                else:
-                    print("Новых строк для базы нет.")
+                
+                merged_df.to_sql('tasks', engine, if_exists='replace', index=False)
+                print(f"Добавлено в базу строк: {len(merged_df)}")
+                
         except Exception as e:
             print(f"ОШИБКА БАЗЫ ДАННЫХ: {e}")
     
