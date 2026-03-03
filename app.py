@@ -16,6 +16,9 @@ st.markdown(
     /* Общий фон */
     .stApp { background-color: #F8F9FB; }
 
+    /* Поднимаем контент чуть выше */
+    .block-container { padding-top: 1.0rem !important; }
+
     /* Сайдбар */
     [data-testid="stSidebar"] { background-color: #A485E0; color: white; }
     [data-testid="stSidebar"] h1,
@@ -23,57 +26,60 @@ st.markdown(
     [data-testid="stSidebar"] h3,
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] span {
-        color: white !important;
-    }
+    [data-testid="stSidebar"] span { color: white !important; }
 
     /* Заголовки */
     .main-header {
         font-size: 34px;
         font-weight: 800;
         color: #1A1C1E;
-        margin: 4px 0 18px 0;
+        margin: 0 0 14px 0;
     }
-
     .card-header {
         font-size: 18px;
         font-weight: 700;
         color: #1A1C1E;
-        margin-bottom: 14px;
+        margin-bottom: 10px;
     }
 
-    
+    /* Карточки для графиков (ВЕРНУЛИ!) */
+    .bi-card {
+        background-color: white;
+        padding: 16px;                /* компактнее */
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+        border: 1px solid #E6E9EF;
+        margin-bottom: 18px;          /* компактнее */
+    }
 
-    /* KPI карточки (как BI, но адаптивно и без конфликтов) */
+    /* KPI карточки */
     .kpi-card{
         background: #ffffff;
         border: 1px solid #E6E9EF;
         border-radius: 16px;
-        padding: 24px;
+        padding: 18px;                /* компактнее */
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
         width: 100%;
     }
-
     .kpi-title{
-        font-size: 18px;
+        font-size: 16px;              /* меньше */
         font-weight: 600;
         color: #1A1C1E;
-        margin-bottom: 12px;
-        white-space: nowrap; /* не переносить по буквам */
+        margin-bottom: 10px;
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    .block-container {
-        padding-top: 1.7rem !important;
+    .kpi-value{
+        font-size: 34px;              /* меньше */
+        font-weight: 500;             /* менее жирный */
+        color: #6244BB;
+        line-height: 1.15;
     }
 
-    .kpi-value{
-        font-size: 36px;
-        font-weight: 500;
-        color: #6244BB;
-        line-height: 1.2;
-    }
+    /* Убираем "лишние пустые блоки" в колонках */
+    div[data-testid="column"] > div:empty { display: none !important; }
     </style>
     """,
     unsafe_allow_html=True
@@ -105,14 +111,12 @@ def load_data():
     df = pd.read_sql("SELECT * FROM tasks", conn)
     conn.close()
 
-    # Дата создания обязательна
     if "Дата создания" not in df.columns:
         return pd.DataFrame()
 
     df["Дата создания"] = pd.to_datetime(df["Дата создания"], errors="coerce")
     df = df.dropna(subset=["Дата создания"])
 
-    # Статусы в минутах (если нет — создадим)
     ttm_stages = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
     cycle_stages = ["Бэклог разработки", "В работе"]
 
@@ -122,23 +126,12 @@ def load_data():
         else:
             df[col] = 0
 
-    # Метрики: минуты -> дни
     df["ttm_days"] = df[ttm_stages].sum(axis=1) / 1440
     df["cycle_time"] = df[cycle_stages].sum(axis=1) / 1440
 
-    # Заполнения текстовых полей
-    if "Резолюция" in df.columns:
-        df["Резолюция"] = df["Резолюция"].fillna("Не указано")
-    else:
-        df["Резолюция"] = "Не указано"
-
-    if "Компоненты" not in df.columns:
-        df["Компоненты"] = "Не указано"
-
-    if "Приоритет" in df.columns:
-        df["Приоритет"] = df["Приоритет"].fillna("Не указано")
-    else:
-        df["Приоритет"] = "Не указано"
+    df["Резолюция"] = df["Резолюция"].fillna("Не указано") if "Резолюция" in df.columns else "Не указано"
+    df["Компоненты"] = df["Компоненты"] if "Компоненты" in df.columns else "Не указано"
+    df["Приоритет"] = df["Приоритет"].fillna("Не указано") if "Приоритет" in df.columns else "Не указано"
 
     return df
 
@@ -183,7 +176,7 @@ f_df = df[
 # --- ЗАГОЛОВОК ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-# --- KPI ---
+# --- KPI (уплотнили) ---
 k1, k2, k3, k4 = st.columns(4, gap="small")
 
 ttm_mean = float(f_df["ttm_days"].mean()) if len(f_df) else 0.0
@@ -196,17 +189,15 @@ with k1:
 with k2:
     kpi_card("TTM в днях", f"{ttm_mean:.2f}".replace(",", "."))
 with k3:
-    kpi_card("cycle time в днях", f"{cycle_mean:.2f}".replace(",", "."))
+    kpi_card("Cycle time в днях", f"{cycle_mean:.2f}".replace(",", "."))
 with k4:
     kpi_card("Критичные задачи, решенные позже", f"{crit_late}")
 
+# УБРАЛИ st.markdown("<br>") — он часто создаёт пустые “плашки”
+st.write("")
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- ГРАФИКИ ---
+# --- ГРАФИКИ (компактнее) ---
 c1, c2 = st.columns(2, gap="large")
-
-# порядок команд
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
@@ -227,9 +218,14 @@ with c1:
         template="plotly_white"
     )
     fig_l.update_traces(textposition="outside")
-    fig_l.update_layout(height=400, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=40, t=0, b=0))
+    fig_l.update_layout(
+        height=280,                         # БЫЛО 400
+        xaxis_title=None,
+        yaxis_title=None,
+        margin=dict(l=0, r=10, t=10, b=0),   # меньше воздуха
+        font=dict(size=11)                  # меньше шрифт
+    )
     st.plotly_chart(fig_l, use_container_width=True)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 with c2:
@@ -250,12 +246,17 @@ with c2:
         template="plotly_white"
     )
     fig_a.update_traces(textposition="outside")
-    fig_a.update_layout(height=400, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=40, t=0, b=0))
+    fig_a.update_layout(
+        height=280,                         # БЫЛО 400
+        xaxis_title=None,
+        yaxis_title=None,
+        margin=dict(l=0, r=10, t=10, b=0),
+        font=dict(size=11)
+    )
     st.plotly_chart(fig_a, use_container_width=True)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- ДИНАМИКА ---
+# --- ДИНАМИКА (чуть компактнее) ---
 st.markdown('<div class="bi-card">', unsafe_allow_html=True)
 dh1, dh2 = st.columns([5, 1])
 
@@ -265,7 +266,6 @@ with dh2:
     unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
 
 u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
-
 resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
 
 fig_d = px.line(
@@ -276,7 +276,11 @@ fig_d = px.line(
     color_discrete_sequence=["#6244BB"],
     template="plotly_white"
 )
-fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
+fig_d.update_layout(
+    height=260,                             # БЫЛО 300
+    xaxis_title=None,
+    margin=dict(l=0, r=0, t=10, b=0),
+    font=dict(size=11)
+)
 st.plotly_chart(fig_d, use_container_width=True)
-
 st.markdown("</div>", unsafe_allow_html=True)
