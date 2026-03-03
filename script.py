@@ -95,10 +95,9 @@ def process():
 
     # 6. ПЕРЕНОС ФАЙЛОВ (Твоя оригинальная логика)
     # Мы используем список processed_files, который определили в начале
-    for f_item in processed_files:
-        dest_path = f"{archive_path}/{f_item.name}"
-        print(f"Перемещаю {f_item.name} в архив...")
-        y.move(f_item.path, dest_path)
+    # Перемещаем исходные файлы в архив
+    for f_item in files[:2]:
+        y.move(f_item.path, f"{archive_path}/{f_item.name}")
 
     print("Процесс завершен.")
 
