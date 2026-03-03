@@ -186,10 +186,10 @@ f_df = df[
 ].copy()
 
 # --- ЗАГОЛОВОК ---
-st.markdown('<div class="main-header">📊 Аналитика дежурств</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 # --- KPI ---
-k1, k2, k3, k4 = st.columns(4, gap="medium")
+k1, k2, k3, k4 = st.columns(4, gap="small")
 
 ttm_mean = float(f_df["ttm_days"].mean()) if len(f_df) else 0.0
 cycle_mean = float(f_df["cycle_time"].mean()) if len(f_df) else 0.0
