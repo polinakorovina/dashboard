@@ -23,4 +23,5 @@ jobs:
       - name: Run script
         env:
           YANDEX_TOKEN: ${{ secrets.YANDEX_TOKEN }}
+          DB_URL: ${{ secrets.DB_URL }}
         run: python script.py
