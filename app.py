@@ -74,8 +74,8 @@ st.markdown(
     }
 
     .kpi-value{
-        font-size: 56px;     /* безопасный размер, не ломает колонки */
-        font-weight: 800;
+        font-size: 42px;
+        font-weight: 600;
         color: #6244BB;
         line-height: 1;
     }
