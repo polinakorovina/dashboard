@@ -68,8 +68,8 @@ def process():
     if 'Количество обращений' in merged_df.columns:
         merged_df['Количество обращений'] = merged_df['Количество обращений'].fillna('1-4')
     
-    if 'Пинг-понг обращений' in merged_df.columns:
-        merged_df['Пинг-понг обращений'] = merged_df['Пинг-понг обращений'].fillna(1.0)
+    if 'Пинг-понг обращения' in merged_df.columns:
+        merged_df['Пинг-понг обращения'] = merged_df['Пинг-понг обращения'].fillna(1.0)
 
     # Очистка колонок
     cols_to_drop = ['Статус', 'Дата завершения', 'DutyGPT prediction result', 
