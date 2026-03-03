@@ -74,10 +74,10 @@ st.markdown(
     }
 
     .kpi-value{
-        font-size: 42px;
-        font-weight: 600;
+        font-size: 36px;
+        font-weight: 500;
         color: #6244BB;
-        line-height: 1;
+        line-height: 1.2;
     }
     </style>
     """,
