@@ -4,7 +4,7 @@ import io
 import os
 from sqlalchemy import create_engine
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+# --- 1. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
 def clean_components(val):
     if pd.isna(val):
@@ -19,31 +19,31 @@ def clean_components(val):
         return None
     return val
 
-# --- ОСНОВНАЯ ФУНКЦИЯ ---
+# --- 2. ОСНОВНАЯ ФУНКЦИЯ ---
 
 def process():
     TOKEN = os.getenv("YANDEX_TOKEN")
-    DB_URL = os.getenv("DB_URL")
+    DB_URL = os.getenv("DB_URL") # Должен быть: postgresql://user:pass@host:port/defaultdb
     y = yadisk.YaDisk(token=TOKEN)
 
     input_path = "/Data/Input"
     archive_path = "/Data/Archive"
 
-    # 1. Получаем список файлов
+    # Шаг 1: Список файлов
     try:
         items = list(y.listdir(input_path))
     except Exception as e:
-        print(f"Ошибка: Папка не найдена или нет доступа. {e}")
+        print(f"Ошибка доступа к Диску: {e}")
         return
 
-    files = [item for item in items if item.type == 'file']
+    files = [item for item in items if item.type == 'file' and item.name.endswith(('.csv', '.xlsx'))]
     if len(files) < 2:
         print("Нужно минимум 2 файла для работы.")
         return
 
-    # 2. Загружаем данные (берем первые 2 файла)
+    # Шаг 2: Загрузка данных
     dfs = []
-    processed_files = files[:2] # Запоминаем, какие именно файлы мы взяли
+    processed_files = files[:2]
     
     for f_item in processed_files:
         with io.BytesIO() as buf:
@@ -52,16 +52,16 @@ def process():
             df = pd.read_csv(buf) if f_item.name.endswith('.csv') else pd.read_excel(buf)
             dfs.append(df)
 
-    # 3. Объединение (Твоя логика)
+    # Шаг 3: Объединение и очистка
     df_left, df_right = dfs[0], dfs[1]
     if 'Ключ' in df_left.columns and 'issue_key' in df_right.columns:
         merged_df = pd.merge(df_left, df_right, left_on='Ключ', right_on='issue_key', how='left')
     elif 'issue_key' in df_left.columns and 'Ключ' in df_right.columns:
         merged_df = pd.merge(df_left, df_right, left_on='issue_key', right_on='Ключ', how='left')
     else:
-        print("Не найдены ключи для объединения."); return
+        print("Ключи для объединения не найдены.")
+        return
 
-    # 4. Очистка
     cols_to_drop = ['Статус', 'Дата завершения', 'DutyGPT prediction result', 
                     'Резолюция по ролям', 'Причина блокировки', 'Закрыт', 'issue_key']
     merged_df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
@@ -73,31 +73,40 @@ def process():
         merged_df['Компоненты'] = merged_df['Компоненты'].apply(clean_components)
         merged_df.dropna(subset=['Компоненты'], inplace=True)
 
-    # 5. Запись в Aiven PostgreSQL
-    if not DB_URL:
-        print("Ошибка: Переменная DB_URL не настроена."); return
-    
-    engine = create_engine(DB_URL)
+    # Шаг 4: Запись в базу (с защитой от вылета)
+    db_success = False
+    if DB_URL:
+        try:
+            engine = create_engine(DB_URL)
+            with engine.connect() as conn:
+                try:
+                    existing_keys = pd.read_sql('SELECT "Ключ" FROM tasks', conn)['Ключ'].tolist()
+                    merged_df = merged_df[~merged_df['Ключ'].isin(existing_keys)]
+                except:
+                    pass # Таблицы еще нет
 
-    try:
-        with engine.connect() as conn:
-            # Проверка на дубликаты
-            existing_keys = pd.read_sql('SELECT "Ключ" FROM tasks', conn)['Ключ'].tolist()
-            merged_df = merged_df[~merged_df['Ключ'].isin(existing_keys)]
-    except Exception:
-        pass # Если таблицы нет, она создастся ниже
-
-    if not merged_df.empty:
-        merged_df.to_sql('tasks', engine, if_exists='append', index=False)
-        print(f"Добавлено новых строк в базу: {len(merged_df)}")
+                if not merged_df.empty:
+                    merged_df.to_sql('tasks', engine, if_exists='append', index=False)
+                    print(f"Добавлено в базу строк: {len(merged_df)}")
+                else:
+                    print("Новых строк для базы нет.")
+            db_success = True
+        except Exception as e:
+            print(f"ОШИБКА БАЗЫ ДАННЫХ: {e}")
+            print("Продолжаем перемещение файлов, несмотря на ошибку базы...")
     else:
-        print("Новых уникальных данных нет.")
+        print("DB_URL не настроен, пропускаем запись в базу.")
 
-    # 6. ПЕРЕНОС ФАЙЛОВ (Твоя оригинальная логика)
-    # Мы используем список processed_files, который определили в начале
-    # Перемещаем исходные файлы в архив
-    for f_item in files[:2]:
-        y.move(f_item.path, f"{archive_path}/{f_item.name}")
+    # Шаг 5: ПЕРЕНОС ФАЙЛОВ (Твоя логика с защитой от дублей)
+    for f_item in processed_files:
+        dest_path = f"{archive_path}/{f_item.name}"
+        try:
+            if y.exists(dest_path):
+                y.remove(dest_path) # Удаляем старый файл в архиве, если он мешает
+            y.move(f_item.path, dest_path)
+            print(f"Файл {f_item.name} перемещен в архив.")
+        except Exception as e:
+            print(f"Не удалось переместить {f_item.name}: {e}")
 
     print("Процесс завершен.")
 
