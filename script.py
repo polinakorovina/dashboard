@@ -68,7 +68,7 @@ def process():
     if 'Количество обращений' in merged_df.columns:
         merged_df['Количество обращений'] = merged_df['Количество обращений'].fillna('1-4')
     
-    if 'Пинг понг обращений' in merged_df.columns:
+    if 'Пинг-понг обращений' in merged_df.columns:
         merged_df['Пинг-понг обращений'] = merged_df['Пинг-понг обращений'].fillna(1.0)
 
     # Очистка колонок
