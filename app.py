@@ -72,6 +72,9 @@ st.markdown(
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    .block-container {
+        padding-top: 0.5rem !important;
+    }
 
     .kpi-value{
         font-size: 36px;
