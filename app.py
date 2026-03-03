@@ -6,40 +6,104 @@ import yadisk
 import os
 from datetime import datetime, timedelta
 
-# 1. Настройка страницы
+# 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# --- BI-СТИЛЬ (Оформление карточек и ячеек) ---
-st.markdown(f"""
+# 2) BI-стиль + KPI карточки (как на картинке 2)
+st.markdown(
+    """
     <style>
-    .stApp {{ background-color: #F8F9FB; }}
-    [data-testid="stSidebar"] {{ background-color: #A485E0; color: white; }}
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {{
+    /* Общий фон */
+    .stApp { background-color: #F8F9FB; }
+
+    /* Сайдбар */
+    [data-testid="stSidebar"] { background-color: #A485E0; color: white; }
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span {
         color: white !important;
-    }}
-    div[data-testid="metric-container"] {{
-        background-color: white;
-        padding: 20px 25px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        border: 1px solid #E6E9EF;
-        text-align: center;
-    }}
-    div[data-testid="stMetricValue"] {{ color: #6244BB !important; font-weight: 800 !important; font-size: 2.5rem !important; }}
-    .bi-card {{
+    }
+
+    /* Скрываем дефолтные метрики, если вдруг останутся */
+    div[data-testid="metric-container"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+
+    /* Контейнеры-карточки для блоков с графиками */
+    .bi-card {
         background-color: white;
         padding: 24px;
         border-radius: 15px;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
         border: 1px solid #E6E9EF;
         margin-bottom: 24px;
-    }}
-    .main-header {{ font-size: 34px; font-weight: 800; color: #1A1C1E; margin-bottom: 30px; }}
-    .card-header {{ font-size: 18px; font-weight: 700; color: #1A1C1E; margin-bottom: 20px; }}
-    </style>
-    """, unsafe_allow_html=True)
+    }
 
-# 2. Загрузка данных
+    .main-header {
+        font-size: 34px;
+        font-weight: 800;
+        color: #1A1C1E;
+        margin-bottom: 18px;
+    }
+
+    .card-header {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1A1C1E;
+        margin-bottom: 14px;
+    }
+
+    /* KPI карточки (как в BI / картинка 2) */
+    .kpi-card{
+        background: #ffffff;
+        border: 1px solid #E6E9EF;
+        border-radius: 12px;
+        padding: 22px 24px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .kpi-title{
+        font-size: 20px;
+        font-weight: 700;
+        color: #1A1C1E;
+        line-height: 1.2;
+        margin-bottom: 10px;
+    }
+
+    .kpi-value{
+        font-size: 64px;
+        font-weight: 800;
+        color: #6244BB;
+        line-height: 1;
+        letter-spacing: -0.5px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+def kpi_card(title: str, value: str):
+    st.markdown(
+        f"""
+        <div class="kpi-card">
+            <div class="kpi-title">{title}</div>
+            <div class="kpi-value">{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# 3) Загрузка данных
 TOKEN = os.getenv("YANDEX_TOKEN")
 y = yadisk.YaDisk(token=TOKEN)
 DB_PATH = "/Data/my_database.db"
@@ -51,98 +115,176 @@ def load_data():
         conn = sqlite3.connect("local_view.db")
         df = pd.read_sql("SELECT * FROM tasks", conn)
         conn.close()
-        df['Дата создания'] = pd.to_datetime(df['Дата создания'], errors='coerce')
-        df = df.dropna(subset=['Дата создания'])
-        
-        # Список колонок для расчетов
+
+        # Даты
+        if 'Дата создания' in df.columns:
+            df['Дата создания'] = pd.to_datetime(df['Дата создания'], errors='coerce')
+            df = df.dropna(subset=['Дата создания'])
+        else:
+            return pd.DataFrame()
+
+        # Стадии (в минутах)
         ttm_stages = ['Сбор данных', 'Открыт', 'Заблокирован', 'На стороне менеджера', 'Бэклог разработки', 'В работе']
         cycle_stages = ['Бэклог разработки', 'В работе']
-        
-        # Проверка наличия колонок и замена NaN на 0
-        for col in ttm_stages:
+
+        # Проверка колонок и приведение к числу
+        for col in set(ttm_stages + cycle_stages):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             else:
                 df[col] = 0
 
-        # Расчет по твоим формулам (сумма минут / 1440 = дни)
+        # Метрики (минуты -> дни)
         df['ttm_days'] = df[ttm_stages].sum(axis=1) / 1440
         df['cycle_time'] = df[cycle_stages].sum(axis=1) / 1440
-        
-        df['Резолюция'] = df['Резолюция'].fillna('Не указано')
+
+        # Заполнения
+        if 'Резолюция' in df.columns:
+            df['Резолюция'] = df['Резолюция'].fillna('Не указано')
+        else:
+            df['Резолюция'] = 'Не указано'
+
+        if 'Компоненты' not in df.columns:
+            df['Компоненты'] = 'Не указано'
+
         return df
+
     return pd.DataFrame()
 
 df = load_data()
 
-if not df.empty:
-    # --- САЙДБАР ---
-    st.sidebar.header("Настройки фильтров")
-    db_min, db_max = df['Дата создания'].min().date(), df['Дата создания'].max().date()
-    date_range = st.sidebar.date_input("Период анализа", value=(db_max - timedelta(days=7), db_max), min_value=db_min, max_value=db_max)
+if df.empty:
+    st.warning("Данные не найдены или таблица пустая.")
+    st.stop()
 
-    if isinstance(date_range, tuple) and len(date_range) == 2:
-        start_d, end_d = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1])
-        
-        # Фильтры по командам и резолюциям
-        all_teams = sorted(df['Компоненты'].unique().tolist())
-        sel_teams = st.sidebar.multiselect("Команды", all_teams, default=all_teams)
-        all_res = sorted(df['Резолюция'].unique().tolist())
-        sel_res = st.sidebar.multiselect("Резолюции", all_res, default=all_res)
+# --- САЙДБАР ---
+st.sidebar.header("Настройки фильтров")
 
-        f_df = df[(df['Дата создания'] >= start_d) & (df['Дата создания'] <= end_d) & 
-                  (df['Компоненты'].isin(sel_teams)) & (df['Резолюция'].isin(sel_res))].copy()
+db_min, db_max = df['Дата создания'].min().date(), df['Дата создания'].max().date()
+date_range = st.sidebar.date_input(
+    "Период анализа",
+    value=(db_max - timedelta(days=7), db_max),
+    min_value=db_min,
+    max_value=db_max
+)
 
-        # --- ЗАГОЛОВОК И KPI ---
-        st.markdown('<div class="main-header">📊 Аналитика дежурств</div>', unsafe_allow_html=True)
-        
-        k1, k2, k3, k4 = st.columns(4)
-        with k1: st.metric("TTM (средний)", f"{f_df['ttm_days'].mean():.2f}")
-        with k2: st.metric("Cycle Time", f"{f_df['cycle_time'].mean():.2f}")
-        with k3: 
-            crit = len(f_df[(f_df['Резолюция'] == 'Позже') & (f_df.get('Приоритет','') == 'Критичный')])
-            st.metric("Критичные 'Позже'", crit)
-        with k4: st.metric("Всего задач", len(f_df))
+if not (isinstance(date_range, tuple) and len(date_range) == 2):
+    st.stop()
 
-        st.markdown("<br>", unsafe_allow_html=True)
+start_d, end_d = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
-        # --- ГРАФИКИ (Нагрузка и Время) ---
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown('<div class="bi-card">', unsafe_allow_html=True)
-            st.markdown('<div class="card-header">Нагрузка по командам</div>', unsafe_allow_html=True)
-            t_counts = f_df.groupby(['Компоненты', 'Резолюция']).size().reset_index(name='Кол-во')
-            t_order = f_df['Компоненты'].value_counts().index.tolist()
-            fig_l = px.bar(t_counts, x='Кол-во', y='Компоненты', color='Резолюция', orientation='h', 
-                           text='Кол-во', category_orders={"Компоненты": t_order},
-                           color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"}, template="plotly_white")
-            fig_l.update_traces(textposition='outside')
-            fig_l.update_layout(height=400, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=40, t=0, b=0))
-            st.plotly_chart(fig_l, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+all_teams = sorted(df['Компоненты'].dropna().unique().tolist())
+sel_teams = st.sidebar.multiselect("Команды", all_teams, default=all_teams)
 
-        with c2:
-            st.markdown('<div class="bi-card">', unsafe_allow_html=True)
-            st.markdown('<div class="card-header">Среднее время работы (TTM)</div>', unsafe_allow_html=True)
-            t_avg = f_df.groupby('Компоненты')['ttm_days'].mean().reset_index()
-            t_avg['Компоненты'] = pd.Categorical(t_avg['Компоненты'], categories=t_order, ordered=True)
-            t_avg = t_avg.sort_values('Компоненты', ascending=False)
-            fig_a = px.bar(t_avg, x='ttm_days', y='Компоненты', orientation='h', text_auto='.1f',
-                           color_discrete_sequence=['#6244BB'], template="plotly_white")
-            fig_a.update_traces(textposition='outside')
-            fig_a.update_layout(height=400, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=40, t=0, b=0))
-            st.plotly_chart(fig_a, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+all_res = sorted(df['Резолюция'].dropna().unique().tolist())
+sel_res = st.sidebar.multiselect("Резолюции", all_res, default=all_res)
 
-        # --- ДИНАМИКА ---
-        st.markdown('<div class="bi-card">', unsafe_allow_html=True)
-        dh1, dh2 = st.columns([5, 1])
-        with dh1: st.markdown('<div class="card-header">📈 Динамика поступления</div>', unsafe_allow_html=True)
-        with dh2: unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
-        
-        u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
-        resampled = f_df.set_index('Дата создания').resample(u_map[unit]).size().reset_index(name='Задач')
-        fig_d = px.line(resampled, x='Дата создания', y='Задач', markers=True, color_discrete_sequence=['#6244BB'], template="plotly_white")
-        fig_d.update_layout(height=300, xaxis_title=None)
-        st.plotly_chart(fig_d, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+f_df = df[
+    (df['Дата создания'] >= start_d) &
+    (df['Дата создания'] <= end_d) &
+    (df['Компоненты'].isin(sel_teams)) &
+    (df['Резолюция'].isin(sel_res))
+].copy()
+
+# --- ЗАГОЛОВОК ---
+st.markdown('<div class="main-header">📊 Аналитика дежурств</div>', unsafe_allow_html=True)
+
+# --- KPI ---
+k1, k2, k3, k4 = st.columns(4, gap="large")
+
+ttm_mean = f_df['ttm_days'].mean() if len(f_df) else 0
+cycle_mean = f_df['cycle_time'].mean() if len(f_df) else 0
+total_tasks = len(f_df)
+
+# критичные позже (если нет колонки приоритет — будет 0)
+if 'Приоритет' in f_df.columns:
+    crit_late = len(f_df[(f_df['Резолюция'] == 'Позже') & (f_df['Приоритет'] == 'Критичный')])
+else:
+    crit_late = 0
+
+with k1:
+    kpi_card("TTM (средний)", f"{ttm_mean:.2f}".replace(",", "."))
+with k2:
+    kpi_card("cycle time", f"{cycle_mean:.2f}".replace(",", "."))
+with k3:
+    kpi_card("Критичные 'Позже'", f"{crit_late}")
+with k4:
+    kpi_card("Всего задач", f"{total_tasks}")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# --- ГРАФИКИ (Нагрузка и Время) ---
+c1, c2 = st.columns(2, gap="large")
+
+# порядок команд
+t_order = f_df['Компоненты'].value_counts().index.tolist()
+
+with c1:
+    st.markdown('<div class="bi-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">Нагрузка по командам</div>', unsafe_allow_html=True)
+
+    t_counts = f_df.groupby(['Компоненты', 'Резолюция']).size().reset_index(name='Кол-во')
+
+    fig_l = px.bar(
+        t_counts,
+        x='Кол-во',
+        y='Компоненты',
+        color='Резолюция',
+        orientation='h',
+        text='Кол-во',
+        category_orders={"Компоненты": t_order},
+        color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
+        template="plotly_white"
+    )
+    fig_l.update_traces(textposition='outside')
+    fig_l.update_layout(height=400, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=40, t=0, b=0))
+    st.plotly_chart(fig_l, use_container_width=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with c2:
+    st.markdown('<div class="bi-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">Среднее время работы (TTM)</div>', unsafe_allow_html=True)
+
+    t_avg = f_df.groupby('Компоненты')['ttm_days'].mean().reset_index()
+    t_avg['Компоненты'] = pd.Categorical(t_avg['Компоненты'], categories=t_order, ordered=True)
+    t_avg = t_avg.sort_values('Компоненты', ascending=False)
+
+    fig_a = px.bar(
+        t_avg,
+        x='ttm_days',
+        y='Компоненты',
+        orientation='h',
+        text_auto='.1f',
+        color_discrete_sequence=['#6244BB'],
+        template="plotly_white"
+    )
+    fig_a.update_traces(textposition='outside')
+    fig_a.update_layout(height=400, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=40, t=0, b=0))
+    st.plotly_chart(fig_a, use_container_width=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- ДИНАМИКА ---
+st.markdown('<div class="bi-card">', unsafe_allow_html=True)
+dh1, dh2 = st.columns([5, 1])
+with dh1:
+    st.markdown('<div class="card-header">📈 Динамика поступления</div>', unsafe_allow_html=True)
+with dh2:
+    unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
+
+u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
+
+resampled = f_df.set_index('Дата создания').resample(u_map[unit]).size().reset_index(name='Задач')
+fig_d = px.line(
+    resampled,
+    x='Дата создания',
+    y='Задач',
+    markers=True,
+    color_discrete_sequence=['#6244BB'],
+    template="plotly_white"
+)
+fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
+st.plotly_chart(fig_d, use_container_width=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
