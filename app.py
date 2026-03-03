@@ -192,13 +192,14 @@ crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Пр�
 total_tasks = len(f_df)
 
 with k1:
-    kpi_card("TTM (средний)", f"{ttm_mean:.2f}".replace(",", "."))
-with k2:
-    kpi_card("cycle time", f"{cycle_mean:.2f}".replace(",", "."))
-with k3:
-    kpi_card("Критичные 'Позже'", f"{crit_late}")
-with k4:
     kpi_card("Всего задач", f"{total_tasks}")
+with k2:
+    kpi_card("TTM в днях", f"{ttm_mean:.2f}".replace(",", "."))
+with k3:
+    kpi_card("cycle time в днях", f"{cycle_mean:.2f}".replace(",", "."))
+with k4:
+    kpi_card("Критичные задачи, решенные позже", f"{crit_late}")
+
 
 st.markdown("<br>", unsafe_allow_html=True)
 
