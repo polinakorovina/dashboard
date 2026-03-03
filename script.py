@@ -4,8 +4,6 @@ import io
 import os
 from sqlalchemy import create_engine
 
-# --- 1. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
-
 def clean_components(val):
     if pd.isna(val):
         return None
@@ -19,20 +17,19 @@ def clean_components(val):
         return None
     return val
 
-# --- 2. ОСНОВНАЯ ФУНКЦИЯ ---
-
 def process():
     TOKEN = os.getenv("YANDEX_TOKEN")
     DB_URL = os.getenv("DB_URL")
-    # Исправляем протокол, если он старого формата
+    
+    # 1. Быстрое исправление протокола
     if DB_URL and DB_URL.startswith("postgres://"):
         DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
         
     y = yadisk.YaDisk(token=TOKEN)
-
     input_path = "/Data/Input"
     archive_path = "/Data/Archive"
 
+    # 2. Быстрое получение списка файлов
     try:
         items = list(y.listdir(input_path))
     except Exception as e:
@@ -44,6 +41,7 @@ def process():
         print("Нужно минимум 2 файла для работы.")
         return
 
+    # Обрабатываем только первые два найденных файла
     dfs = []
     processed_files = files[:2]
     
@@ -51,10 +49,13 @@ def process():
         with io.BytesIO() as buf:
             y.download(f_item.path, buf)
             buf.seek(0)
+            # Быстрое чтение
             df = pd.read_csv(buf) if f_item.name.endswith('.csv') else pd.read_excel(buf)
             dfs.append(df)
 
     df_left, df_right = dfs[0], dfs[1]
+    
+    # 3. Объединение данных
     if 'Ключ' in df_left.columns and 'issue_key' in df_right.columns:
         merged_df = pd.merge(df_left, df_right, left_on='Ключ', right_on='issue_key', how='left')
     elif 'issue_key' in df_left.columns and 'Ключ' in df_right.columns:
@@ -63,17 +64,19 @@ def process():
         print("Ключи для объединения не найдены.")
         return
 
-    # --- ШАГ 3.1: ЗАПОЛНЕНИЕ ПРОПУСКОВ ---
+    # 4. Быстрое заполнение пропусков (Векторизовано)
     if 'Количество обращений' in merged_df.columns:
         merged_df['Количество обращений'] = merged_df['Количество обращений'].fillna('1-4')
     
     if 'Пинг понг обращений' in merged_df.columns:
         merged_df['Пинг понг обращений'] = merged_df['Пинг понг обращений'].fillna(1.0)
 
+    # Очистка колонок
     cols_to_drop = ['Статус', 'Дата завершения', 'DutyGPT prediction result', 
                     'Резолюция по ролям', 'Причина блокировки', 'Закрыт', 'issue_key']
     merged_df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
 
+    # Фильтрация
     if 'Резолюция' in merged_df.columns:
         merged_df = merged_df[~merged_df['Резолюция'].isin(['Не будет исправлено', 'Дубликат'])]
 
@@ -81,35 +84,39 @@ def process():
         merged_df['Компоненты'] = merged_df['Компоненты'].apply(clean_components)
         merged_df.dropna(subset=['Компоненты'], inplace=True)
 
-    # Шаг 4: Запись в базу
+    # 5. СВЕРХБЫСТРАЯ ЗАПИСЬ В БАЗУ
     if DB_URL:
         try:
-            engine = create_engine(DB_URL)
-            with engine.connect() as conn:
-                # Проверяем на дубликаты перед вставкой
-                try:
-                    existing_keys = pd.read_sql('SELECT "Ключ" FROM tasks', conn)['Ключ'].tolist()
-                    merged_df = merged_df[~merged_df['Ключ'].isin(existing_keys)]
-                except:
-                    pass 
-
-                
-                merged_df.to_sql('tasks', engine, if_exists='replace', index=False)
-                print(f"Добавлено в базу строк: {len(merged_df)}")
-                
+            # pool_recycle помогает избежать разрыва соединения
+            engine = create_engine(DB_URL, pool_recycle=3600)
+            
+            if not merged_df.empty:
+                # method='multi' ускоряет процесс в десятки раз
+                # chunksize=1000 отправляет данные пачками по 1000 строк
+                merged_df.to_sql(
+                    'tasks', 
+                    engine, 
+                    if_exists='replace', 
+                    index=False, 
+                    method='multi', 
+                    chunksize=1000
+                )
+                print(f"База обновлена успешно. Записано строк: {len(merged_df)}")
+            else:
+                print("Нет данных для записи.")
         except Exception as e:
             print(f"ОШИБКА БАЗЫ ДАННЫХ: {e}")
     
-    # Шаг 5: Перенос файлов
+    # 6. Быстрое перемещение файлов
     for f_item in processed_files:
         dest_path = f"{archive_path}/{f_item.name}"
         try:
             if y.exists(dest_path):
                 y.remove(dest_path)
             y.move(f_item.path, dest_path)
-            print(f"Файл {f_item.name} перемещен в архив.")
+            print(f"Файл {f_item.name} в архиве.")
         except Exception as e:
-            print(f"Не удалось переместить {f_item.name}: {e}")
+            print(f"Ошибка перемещения {f_item.name}: {e}")
 
 if __name__ == "__main__":
     process()
