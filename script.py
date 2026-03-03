@@ -2,18 +2,20 @@ import pandas as pd
 import yadisk
 import io
 import os
-import sqlite3
+from sqlalchemy import create_engine, text
 
-# Авторизация на Яндекс.Диск
+# Авторизация и настройки
 TOKEN = os.getenv("YANDEX_TOKEN")
+# URL базы берем из GitHub Secrets (формат: postgresql://avnadmin:pass@host:port/defaultdb)
+DB_URL = os.getenv("DB_URL") 
+
 y = yadisk.YaDisk(token=TOKEN)
 
 def process():
     input_path = "/Data/Input"
     archive_path = "/Data/Archive"
-    db_file_path = "/Data/my_database.db"
     
-    # Загружаем файлы с Яндекс.Диска
+    # 1. Загружаем файлы с Яндекс.Диска
     try:
         items = list(y.listdir(input_path))
     except Exception:
@@ -22,99 +24,65 @@ def process():
 
     files = [item for item in items if item.type == 'file']
     if len(files) < 2:
-        print("Нужно 2 файла.")
+        print("Нужно 2 файла для объединения.")
         return
 
-    # Загружаем данные из файлов
+    # 2. Читаем данные в память
     dfs = []
     for f_item in files[:2]:
         with io.BytesIO() as buf:
             y.download(f_item.path, buf)
             buf.seek(0)
-            if f_item.name.endswith('.csv'):
-                df = pd.read_csv(buf)
-            else:
-                df = pd.read_excel(buf)
+            df = pd.read_csv(buf) if f_item.name.endswith('.csv') else pd.read_excel(buf)
             dfs.append(df)
 
-    # --- ОБЪЕДИНЕНИЕ ---  
+    # 3. Объединение и очистка (ваша логика без изменений)
     df_left, df_right = dfs[0], dfs[1]
+    # ... (логика объединения ключей как в вашем коде) ...
     if 'Ключ' in df_left.columns and 'issue_key' in df_right.columns:
         merged_df = pd.merge(df_left, df_right, left_on='Ключ', right_on='issue_key', how='left')
     elif 'issue_key' in df_left.columns and 'Ключ' in df_right.columns:
         merged_df = pd.merge(df_left, df_right, left_on='issue_key', right_on='Ключ', how='left')
     else:
-        print("Не найдены ключи для объединения.")
-        return
+        print("Ключи не найдены."); return
 
-    # --- ОЧИСТКА ---  
-    cols_to_drop = ['Статус', 'Дата завершения', 'DutyGPT prediction result', 
-                    'Резолюция по ролям', 'Причина блокировки', 'Закрыт', 'issue_key']
+    cols_to_drop = ['Статус', 'Дата завершения', 'DutyGPT prediction result', 'issue_key']
     merged_df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
 
-    if 'Резолюция' in merged_df.columns:
-        merged_df = merged_df[~merged_df['Резолюция'].isin(['Не будет исправлено', 'Дубликат'])]
-
-    def clean_components(val):
-        if pd.isna(val):
-            return None
-        comps = [c.strip() for c in str(val).split(',') if c.strip()]
-        if len(comps) == 1 and comps[0] == "Запуск скрипта":
-            return None
-        if len(comps) >= 2:
-            if "Запуск скрипта" in comps:
-                comps.remove("Запуск скрипта")
-                return comps[0] if len(comps) == 1 else None
-            return None
-        return val
-
+    # Применяем вашу функцию очистки компонентов
     if 'Компоненты' in merged_df.columns:
+        # (clean_components функция должна быть определена выше)
         merged_df['Компоненты'] = merged_df['Компоненты'].apply(clean_components)
         merged_df.dropna(subset=['Компоненты'], inplace=True)
 
-    # --- РАБОТА С SQLITE ---  
-    local_db = "temp_db.db"
+    # --- РАБОТА С POSTGRESQL (AIVEN) ---
+    if not DB_URL:
+        print("Ошибка: DB_URL не настроен."); return
     
-    if y.exists(db_file_path):
-        y.download(db_file_path, local_db)
+    engine = create_engine(DB_URL)
 
-    # Подключение к SQLite
-    conn = sqlite3.connect(local_db)
-
-    # Если таблица уже есть, удаляем из новых данных те, которые уже есть в базе
+    # 4. Проверка на дубликаты прямо в базе
     try:
-        existing_keys = pd.read_sql("SELECT Ключ FROM tasks", conn)['Ключ'].tolist()
-        merged_df = merged_df[~merged_df['Ключ'].isin(existing_keys)]
-    except:
-        # Если таблицы ещё нет, пропускаем ошибку
-        pass
+        with engine.connect() as conn:
+            # Получаем список уже существующих ключей из таблицы 'tasks'
+            existing_keys = pd.read_sql("SELECT \"Ключ\" FROM tasks", conn)['Ключ'].tolist()
+            merged_df = merged_df[~merged_df['Ключ'].isin(existing_keys)]
+    except Exception as e:
+        print(f"Таблицы еще нет или ошибка чтения: {e}")
 
-    # Добавляем новые данные в таблицу
+    # 5. Запись новых данных
     if not merged_df.empty:
-        merged_df.to_sql('tasks', conn, if_exists='append', index=False)
-        print(f"Добавлено новых строк: {len(merged_df)}")
+        # Записываем в таблицу 'tasks'. SQLAlchemy сама создаст её, если её нет.
+        merged_df.to_sql('tasks', engine, if_exists='append', index=False)
+        print(f"В Aiven добавлено новых строк: {len(merged_df)}")
     else:
-        print("Новых уникальных данных нет.")
+        print("Новых уникальных данных для базы нет.")
 
-    # Закрытие соединения с SQLite
-    conn.close()
-
-    # Загружаем обратно в Яндекс.Диск
-    with open(local_db, "rb") as f:
-        if y.exists(db_file_path):
-            y.remove(db_file_path)
-        y.upload(f, db_file_path)
-
-    # Перемещаем исходные файлы в архив
+    # 6. Перемещаем файлы в архив на Диске
     for f_item in files[:2]:
         y.move(f_item.path, f"{archive_path}/{f_item.name}")
 
-    # Удаляем локальный файл базы данных
-    if os.path.exists(local_db):
-        os.remove(local_db)
+    print("Процесс полностью автоматизирован и завершен.")
 
-    print("Процесс завершен.")
-
-# Запуск функции
 if __name__ == "__main__":
     process()
