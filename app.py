@@ -198,8 +198,6 @@ df_period_res = df[(df["Дата создания"] >= start_d) & (df["Дата 
 active_teams_in_period = df_period_res["Компоненты"].unique()
 inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
 
-st.markdown('<div class="bi-card">', unsafe_allow_html=True)
-
 if inactive_teams:
     inactive_df = pd.DataFrame(inactive_teams, columns=["Команды без задач за анализируемый период"])
     # Мы используем st.table, а CSS выше (thead tr th:first-child) убирает колонку индекса
