@@ -26,8 +26,9 @@ st.markdown(
         -webkit-text-fill-color: #1A1C1E !important;
     }
 
-    /* Скрываем штатную правую панель календаря (пресеты от 'сегодня') */
-    div[data-baseweb="menu"] {
+    /* Полностью скрываем блок выбора диапазона (Choose a date range) */
+    div[data-testid="stDateInput"] > div:nth-child(2), 
+    div[data-baseweb="select"] {
         display: none !important;
     }
     
