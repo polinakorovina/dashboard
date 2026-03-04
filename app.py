@@ -9,7 +9,7 @@ from datetime import timedelta
 # 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# 2) BI-стиль + Кастомизация таблицы
+# 2) BI-стиль + Кастомизация таблицы (Фиолетовый заголовок + Скрытие индексов)
 st.markdown(
     """
     <style>
@@ -18,7 +18,7 @@ st.markdown(
     [data-testid="stSidebar"] * { color: white !important; }
 
     .main-header { font-size: 34px; font-weight: 800; color: #1A1C1E; margin: 4px 0 18px 0; }
-    .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
+    .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; margin-bottom: 10px; }
 
     .kpi-card {
         background: #ffffff;
@@ -65,20 +65,19 @@ st.markdown(
         font-weight: normal;
     }
     
-    /* СТИЛИЗАЦИЯ ТАБЛИЦЫ: Фиолетовый заголовок */
-    /* Для st.dataframe (новые версии) */
-    [data-testid="stTable"] thead tr th {
-        background-color: #6244BB !important;
-        color: white !important;
-    }
-    
-    /* Дополнительный хак для заголовков стандартных таблиц */
+    /* СТИЛИЗАЦИЯ ТАБЛИЦЫ */
+    /* Фиолетовый заголовок */
     th {
         background-color: #6244BB !important;
         color: white !important;
         font-weight: 600 !important;
+        text-align: left !important;
     }
 
+    /* СКРЫТИЕ ИНДЕКСОВ в st.table */
+    thead tr th:first-child { display:none; }
+    tbody tr th:first-child { display:none; }
+    
     .block-container { padding-top: 1.7rem !important; }
     </style>
     """,
@@ -126,7 +125,7 @@ all_teams = sorted(df["Компоненты"].unique().tolist())
 sel_teams = st.sidebar.multiselect("Команды", all_teams, default=all_teams)
 sel_res = st.sidebar.multiselect("Резолюции", sorted(df["Резолюция"].unique().tolist()), default=sorted(df["Резолюция"].unique().tolist()))
 
-# Данные для графиков (зависят от всех фильтров)
+# Данные для графиков
 f_df = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & 
           (df["Компоненты"].isin(sel_teams)) & (df["Резолюция"].isin(sel_res))].copy()
 
@@ -136,10 +135,10 @@ st.markdown('<div class="main-header">Аналитика дежурств</div>'
 k1, k2, k3, k4 = st.columns(4, gap="small")
 with k1: kpi_card("Всего задач", f"{len(f_df)}", "За период")
 with k2: kpi_card("TTM в днях", f"{(f_df['ttm_days'].mean() if len(f_df) else 0):.2f}", "Среднее время")
-with k3: kpi_card("Cycle time (дн)", f"{(f_df['cycle_time'].mean() if len(f_df) else 0):.2f}", "Время работы")
+with k3: kpi_card("Cycle time (дн)", f"{(f_df['cycle_time'].mean() if len(f_df) else 0):.2f}", "Время в работе")
 with k4: 
     crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
-    kpi_card("Критичные позже", f"{crit_late}", "Криты 'Позже'")
+    kpi_card("Критичные позже", f"{crit_late}", "Криты со статусом 'Позже'")
 
 st.write("")
 
@@ -147,8 +146,7 @@ c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
-    st.markdown('<div class="bi-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">Нагрузка по командам</div><span class="hint-icon" data-hint="Задачи по командам">?</span>', unsafe_allow_html=True)
+    st.markdown('<div class="bi-card"><div class="card-header">Нагрузка по командам</div>', unsafe_allow_html=True)
     t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
     fig_l = px.bar(t_counts, x="Кол-во", y="Компоненты", color="Резолюция", orientation="h", text="Кол-во",
                    category_orders={"Компоненты": t_order}, color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"}, template="plotly_white")
@@ -157,8 +155,7 @@ with c1:
     st.markdown("</div>", unsafe_allow_html=True)
 
 with c2:
-    st.markdown('<div class="bi-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-header">Среднее время работы</div><span class="hint-icon" data-hint="TTM в днях">?</span>', unsafe_allow_html=True)
+    st.markdown('<div class="bi-card"><div class="card-header">Среднее время работы</div>', unsafe_allow_html=True)
     t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
     fig_a = px.bar(t_avg, x="ttm_days", y="Компоненты", orientation="h", text_auto=".1f",
                    color_discrete_sequence=["#6244BB"], template="plotly_white", category_orders={"Компоненты": t_order})
@@ -169,7 +166,7 @@ with c2:
 # Динамика
 st.markdown('<div class="bi-card">', unsafe_allow_html=True)
 dh1, dh2 = st.columns([5, 1])
-with dh1: st.markdown('<div class="card-header">Динамика поступления задач</div><span class="hint-icon" data-hint="Новые задачи">?</span>', unsafe_allow_html=True)
+with dh1: st.markdown('<div class="card-header">Динамика поступления задач</div>', unsafe_allow_html=True)
 with dh2: unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
 resampled = f_df.set_index("Дата создания").resample({"День": "D", "Неделя": "W", "Месяц": "ME"}[unit]).size().reset_index(name="Задач")
 fig_d = px.line(resampled, x="Дата создания", y="Задач", markers=True, color_discrete_sequence=["#6244BB"], template="plotly_white")
@@ -177,21 +174,16 @@ fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=
 st.plotly_chart(fig_d, use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- ТАБЛИЦА С ФИОЛЕТОВЫМ ЗАГОЛОВКОМ ---
-# Логика: учитываем Даты и Резолюции, но ИГНОРИРУЕМ фильтр команд
+# --- ТАБЛИЦА С ФИОЛЕТОВЫМ ЗАГОЛОВКОМ И БЕЗ ИНДЕКСОВ ---
 df_period_res = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & (df["Резолюция"].isin(sel_res))]
 active_teams_in_period = df_period_res["Компоненты"].unique()
 inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
 
 st.markdown('<div class="bi-card">', unsafe_allow_html=True)
-# Саму надпись сверху плашки оставляем как заголовок карточки
-st.markdown('<div class="card-header">Активность команд</div>', unsafe_allow_html=True)
 
 if inactive_teams:
-    # Создаем DF с нужным названием колонки
     inactive_df = pd.DataFrame(inactive_teams, columns=["Команды без задач за анализируемый период"])
-    
-    # Отображаем таблицу. С помощью CSS выше заголовок станет фиолетовым.
+    # Мы используем st.table, а CSS выше (thead tr th:first-child) убирает колонку индекса
     st.table(inactive_df)
 else:
     st.success("Все команды были активны в этот период.")
