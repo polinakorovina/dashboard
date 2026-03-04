@@ -117,17 +117,20 @@ if df.empty: st.stop()
 
 # --- САЙДБАР ---
 db_min, db_max = df["Дата создания"].min().date(), df["Дата создания"].max().date()
-date_range = st.sidebar.date_input("Период анализа", value=(db_max - timedelta(days=7), db_max))
+date_range = st.sidebar.date_input("Период анализа", value=(db_max - timedelta(days=7), db_max), min_value=db_min, max_value=db_max)
+
 if not (isinstance(date_range, tuple) and len(date_range) == 2): st.stop()
 
-start_d, end_d = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+start_d = pd.to_datetime(date_range[0])
+end_d = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 all_teams = sorted(df["Компоненты"].unique().tolist())
 sel_teams = st.sidebar.multiselect("Команды", all_teams, default=all_teams)
-sel_res = st.sidebar.multiselect("Резолюции", sorted(df["Резолюция"].unique().tolist()), default=sorted(df["Резолюция"].unique().tolist()))
+all_res = sorted(df["Резолюция"].unique().tolist())
+sel_res = st.sidebar.multiselect("Резолюции", all_res, default=all_res)
 
-# Данные для графиков
 f_df = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & 
           (df["Компоненты"].isin(sel_teams)) & (df["Резолюция"].isin(sel_res))].copy()
+
 
 # --- КОНТЕНТ ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
