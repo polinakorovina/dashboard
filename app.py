@@ -23,7 +23,6 @@ st.markdown(
     # Добавь это в свой CSS блок в начале кода
     st.markdown("""
             <style>
-            /* Скрываем штатные пресеты календаря, которые считают от 'сегодня' */
             [data-testid="stSidebar"] div[role="listbox"] {
                 display: none !important;
             }
