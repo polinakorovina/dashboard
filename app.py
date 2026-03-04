@@ -1,5 +1,5 @@
 import streamlit as st
-import pd
+import pandas
 import sqlite3
 import plotly.express as px
 import yadisk
