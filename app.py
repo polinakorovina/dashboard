@@ -25,7 +25,7 @@ st.markdown(
 
     /* Заголовки */
     .main-header { font-size: 34px; font-weight: 800; color: #1A1C1E; margin: 4px 0 18px 0; }
-    .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
+    .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; }
 
     /* KPI карточки */
     .kpi-card {
@@ -36,7 +36,14 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
     }
-    .kpi-title { font-size: 16px; font-weight: 600; color: #1A1C1E; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+    .kpi-title { 
+        font-size: 16px; 
+        font-weight: 600; 
+        color: #1A1C1E; 
+        margin-bottom: 12px; 
+        display: flex; 
+        align-items: center; 
+    }
     .kpi-value { font-size: 36px; font-weight: 500; color: #6244BB; line-height: 1.2; }
     
     /* Блоки графиков */
@@ -78,11 +85,12 @@ st.markdown(
         padding: 8px 12px;
         border-radius: 8px;
         font-size: 12px;
-        width: 200px;
+        width: 220px;
         white-space: normal;
         z-index: 1000;
         box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         font-weight: normal;
+        line-height: 1.4;
     }
     
     .block-container { padding-top: 1.7rem !important; }
@@ -103,7 +111,7 @@ def kpi_card(title: str, value: str, hint: str = ""):
         unsafe_allow_html=True
     )
 
-# 3) Подключение к Я.Диску + БД
+# 3) Подключение к Я.Диску + БД (Логика без изменений)
 TOKEN = os.getenv("YANDEX_TOKEN")
 y = yadisk.YaDisk(token=TOKEN)
 DB_PATH = "/Data/my_database.db"
@@ -153,54 +161,62 @@ sel_res = st.sidebar.multiselect("Резолюции", all_res, default=all_res)
 f_df = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & 
           (df["Компоненты"].isin(sel_teams)) & (df["Резолюция"].isin(sel_res))].copy()
 
-# --- ЗАГОЛОВОК ---
+# --- ЗАГОЛОВОК СТРАНИЦЫ ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-# --- KPI ---
+# --- KPI СЕКЦИЯ ---
 k1, k2, k3, k4 = st.columns(4, gap="small")
 with k1:
-    kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
+    kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за выбранный период")
 with k2:
     val = f_df["ttm_days"].mean() if len(f_df) else 0.0
-    kpi_card("TTM в днях", f"{val:.2f}", "Среднее время от открытия до закрытия")
+    kpi_card("TTM в днях", f"{val:.2f}", "Среднее время от открытия задачи до ее финального решения")
 with k3:
     val = f_df["cycle_time"].mean() if len(f_df) else 0.0
-    kpi_card("Cycle time (дн)", f"{val:.2f}", "Среднее время активной работы")
+    kpi_card("Cycle time (дн)", f"{val:.2f}", "Чистое время активной разработки и работы над задачей")
 with k4:
     crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
-    kpi_card("Критичные позже", f"{crit_late}", "Критичные задачи со статусом Позже")
+    kpi_card("Критичные позже", f"{crit_late}", "Количество критических задач, перенесенных на более поздний срок")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- ГРАФИКИ ---
+# --- ГРАФИКИ (Нагрузка и Среднее время) ---
 c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
     st.markdown(
-        f'<div class="bi-card">'
-        f'<div class="card-header">Нагрузка по командам</div>'
-        f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
+        f"""
+        <div class="bi-card">
+            <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                <span class="card-header">Нагрузка по командам</span>
+                <span class="hint-icon" data-hint="Распределение задач по командам с разбивкой на тех, кто решил сразу, и тех, кто позже">?</span>
+            </div>
+        """, 
         unsafe_allow_html=True
     )
     t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
     fig_l = px.bar(t_counts, x="Кол-во", y="Компоненты", color="Резолюция", orientation="h", text="Кол-во",
                    category_orders={"Компоненты": t_order}, color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"}, template="plotly_white")
-    fig_l.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+    fig_l.update_layout(height=320, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_l, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with c2:
     st.markdown(
-        f'<div class="bi-card">'
-        f'<div class="card-header">Среднее время работы</div>'
-        f'<span class="hint-icon" data-hint="Средний TTM в днях для каждой команды">?</span>',
+        f"""
+        <div class="bi-card">
+            <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                <span class="card-header">Среднее время работы</span>
+                <span class="hint-icon" data-hint="Средний показатель TTM (Time to Market) в днях для каждой отдельной команды">?</span>
+            </div>
+        """, 
         unsafe_allow_html=True
     )
     t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
     fig_a = px.bar(t_avg, x="ttm_days", y="Компоненты", orientation="h", text_auto=".1f",
                    color_discrete_sequence=["#6244BB"], template="plotly_white", category_orders={"Компоненты": t_order})
-    fig_a.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+    fig_a.update_layout(height=320, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_a, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -209,8 +225,12 @@ st.markdown('<div class="bi-card">', unsafe_allow_html=True)
 dh1, dh2 = st.columns([5, 1])
 with dh1:
     st.markdown(
-        f'<div class="card-header">Динамика поступления задач</div>'
-        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям">?</span>', 
+        f"""
+        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+            <span class="card-header">Динамика поступления задач</span>
+            <span class="hint-icon" data-hint="График интенсивности создания новых задач с возможностью группировки">?</span>
+        </div>
+        """, 
         unsafe_allow_html=True
     )
 with dh2:
