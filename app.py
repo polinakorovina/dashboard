@@ -27,6 +27,22 @@ st.markdown(
     .main-header { font-size: 34px; font-weight: 800; color: #1A1C1E; margin: 4px 0 18px 0; }
     .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
 
+    /* Единая белая карточка (стиль как у KPI) */
+    .bi-card {
+        background: #ffffff;
+        border: 1px solid #E6E9EF;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+
+    .card-header { 
+        font-size: 18px; 
+        font-weight: 700; 
+        color: #1A1C1E; 
+    }
+    
     /* KPI карточки */
     .kpi-card {
         background: #ffffff;
