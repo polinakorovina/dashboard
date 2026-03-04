@@ -20,36 +20,28 @@ st.markdown(
     [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p { color: white !important; font-weight: 600; }
     [data-testid="stSidebar"] .stMarkdown p { color: white !important; }
 
-    # Добавь это в свой CSS блок в начале кода
-    st.markdown("""
-            <style>
-            [data-testid="stSidebar"] div[role="listbox"] {
-                display: none !important;
-            }
-    """, unsafe_allow_html=True)
-    
-    # В сайдбаре:
-    st.sidebar.markdown("### Быстрые периоды (по данным)")
-    c1, c2 = st.sidebar.columns(2)
-    
-    db_max = df["Дата создания"].max().date()
-    
-    if c1.button("7 дней"):
-        st.session_state.d_range = (db_max - timedelta(days=7), db_max)
-    if c2.button("30 дней"):
-        st.session_state.d_range = (db_max - timedelta(days=30), db_max)
-    
-    # Сам календарь (теперь без вводящих в заблуждение пресетов справа)
-    date_range = st.sidebar.date_input(
-        "Выбор вручную",
-        value=st.session_state.get('d_range', (db_max - timedelta(days=7), db_max)),
-        min_value=df["Дата создания"].min().date(),
-        max_value=db_max
-    )
-    
+    /* Исправляем видимость текста в календаре */
     [data-testid="stSidebar"] div[data-baseweb="input"] input {
-        color: #1A1C1E !important; /* Текст внутри календаря снова темный */
+        color: #1A1C1E !important; 
         -webkit-text-fill-color: #1A1C1E !important;
+    }
+
+    /* Скрываем штатную правую панель календаря (пресеты от 'сегодня') */
+    div[data-baseweb="menu"] {
+        display: none !important;
+    }
+    
+    /* Стили для кнопок быстрых фильтров в сайдбаре */
+    div[data-testid="stSidebar"] button {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        border-radius: 8px !important;
+        width: 100%;
+    }
+    div[data-testid="stSidebar"] button:hover {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        border-color: white !important;
     }
 
     .main-header { font-size: 34px; font-weight: 800; color: #1A1C1E; margin: 4px 0 18px 0; }
@@ -88,7 +80,6 @@ def load_data():
     conn.close()
     df["Дата создания"] = pd.to_datetime(df["Дата создания"], errors="coerce")
     df = df.dropna(subset=["Дата создания"])
-    # Расчет TTM и других полей (сокращено для примера)
     stages = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
     for col in stages: df[col] = pd.to_numeric(df.get(col, 0), errors="coerce").fillna(0)
     df["ttm_days"] = df[stages].sum(axis=1) / 1440
@@ -102,31 +93,32 @@ if df.empty: st.stop()
 db_max = df["Дата создания"].max().date()
 db_min = df["Дата создания"].min().date()
 
-st.sidebar.markdown("### Быстрые фильтры")
-col_b1, col_b2 = st.sidebar.columns(2)
-
-# Кнопки сброса к периодам от MAX даты данных
-if col_b1.button("Последние 7 дней"):
-    st.session_state.d_range = (db_max - timedelta(days=7), db_max)
-if col_b2.button("Последние 30 дней"):
-    st.session_state.d_range = (db_max - timedelta(days=30), db_max)
-if st.sidebar.button("Весь период"):
-    st.session_state.d_range = (db_min, db_max)
-
-# Инициализация значения в session_state, если его еще нет
+# Инициализация session_state
 if 'd_range' not in st.session_state:
     st.session_state.d_range = (db_max - timedelta(days=7), db_max)
 
-# Календарь
+st.sidebar.markdown("### Быстрые фильтры (по данным)")
+col_b1, col_b2 = st.sidebar.columns(2)
+
+if col_b1.button("7 дней"):
+    st.session_state.d_range = (db_max - timedelta(days=7), db_max)
+    st.rerun()
+if col_b2.button("30 дней"):
+    st.session_state.d_range = (db_max - timedelta(days=30), db_max)
+    st.rerun()
+if st.sidebar.button("Весь период"):
+    st.session_state.d_range = (db_min, db_max)
+    st.rerun()
+
+# Календарь (подхватывает значение из session_state)
 date_range = st.sidebar.date_input(
     "Период анализа", 
     value=st.session_state.d_range,
     min_value=db_min,
-    max_value=db_max,
-    key="calendar_input" # используем ключ, но session_state выше приоритетнее
+    max_value=db_max
 )
 
-# Синхронизируем выбор пользователя обратно в session_state
+# Синхронизация
 if isinstance(date_range, tuple) and len(date_range) == 2:
     st.session_state.d_range = date_range
     start_d, end_d = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
@@ -165,6 +157,7 @@ c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
+    st.markdown('<div class="bi-card">', unsafe_allow_html=True)
     st.markdown(
         f'<div class="card-header">Нагрузка по командам</div>'
         f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
@@ -178,6 +171,7 @@ with c1:
     st.markdown("</div>", unsafe_allow_html=True)
 
 with c2:
+    st.markdown('<div class="bi-card">', unsafe_allow_html=True)
     st.markdown(
         f'<div class="card-header">Среднее время работы</div>'
         f'<span class="hint-icon" data-hint="Средний TTM в днях для каждой команды">?</span>',
@@ -191,6 +185,7 @@ with c2:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- ДИНАМИКА ---
+st.markdown('<div class="bi-card">', unsafe_allow_html=True)
 dh1, dh2 = st.columns([5, 1])
 with dh1:
     st.markdown(
@@ -208,7 +203,7 @@ fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=
 st.plotly_chart(fig_d, use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Код таблицы (для примера)
+# Код таблицы
 df_period_res = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & (df["Резолюция"].isin(sel_res))]
 active_teams_in_period = df_period_res["Компоненты"].unique()
 inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
