@@ -19,8 +19,50 @@ st.markdown(
     [data-testid="stSidebar"] { background-color: #A485E0; }
     [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p { color: white !important; font-weight: 600; }
     [data-testid="stSidebar"] .stMarkdown p { color: white !important; }
+
+    # Добавь это в свой CSS блок в начале кода
+    st.markdown("""
+        <style>
+        /* Скрываем штатные пресеты календаря, которые считают от 'сегодня' */
+        [data-testid="stSidebar"] div[role="listbox"] {
+            display: none !important;
+        }
+        
+        /* Красивые кнопки быстрых фильтров */
+        .stButton>button {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #ffffff55;
+            background-color: #ffffff22;
+            color: white;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #ffffff44;
+            border-color: white;
+        }
+        </style>
+    """, unsafe_allow_html=True)
     
-    /* Исправляем видимость текста в календаре */
+    # В сайдбаре:
+    st.sidebar.markdown("### Быстрые периоды (по данным)")
+    c1, c2 = st.sidebar.columns(2)
+    
+    db_max = df["Дата создания"].max().date()
+    
+    if c1.button("7 дней"):
+        st.session_state.d_range = (db_max - timedelta(days=7), db_max)
+    if c2.button("30 дней"):
+        st.session_state.d_range = (db_max - timedelta(days=30), db_max)
+    
+    # Сам календарь (теперь без вводящих в заблуждение пресетов справа)
+    date_range = st.sidebar.date_input(
+        "Выбор вручную",
+        value=st.session_state.get('d_range', (db_max - timedelta(days=7), db_max)),
+        min_value=df["Дата создания"].min().date(),
+        max_value=db_max
+    )
+    
     [data-testid="stSidebar"] div[data-baseweb="input"] input {
         color: #1A1C1E !important; /* Текст внутри календаря снова темный */
         -webkit-text-fill-color: #1A1C1E !important;
