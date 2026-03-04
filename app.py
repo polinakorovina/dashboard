@@ -49,7 +49,7 @@ st.markdown(
         margin-bottom: 20px;
     }
 
-    /* КРУГЛАЯ СЕРАЯ ИКОНКА ПОДСКАЗКИ */
+    /* Иконка подсказки */
     .hint-icon {
         display: inline-flex;
         justify-content: center;
@@ -66,7 +66,6 @@ st.markdown(
         margin-left: 8px;
     }
 
-    /* Тултип (текст при наведении) */
     .hint-icon:hover::after {
         content: attr(data-hint);
         position: absolute;
@@ -86,6 +85,13 @@ st.markdown(
     }
     
     .block-container { padding-top: 1.7rem !important; }
+    
+    /* Стиль для списка команд без задач */
+    .inactive-list {
+        color: #4A4A4A;
+        font-size: 15px;
+        line-height: 1.8;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -103,7 +109,7 @@ def kpi_card(title: str, value: str, hint: str = ""):
         unsafe_allow_html=True
     )
 
-# 3) Подключение к Я.Диску + БД
+# 3) Данные
 TOKEN = os.getenv("YANDEX_TOKEN")
 y = yadisk.YaDisk(token=TOKEN)
 DB_PATH = "/Data/my_database.db"
@@ -132,10 +138,7 @@ def load_data():
     return df
 
 df = load_data()
-
-if df.empty:
-    st.warning("Данные не найдены.")
-    st.stop()
+if df.empty: st.stop()
 
 # --- САЙДБАР ---
 db_min, db_max = df["Дата создания"].min().date(), df["Дата создания"].max().date()
@@ -151,26 +154,24 @@ sel_teams = st.sidebar.multiselect("Команды", all_teams, default=all_team
 all_res = sorted(df["Резолюция"].unique().tolist())
 sel_res = st.sidebar.multiselect("Резолюции", all_res, default=all_res)
 
-# Основной датафрейм для графиков
+# Фильтр для графиков
 f_df = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & 
           (df["Компоненты"].isin(sel_teams)) & (df["Резолюция"].isin(sel_res))].copy()
 
-# --- ЗАГОЛОВОК ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 # --- KPI ---
 k1, k2, k3, k4 = st.columns(4, gap="small")
-with k1:
-    kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
-with k2:
+with k1: kpi_card("Всего задач", f"{len(f_df)}", "Задачи за период")
+with k2: 
     val = f_df["ttm_days"].mean() if len(f_df) else 0.0
-    kpi_card("TTM в днях", f"{val:.2f}", "Среднее время от открытия до закрытия")
+    kpi_card("TTM в днях", f"{val:.2f}", "Среднее время")
 with k3:
     val = f_df["cycle_time"].mean() if len(f_df) else 0.0
-    kpi_card("Cycle time (дн)", f"{val:.2f}", "Среднее время активной работы")
+    kpi_card("Cycle time (дн)", f"{val:.2f}", "Время в работе")
 with k4:
     crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
-    kpi_card("Критичные позже", f"{crit_late}", "Критичные задачи со статусом Позже")
+    kpi_card("Критичные позже", f"{crit_late}", "Криты 'Позже'")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -179,12 +180,8 @@ c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
-    st.markdown('<div class="bi-card">', unsafe_allow_html=True) # Открываем карточку
-    st.markdown(
-        f'<div class="card-header">Нагрузка по командам</div>'
-        f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="bi-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">Нагрузка по командам</div><span class="hint-icon" data-hint="Задачи по командам">?</span>', unsafe_allow_html=True)
     t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
     fig_l = px.bar(t_counts, x="Кол-во", y="Компоненты", color="Резолюция", orientation="h", text="Кол-во",
                    category_orders={"Компоненты": t_order}, color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"}, template="plotly_white")
@@ -193,12 +190,8 @@ with c1:
     st.markdown("</div>", unsafe_allow_html=True)
 
 with c2:
-    st.markdown('<div class="bi-card">', unsafe_allow_html=True) # Открываем карточку
-    st.markdown(
-        f'<div class="card-header">Среднее время работы</div>'
-        f'<span class="hint-icon" data-hint="Средний TTM в днях для каждой команды">?</span>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="bi-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-header">Среднее время работы</div><span class="hint-icon" data-hint="TTM в днях">?</span>', unsafe_allow_html=True)
     t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
     fig_a = px.bar(t_avg, x="ttm_days", y="Компоненты", orientation="h", text_auto=".1f",
                    color_discrete_sequence=["#6244BB"], template="plotly_white", category_orders={"Компоненты": t_order})
@@ -210,11 +203,7 @@ with c2:
 st.markdown('<div class="bi-card">', unsafe_allow_html=True)
 dh1, dh2 = st.columns([5, 1])
 with dh1:
-    st.markdown(
-        f'<div class="card-header">Динамика поступления задач</div>'
-        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям">?</span>', 
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="card-header">Динамика поступления задач</div><span class="hint-icon" data-hint="Новые задачи">?</span>', unsafe_allow_html=True)
 with dh2:
     unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
 
@@ -225,26 +214,22 @@ fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=
 st.plotly_chart(fig_d, use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- НОВЫЙ БЛОК: КОМАНДЫ БЕЗ ЗАДАЧ ---
-# Логика: фильтруем исходный DF только по Дате и Резолюции, игнорируя фильтр Команд
+# --- КОМАНДЫ БЕЗ ЗАДАЧ (БЕЗ ЗАГОЛОВКА ТАБЛИЦЫ) ---
 df_period_res = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & (df["Резолюция"].isin(sel_res))]
 active_teams_in_period = df_period_res["Компоненты"].unique()
-
-# Находим те команды из общего списка, которых нет в активных за этот период
-inactive_teams = [team for team in all_teams if team not in active_teams_in_period]
+inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
 
 st.markdown('<div class="bi-card">', unsafe_allow_html=True)
 st.markdown(
     f'<div class="card-header">Команды без задач за период</div>'
-    f'<span class="hint-icon" data-hint="Список команд, по которым нет данных в выбранном периоде и резолюциях (независимо от фильтра команд в сайдбаре)">?</span>',
+    f'<span class="hint-icon" data-hint="Команды, не имеющие задач в выбранных датах и резолюциях">?</span>',
     unsafe_allow_html=True
 )
 
 if inactive_teams:
-    # Отображаем как простую таблицу
-    inactive_df = pd.DataFrame(inactive_teams, columns=["Название команды"])
-    st.dataframe(inactive_df, use_container_width=True, hide_index=True)
+    # Выводим команды просто как текст, без рамок таблицы и заголовков
+    teams_text = ", ".join(inactive_teams)
+    st.markdown(f'<div class="inactive-list">{teams_text}</div>', unsafe_allow_html=True)
 else:
-    st.info("Все команды работали в выбранный период.")
-
+    st.info("Все команды активны.")
 st.markdown("</div>", unsafe_allow_html=True)
