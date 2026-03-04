@@ -178,7 +178,6 @@ t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
     st.markdown(
-        f'<div class="bi-card">'
         f'<div class="card-header">Нагрузка по командам</div>'
         f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
         unsafe_allow_html=True
