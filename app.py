@@ -22,26 +22,11 @@ st.markdown(
 
     # Добавь это в свой CSS блок в начале кода
     st.markdown("""
-        <style>
-        /* Скрываем штатные пресеты календаря, которые считают от 'сегодня' */
-        [data-testid="stSidebar"] div[role="listbox"] {
-            display: none !important;
-        }
-        
-        /* Красивые кнопки быстрых фильтров */
-        .stButton>button {
-            width: 100%;
-            border-radius: 8px;
-            border: 1px solid #ffffff55;
-            background-color: #ffffff22;
-            color: white;
-            transition: 0.3s;
-        }
-        .stButton>button:hover {
-            background-color: #ffffff44;
-            border-color: white;
-        }
-        </style>
+            <style>
+            /* Скрываем штатные пресеты календаря, которые считают от 'сегодня' */
+            [data-testid="stSidebar"] div[role="listbox"] {
+                display: none !important;
+            }
     """, unsafe_allow_html=True)
     
     # В сайдбаре:
