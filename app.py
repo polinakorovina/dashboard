@@ -14,7 +14,7 @@ st.markdown(
     """
     <style>
     /* Общий фон */
-    .stApp { background-color: #F8F9FB; }
+    .stApp { background-color: #F7F2FA; }
 
     /* Сайдбар */
     [data-testid="stSidebar"] { background-color: #A485E0; color: white; }
