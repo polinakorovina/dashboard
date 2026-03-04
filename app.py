@@ -145,8 +145,16 @@ st.write("")
 c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
+# --- ГРАФИКИ ---
+c1, c2 = st.columns(2, gap="large")
+t_order = f_df["Компоненты"].value_counts().index.tolist()
+
 with c1:
-    st.markdown('<div class="bi-card"><div class="card-header">Нагрузка по командам</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="card-header">Нагрузка по командам</div>'
+        f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
+        unsafe_allow_html=True
+    )
     t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
     fig_l = px.bar(t_counts, x="Кол-во", y="Компоненты", color="Резолюция", orientation="h", text="Кол-во",
                    category_orders={"Компоненты": t_order}, color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"}, template="plotly_white")
@@ -155,7 +163,11 @@ with c1:
     st.markdown("</div>", unsafe_allow_html=True)
 
 with c2:
-    st.markdown('<div class="bi-card"><div class="card-header">Среднее время работы</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="card-header">Среднее время работы</div>'
+        f'<span class="hint-icon" data-hint="Средний TTM в днях для каждой команды">?</span>',
+        unsafe_allow_html=True
+    )
     t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
     fig_a = px.bar(t_avg, x="ttm_days", y="Компоненты", orientation="h", text_auto=".1f",
                    color_discrete_sequence=["#6244BB"], template="plotly_white", category_orders={"Компоненты": t_order})
@@ -163,12 +175,19 @@ with c2:
     st.plotly_chart(fig_a, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Динамика
-st.markdown('<div class="bi-card">', unsafe_allow_html=True)
+# --- ДИНАМИКА ---
 dh1, dh2 = st.columns([5, 1])
-with dh1: st.markdown('<div class="card-header">Динамика поступления задач</div>', unsafe_allow_html=True)
-with dh2: unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
-resampled = f_df.set_index("Дата создания").resample({"День": "D", "Неделя": "W", "Месяц": "ME"}[unit]).size().reset_index(name="Задач")
+with dh1:
+    st.markdown(
+        f'<div class="card-header">Динамика поступления задач</div>'
+        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям">?</span>', 
+        unsafe_allow_html=True
+    )
+with dh2:
+    unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
+
+u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
+resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
 fig_d = px.line(resampled, x="Дата создания", y="Задач", markers=True, color_discrete_sequence=["#6244BB"], template="plotly_white")
 fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
 st.plotly_chart(fig_d, use_container_width=True)
