@@ -191,7 +191,6 @@ with c1:
 
 with c2:
     st.markdown(
-        f'<div class="bi-card">'
         f'<div class="card-header">Среднее время работы</div>'
         f'<span class="hint-icon" data-hint="Средний TTM в днях для каждой команды">?</span>',
         unsafe_allow_html=True
@@ -204,7 +203,6 @@ with c2:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- ДИНАМИКА ---
-st.markdown('<div class="bi-card">', unsafe_allow_html=True)
 dh1, dh2 = st.columns([5, 1])
 with dh1:
     st.markdown(
