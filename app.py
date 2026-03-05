@@ -25,7 +25,7 @@ st.markdown(
 
     /* Компактные отступы страницы */
     .block-container { 
-        padding-top: 0.65rem !important;
+        padding-top: 1.65rem !important;
         padding-bottom: 0.65rem !important;
     }
 
