@@ -13,13 +13,17 @@ st.set_page_config(page_title="Аналитика дежурств", layout="wid
 st.markdown(
     """
     <style>
-    /* Общий фон */
+    /* ===================== BASE THEME ===================== */
     .stApp { background-color: #F7F2FA; }
 
-    /* Сайдбар */
+    /* ===================== SIDEBAR ===================== */
     [data-testid="stSidebar"] { background-color: #A485E0; color: white; }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span {
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span {
         color: white !important;
     }
 
@@ -34,78 +38,78 @@ st.markdown(
     }
 
     /* input внутри multiselect */
-    [data-baseweb="select"] input {
-        color: #1A1C1E !important;
-    }
+    [data-baseweb="select"] input { color: #1A1C1E !important; }
 
     /* chips выбранных элементов */
     [data-baseweb="tag"] {
-        background-color: #6244BB !important; /* фиолетовый как графики */
+        background-color: #6244BB !important;
         color: white !important;
         border-radius: 8px !important;
         border: none !important;
         padding: 2px 6px !important;
         font-size: 13px !important;
     }
-
-    /* текст внутри chips */
-    [data-baseweb="tag"] span {
-        color: white !important;
-        font-weight: 500 !important;
-    }
-
-    /* крестик удаления */
-    [data-baseweb="tag"] svg {
-        fill: white !important;
-    }
+    [data-baseweb="tag"] span { color: white !important; font-weight: 500 !important; }
+    [data-baseweb="tag"] svg { fill: white !important; }
 
     /* стрелка dropdown */
-    [data-baseweb="select"] svg {
-        fill: #6244BB !important;
-    }
+    [data-baseweb="select"] svg { fill: #6244BB !important; }
 
     /* hover/focus обводка */
-    [data-baseweb="select"] > div:hover {
-        box-shadow: 0 0 0 1px #6244BB inset !important;
-    }
-    [data-baseweb="select"] > div:focus-within {
-        box-shadow: 0 0 0 2px #6244BB inset !important;
-    }
+    [data-baseweb="select"] > div:hover { box-shadow: 0 0 0 1px #6244BB inset !important; }
+    [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 2px #6244BB inset !important; }
 
-    /* --- DATE INPUT (календарь) в фирменном фиолетовом --- */
-    /* выбранные даты/кружки (некоторые версии Streamlit) */
-    button[kind="secondary"],
-    button[kind="secondary"]:hover {
+    /* ===================== DATE INPUT (SAFE PURPLE) ===================== */
+
+    /* скрыть английский helper "Choose a date range" */
+    [data-testid="stDateInput"] p { display: none !important; }
+
+    /*
+      ВАЖНО:
+      Не трогаем глобально button внутри календаря — это может ломать выбор диапазона.
+      Красим ТОЛЬКО выбранные/диапазонные дни по точным классам.
+    */
+
+    /* --- Variant A: react-datepicker --- */
+    .react-datepicker__day--selected,
+    .react-datepicker__day--keyboard-selected,
+    .react-datepicker__day--range-start,
+    .react-datepicker__day--range-end {
         background-color: #6244BB !important;
-        color: white !important;
-        border: none !important;
+        color: #ffffff !important;
+        border-radius: 999px !important;
     }
 
-    /* выбранные элементы по aria-selected */
-    [data-testid="stDateInput"] [aria-selected="true"] {
-        background-color: #6244BB !important;
-        color: white !important;
-    }
-
-    /* нажатая дата (иногда так помечается) */
-    [data-testid="stDateInput"] button[aria-pressed="true"] {
-        background-color: #6244BB !important;
-        color: white !important;
-        border: none !important;
-    }
-
-    /* скругления кнопок дат */
-    [data-testid="stDateInput"] button {
+    /* середина диапазона (мягкая подсветка) */
+    .react-datepicker__day--in-range,
+    .react-datepicker__day--in-selecting-range {
+        background-color: rgba(98, 68, 187, 0.22) !important;
+        color: #1A1C1E !important;
         border-radius: 10px !important;
     }
 
-    /* скрыть английский helper "Choose a date range" */
-    [data-testid="stDateInput"] p {
-        display: none !important;
+    /* --- Variant B: rdp (другая реализация календаря) --- */
+    .rdp-day_selected,
+    .rdp-day_range_start,
+    .rdp-day_range_end {
+        background-color: #6244BB !important;
+        color: #ffffff !important;
     }
 
-    /* Компактные отступы страницы */
-    .block-container { 
+    .rdp-day_range_middle {
+        background-color: rgba(98, 68, 187, 0.22) !important;
+        color: #1A1C1E !important;
+    }
+
+    /* --- Иногда выделение обозначается aria-selected --- */
+    [data-testid="stDateInput"] [aria-selected="true"]{
+        background-color: #6244BB !important;
+        color: #ffffff !important;
+        border-radius: 999px !important;
+    }
+
+    /* ===================== LAYOUT ===================== */
+    .block-container {
         padding-top: 2.0rem !important;
         padding-bottom: 0.65rem !important;
     }
@@ -114,7 +118,7 @@ st.markdown(
     .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
     .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
 
-    /* KPI карточки (одинаковый размер + компактно) */
+    /* KPI карточки */
     .kpi-card {
         background: #ffffff;
         border: 1px solid #E6E9EF;
@@ -122,30 +126,30 @@ st.markdown(
         padding: 14px 16px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
-        height: 110px;              /* фиксированная высота */
+        height: 110px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
     }
-    .kpi-title { 
-        font-size: 15px; 
-        font-weight: 650; 
-        color: #1A1C1E; 
-        min-height: 42px;           /* фикс под заголовок */
-        display: flex; 
-        align-items: flex-start; 
+    .kpi-title {
+        font-size: 15px;
+        font-weight: 650;
+        color: #1A1C1E;
+        min-height: 42px;
+        display: flex;
+        align-items: flex-start;
         justify-content: space-between;
         line-height: 1.25;
     }
-    .kpi-value { 
-        font-size: 30px; 
-        font-weight: 600; 
-        color: #6244BB; 
-        line-height: 1; 
+    .kpi-value {
+        font-size: 30px;
+        font-weight: 600;
+        color: #6244BB;
+        line-height: 1;
         margin-top: auto;
     }
 
-    /* КРУГЛАЯ СЕРАЯ ИКОНКА ПОДСКАЗКИ */
+    /* Иконка подсказки */
     .hint-icon {
         display: inline-flex;
         justify-content: center;
@@ -277,7 +281,7 @@ date_range = st.sidebar.date_input(
     min_value=db_min,
     max_value=db_max,
     key="date_range",
-    format="DD.MM.YYYY"   # русское отображение в поле
+    format="DD.MM.YYYY"
 )
 if not (isinstance(date_range, tuple) and len(date_range) == 2):
     st.stop()
