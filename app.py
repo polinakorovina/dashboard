@@ -123,26 +123,36 @@ DB_PATH = "/Data/my_database.db"
 
 @st.cache_data(ttl=600)
 def load_data():
-    if not y.exists(DB_PATH): return pd.DataFrame()
+    if not y.exists(DB_PATH):
+        return pd.DataFrame()
+
     y.download(DB_PATH, "local_view.db")
     conn = sqlite3.connect("local_view.db")
-    df = pd.read_sql("SELECT * FROM tasks", conn)
+    df_ = pd.read_sql("SELECT * FROM tasks", conn)
     conn.close()
-    if "Дата создания" not in df.columns: return pd.DataFrame()
-    df["Дата создания"] = pd.to_datetime(df["Дата создания"], errors="coerce")
-    df = df.dropna(subset=["Дата создания"])
+
+    if "Дата создания" not in df_.columns:
+        return pd.DataFrame()
+
+    df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
+    df_ = df_.dropna(subset=["Дата создания"])
 
     ttm_stages = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
     cycle_stages = ["Бэклог разработки", "В работе"]
-    for col in set(ttm_stages + cycle_stages):
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-    df["ttm_days"] = df[ttm_stages].sum(axis=1) / 1440
-    df["cycle_time"] = df[cycle_stages].sum(axis=1) / 1440
-    df["Резолюция"] = df.get("Резолюция", pd.Series(["Не указано"]*len(df))).fillna("Не указано")
-    df["Компоненты"] = df.get("Компоненты", pd.Series(["Не указано"]*len(df))).fillna("Не указано")
-    df["Приоритет"] = df.get("Приоритет", pd.Series(["Не указано"]*len(df))).fillna("Не указано")
-    return df
+    for col in set(ttm_stages + cycle_stages):
+        if col not in df_.columns:
+            df_[col] = 0
+        df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
+
+    df_["ttm_days"] = df_[ttm_stages].sum(axis=1) / 1440
+    df_["cycle_time"] = df_[cycle_stages].sum(axis=1) / 1440
+
+    df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+
+    return df_
 
 df = load_data()
 
@@ -150,15 +160,26 @@ if df.empty:
     st.warning("Данные не найдены.")
     st.stop()
 
-# --- САЙДБАР ---
+# --- САЙДБАР (исправленный) ---
 db_min, db_max = df["Дата создания"].min().date(), df["Дата создания"].max().date()
-
-# 1) ДЕФОЛТ периода — ОТ ПОСЛЕДНЕЙ ДАТЫ В БАЗЕ (а не "сегодня")
 default_range = (db_max - timedelta(days=7), db_max)
+
+# FIX: безопасно берём сохранённый диапазон и "обрезаем" его по границам базы
+saved = st.session_state.get("date_range", default_range)
+if not (isinstance(saved, tuple) and len(saved) == 2):
+    saved = default_range
+
+s0, s1 = saved
+s0 = max(db_min, min(s0, db_max))
+s1 = max(db_min, min(s1, db_max))
+if s0 > s1:
+    s0, s1 = s1, s0
+
+safe_range = (s0, s1)
 
 date_range = st.sidebar.date_input(
     "Период анализа",
-    value=st.session_state.get("date_range", default_range),
+    value=safe_range,
     min_value=db_min,
     max_value=db_max,
     key="date_range"
@@ -170,18 +191,20 @@ if not (isinstance(date_range, tuple) and len(date_range) == 2):
 start_d = pd.to_datetime(date_range[0])
 end_d = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
-# 2) СНАЧАЛА фильтруем по датам, чтобы списки фильтров были "живыми"
-df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
+# all_teams нужен дальше (для таблицы "без задач") — это ВСЕ команды в базе
+all_teams = sorted(df["Компоненты"].dropna().unique().tolist())
 
+# сначала фильтруем по датам
+df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
 if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
-# 3) Команды и резолюции — только те, что реально были в период
+# команды/резолюции в периоде (для фильтров)
 teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
 
-# 4) Уважим прошлый выбор: если юзер уже выбирал команды, оставим пересечение
+# дефолты для мультиселекта: пересечение прошлого выбора с текущим периодом
 prev_teams = st.session_state.get("sel_teams", teams_in_range)
 default_teams = [t for t in prev_teams if t in teams_in_range] or teams_in_range
 
@@ -202,26 +225,29 @@ sel_res = st.sidebar.multiselect(
     key="sel_res"
 )
 
-# 5) Финальный фильтр уже по датам + выбранным командам/резолюциям
+# финальный df
 f_df = df_in_range[
     (df_in_range["Компоненты"].isin(sel_teams)) &
     (df_in_range["Резолюция"].isin(sel_res))
 ].copy()
-
 
 # --- ЗАГОЛОВОК ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 # --- KPI ---
 k1, k2, k3, k4 = st.columns(4, gap="small")
+
 with k1:
     kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
+
 with k2:
     val = f_df["ttm_days"].mean() if len(f_df) else 0.0
     kpi_card("TTM в днях", f"{val:.2f}", "Среднее время от открытия до закрытия")
+
 with k3:
     val = f_df["cycle_time"].mean() if len(f_df) else 0.0
     kpi_card("Cycle time (дн)", f"{val:.2f}", "Среднее время активной работы")
+
 with k4:
     crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
     kpi_card("Критичные позже", f"{crit_late}", "Критичные задачи со статусом Позже")
@@ -238,12 +264,24 @@ with c1:
         f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
         unsafe_allow_html=True
     )
-    t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
-    fig_l = px.bar(t_counts, x="Кол-во", y="Компоненты", color="Резолюция", orientation="h", text="Кол-во",
-                   category_orders={"Компоненты": t_order}, color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"}, template="plotly_white")
-    fig_l.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
-    st.plotly_chart(fig_l, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+
+    if f_df.empty:
+        st.info("Нет данных для графика за выбранный период/фильтры.")
+    else:
+        t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
+        fig_l = px.bar(
+            t_counts,
+            x="Кол-во",
+            y="Компоненты",
+            color="Резолюция",
+            orientation="h",
+            text="Кол-во",
+            category_orders={"Компоненты": t_order},
+            color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
+            template="plotly_white"
+        )
+        fig_l.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+        st.plotly_chart(fig_l, use_container_width=True)
 
 with c2:
     st.markdown(
@@ -251,39 +289,59 @@ with c2:
         f'<span class="hint-icon" data-hint="Средний TTM в днях для каждой команды">?</span>',
         unsafe_allow_html=True
     )
-    t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
-    fig_a = px.bar(t_avg, x="ttm_days", y="Компоненты", orientation="h", text_auto=".1f",
-                   color_discrete_sequence=["#6244BB"], template="plotly_white", category_orders={"Компоненты": t_order})
-    fig_a.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
-    st.plotly_chart(fig_a, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+
+    if f_df.empty:
+        st.info("Нет данных для графика за выбранный период/фильтры.")
+    else:
+        t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
+        fig_a = px.bar(
+            t_avg,
+            x="ttm_days",
+            y="Компоненты",
+            orientation="h",
+            text_auto=".1f",
+            color_discrete_sequence=["#6244BB"],
+            template="plotly_white",
+            category_orders={"Компоненты": t_order}
+        )
+        fig_a.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+        st.plotly_chart(fig_a, use_container_width=True)
 
 # --- ДИНАМИКА ---
 dh1, dh2 = st.columns([5, 1])
+
 with dh1:
     st.markdown(
         f'<div class="card-header">Динамика поступления задач</div>'
-        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям">?</span>', 
+        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям">?</span>',
         unsafe_allow_html=True
     )
 with dh2:
     unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
 
 u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
-resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
-fig_d = px.line(resampled, x="Дата создания", y="Задач", markers=True, color_discrete_sequence=["#6244BB"], template="plotly_white")
-fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
-st.plotly_chart(fig_d, use_container_width=True)
-st.markdown("</div>", unsafe_allow_html=True)
 
-# --- ТАБЛИЦА С ФИОЛЕТОВЫМ ЗАГОЛОВКОМ И БЕЗ ИНДЕКСОВ ---
-df_period_res = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & (df["Резолюция"].isin(sel_res))]
-active_teams_in_period = df_period_res["Компоненты"].unique()
+if f_df.empty:
+    st.info("Нет данных для динамики за выбранный период/фильтры.")
+else:
+    resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
+    fig_d = px.line(
+        resampled,
+        x="Дата создания",
+        y="Задач",
+        markers=True,
+        color_discrete_sequence=["#6244BB"],
+        template="plotly_white"
+    )
+    fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
+    st.plotly_chart(fig_d, use_container_width=True)
+
+# --- ТАБЛИЦА: команды без задач за период ---
+active_teams_in_period = df_in_range["Компоненты"].dropna().unique()
 inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
 
 if inactive_teams:
     inactive_df = pd.DataFrame(inactive_teams, columns=["Команды без задач за анализируемый период"])
-    # Мы используем st.table, а CSS выше (thead tr th:first-child) убирает колонку индекса
     st.table(inactive_df)
 else:
     st.success("Все команды были активны в этот период.")
