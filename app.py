@@ -152,19 +152,62 @@ if df.empty:
 
 # --- САЙДБАР ---
 db_min, db_max = df["Дата создания"].min().date(), df["Дата создания"].max().date()
-date_range = st.sidebar.date_input("Период анализа", value=(db_max - timedelta(days=7), db_max), min_value=db_min, max_value=db_max)
 
-if not (isinstance(date_range, tuple) and len(date_range) == 2): st.stop()
+# 1) ДЕФОЛТ периода — ОТ ПОСЛЕДНЕЙ ДАТЫ В БАЗЕ (а не "сегодня")
+default_range = (db_max - timedelta(days=7), db_max)
+
+date_range = st.sidebar.date_input(
+    "Период анализа",
+    value=st.session_state.get("date_range", default_range),
+    min_value=db_min,
+    max_value=db_max,
+    key="date_range"
+)
+
+if not (isinstance(date_range, tuple) and len(date_range) == 2):
+    st.stop()
 
 start_d = pd.to_datetime(date_range[0])
 end_d = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-all_teams = sorted(df["Компоненты"].unique().tolist())
-sel_teams = st.sidebar.multiselect("Команды", all_teams, default=all_teams)
-all_res = sorted(df["Резолюция"].unique().tolist())
-sel_res = st.sidebar.multiselect("Резолюции", all_res, default=all_res)
 
-f_df = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d) & 
-          (df["Компоненты"].isin(sel_teams)) & (df["Резолюция"].isin(sel_res))].copy()
+# 2) СНАЧАЛА фильтруем по датам, чтобы списки фильтров были "живыми"
+df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
+
+if df_in_range.empty:
+    st.sidebar.warning("За выбранный период данных нет.")
+    st.stop()
+
+# 3) Команды и резолюции — только те, что реально были в период
+teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
+res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
+
+# 4) Уважим прошлый выбор: если юзер уже выбирал команды, оставим пересечение
+prev_teams = st.session_state.get("sel_teams", teams_in_range)
+default_teams = [t for t in prev_teams if t in teams_in_range] or teams_in_range
+
+sel_teams = st.sidebar.multiselect(
+    "Команды",
+    teams_in_range,
+    default=default_teams,
+    key="sel_teams"
+)
+
+prev_res = st.session_state.get("sel_res", res_in_range)
+default_res = [r for r in prev_res if r in res_in_range] or res_in_range
+
+sel_res = st.sidebar.multiselect(
+    "Резолюции",
+    res_in_range,
+    default=default_res,
+    key="sel_res"
+)
+
+# 5) Финальный фильтр уже по датам + выбранным командам/резолюциям
+f_df = df_in_range[
+    (df_in_range["Компоненты"].isin(sel_teams)) &
+    (df_in_range["Резолюция"].isin(sel_res))
+].copy()
+
 
 # --- ЗАГОЛОВОК ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
