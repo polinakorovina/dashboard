@@ -25,12 +25,12 @@ st.markdown(
 
     /* Компактные отступы страницы */
     .block-container { 
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
+        padding-top: 0.65rem !important;
+        padding-bottom: 0.65rem !important;
     }
 
     /* Заголовки */
-    .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 8px 0; }
+    .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
     .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
 
     /* KPI карточки (одинаковый размер + компактно) */
@@ -176,7 +176,6 @@ db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
 default_range = (db_max - timedelta(days=7), db_max)
 
-# date_input с key берёт значение из session_state => "обрезаем" ДО отрисовки
 saved = st.session_state.get("date_range", default_range)
 if not (isinstance(saved, tuple) and len(saved) == 2):
     saved = default_range
@@ -204,16 +203,13 @@ if not (isinstance(date_range, tuple) and len(date_range) == 2):
 start_d = pd.to_datetime(date_range[0])
 end_d = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
-# Все команды в базе (для таблицы "без задач")
 all_teams = sorted(df["Компоненты"].dropna().unique().tolist())
 
-# Сначала фильтруем по датам
 df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
 if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
-# Фильтры только по активным значениям в периоде
 teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
 
@@ -225,10 +221,9 @@ prev_res = st.session_state.get("sel_res", res_in_range)
 default_res = [r for r in prev_res if r in res_in_range] or res_in_range
 sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=default_res, key="sel_res")
 
-# Финальный df
 f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
 
-# --- ЗАГОЛОВОК ---
+# --- ЗАГОЛОВОК (вернули, фиксируем, чтобы не терялся визуально) ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 # --- KPI (5 карточек в один ряд) ---
@@ -236,19 +231,15 @@ k1, k2, k3, k4, k5 = st.columns(5, gap="small")
 
 with k1:
     kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
-
 with k2:
     val = f_df["ttm_days"].mean() if len(f_df) else 0.0
     kpi_card("TTM в днях", f"{val:.2f}", "Среднее время от открытия до закрытия")
-
 with k3:
     val = f_df["cycle_time"].mean() if len(f_df) else 0.0
     kpi_card("Cycle time (дн)", f"{val:.2f}", "Среднее время активной работы")
-
 with k4:
     crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
     kpi_card("Критичные позже", f"{crit_late}", "Критичные задачи со статусом Позже")
-
 with k5:
     val = f_df["wait_time_days"].mean() if len(f_df) else 0.0
     kpi_card("Ожидание (дн)", f"{val:.2f}", "Среднее время вне активной работы: TTM − Cycle time")
@@ -300,36 +291,44 @@ with c2:
     fig_a.update_layout(height=230, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_a, use_container_width=True)
 
-# --- ДИНАМИКА (компактная высота + цвет как было) ---
-dh1, dh2 = st.columns([5, 1])
-with dh1:
+# --- НИЖНИЙ РЯД: динамика + таблица в одной строке ---
+b1, b2 = st.columns([3, 2], gap="large")
+
+with b1:
     st.markdown(
         f'<div class="card-header">Динамика поступления задач</div>'
         f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям/месяцам">?</span>',
         unsafe_allow_html=True
     )
-with dh2:
-    unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
 
-u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
-resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
-fig_d = px.line(
-    resampled,
-    x="Дата создания",
-    y="Задач",
-    markers=True,
-    color_discrete_sequence=["#6244BB"],
-    template="plotly_white"
-)
-fig_d.update_layout(height=220, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
-st.plotly_chart(fig_d, use_container_width=True)
+    unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], key="unit_bottom", label_visibility="collapsed")
+    u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
 
-# --- ТАБЛИЦА: команды без задач за период ---
-active_teams_in_period = df_in_range["Компоненты"].dropna().unique()
-inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
+    resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
+    fig_d = px.line(
+        resampled,
+        x="Дата создания",
+        y="Задач",
+        markers=True,
+        color_discrete_sequence=["#6244BB"],
+        template="plotly_white"
+    )
+    fig_d.update_layout(height=220, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
+    st.plotly_chart(fig_d, use_container_width=True)
 
-if inactive_teams:
-    inactive_df = pd.DataFrame(inactive_teams, columns=["Команды без задач за анализируемый период"])
-    st.table(inactive_df)
-else:
-    st.success("Все команды были активны в этот период.")
+with b2:
+    st.markdown(
+        f'<div class="card-header">Команды без задач</div>'
+        f'<span class="hint-icon" data-hint="Команды, у которых не было задач в выбранный период">?</span>',
+        unsafe_allow_html=True
+    )
+
+    active_teams_in_period = df_in_range["Компоненты"].dropna().unique()
+    inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
+
+    if inactive_teams:
+        inactive_df = pd.DataFrame(inactive_teams, columns=["Команда"])
+        # компактнее, чем st.table + можно задать высоту
+        st.dataframe(inactive_df, use_container_width=True, height=220, hide_index=True)
+    else:
+        st.success("Все команды были активны в этот период.")
