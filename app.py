@@ -9,7 +9,7 @@ from datetime import timedelta
 # 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# 2) BI-стиль + компактная вёрстка + тултипы
+# 2) BI-стиль + компактная вёрстка + тултипы + sidebar multiselect chips (фиолетовые)
 st.markdown(
     """
     <style>
@@ -21,6 +21,55 @@ st.markdown(
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span {
         color: white !important;
+    }
+
+    /* --- POLISHED SIDEBAR CONTROLS --- */
+
+    /* Контейнер select/multiselect: белый, скруглённый */
+    [data-baseweb="select"] > div {
+        background-color: white !important;
+        border-radius: 14px !important;
+        border: none !important;
+        min-height: 48px !important;
+    }
+
+    /* input внутри multiselect */
+    [data-baseweb="select"] input {
+        color: #1A1C1E !important;
+    }
+
+    /* chips выбранных элементов */
+    [data-baseweb="tag"] {
+        background-color: #6244BB !important; /* фиолетовый как графики */
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        padding: 2px 6px !important;
+        font-size: 13px !important;
+    }
+
+    /* текст внутри chips */
+    [data-baseweb="tag"] span {
+        color: white !important;
+        font-weight: 500 !important;
+    }
+
+    /* крестик удаления */
+    [data-baseweb="tag"] svg {
+        fill: white !important;
+    }
+
+    /* стрелка dropdown */
+    [data-baseweb="select"] svg {
+        fill: #6244BB !important;
+    }
+
+    /* hover/focus обводка */
+    [data-baseweb="select"] > div:hover {
+        box-shadow: 0 0 0 1px #6244BB inset !important;
+    }
+    [data-baseweb="select"] > div:focus-within {
+        box-shadow: 0 0 0 2px #6244BB inset !important;
     }
 
     /* Компактные отступы страницы */
@@ -223,7 +272,7 @@ sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=def
 
 f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
 
-# --- ЗАГОЛОВОК (вернули, фиксируем, чтобы не терялся визуально) ---
+# --- ЗАГОЛОВОК ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 # --- KPI (5 карточек в один ряд) ---
@@ -246,7 +295,7 @@ with k5:
 
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-# --- ГРАФИКИ (компактные высоты + цвета как было) ---
+# --- ГРАФИКИ ---
 c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
@@ -291,7 +340,7 @@ with c2:
     fig_a.update_layout(height=230, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_a, use_container_width=True)
 
-# --- НИЖНИЙ РЯД: динамика + таблица в одной строке ---
+# --- НИЖНИЙ РЯД: динамика + таблица ---
 b1, b2 = st.columns([3, 2], gap="large")
 
 with b1:
@@ -328,7 +377,6 @@ with b2:
 
     if inactive_teams:
         inactive_df = pd.DataFrame(inactive_teams, columns=["Команда"])
-        # компактнее, чем st.table + можно задать высоту
         st.dataframe(inactive_df, use_container_width=True, height=220, hide_index=True)
     else:
         st.success("Все команды были активны в этот период.")
