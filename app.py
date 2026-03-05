@@ -347,22 +347,48 @@ with c1:
 
 with c2:
     st.markdown(
-        f'<div class="card-header">Среднее время работы</div>'
-        f'<span class="hint-icon" data-hint="Средний TTM в днях для каждой команды">?</span>',
+        f'<div class="card-header">Cycle vs ожидание</div>'
+        f'<span class="hint-icon" data-hint="Средний Cycle time и среднее ожидание (TTM − Cycle) по командам">?</span>',
         unsafe_allow_html=True
     )
-    t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
-    fig_a = px.bar(
-        t_avg,
-        x="ttm_days",
-        y="Компоненты",
-        orientation="h",
-        text_auto=".1f",
-        color_discrete_sequence=["#6244BB"],
-        template="plotly_white",
-        category_orders={"Компоненты": t_order}
+
+    t_parts = (
+        f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+        .mean()
+        .reset_index()
     )
-    fig_a.update_layout(height=230, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+
+    # делаем "длинный" формат для stacked bar
+    t_parts_long = t_parts.melt(
+        id_vars="Компоненты",
+        value_vars=["cycle_time", "wait_time_days"],
+        var_name="Метрика",
+        value_name="Дни"
+    )
+
+    name_map = {"cycle_time": "Cycle time", "wait_time_days": "Ожидание"}
+    t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
+
+    fig_a = px.bar(
+        t_parts_long,
+        x="Дни",
+        y="Компоненты",
+        color="Метрика",
+        orientation="h",
+        barmode="stack",
+        text_auto=".1f",
+        category_orders={"Компоненты": t_order},
+        color_discrete_map={"Cycle time": "#6244BB", "Ожидание": "#A485E0"},
+        template="plotly_white",
+    )
+    fig_a.update_layout(
+        height=230,
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title=None,
+        margin=dict(l=0, r=10, t=10, b=0),
+    )
+
     st.plotly_chart(fig_a, use_container_width=True)
 
 b1, b2 = st.columns([3, 2], gap="large")
