@@ -138,11 +138,8 @@ def load_data():
     df_["ttm_days"] = df_[ttm_stages].sum(axis=1) / 1440
     df_["cycle_time"] = df_[cycle_stages].sum(axis=1) / 1440
 
-    # НОВОЕ: ожидание (вне активной работы) + доля ожидания
+    # ожидание (вне активной работы)
     df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
-    df_["wait_share_pct"] = (
-        df_["wait_time_days"] / df_["ttm_days"].replace(0, pd.NA) * 100
-    ).fillna(0)
 
     # текстовые поля
     df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
@@ -158,14 +155,11 @@ if df.empty:
     st.stop()
 
 # --- САЙДБАР: диапазон дат и "живые" фильтры ---
-
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
-
 default_range = (db_max - timedelta(days=7), db_max)
 
-# КЛЮЧЕВОЕ: если date_input привязан к key, Streamlit берёт значение из session_state.
-# Поэтому мы ДОЛЖНЫ "обрезать" st.session_state ДО отрисовки date_input.
+# ВАЖНО: date_input с key берёт значение из session_state => нужно "обрезать" ДО отрисовки
 saved = st.session_state.get("date_range", default_range)
 if not (isinstance(saved, tuple) and len(saved) == 2):
     saved = default_range
@@ -174,7 +168,6 @@ s0, s1 = saved
 s0 = pd.to_datetime(s0).date()
 s1 = pd.to_datetime(s1).date()
 
-# clamp
 s0 = max(db_min, min(s0, db_max))
 s1 = max(db_min, min(s1, db_max))
 if s0 > s1:
@@ -195,20 +188,16 @@ if not (isinstance(date_range, tuple) and len(date_range) == 2):
 start_d = pd.to_datetime(date_range[0])
 end_d = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
-# все команды в базе (нужно для таблицы "без задач")
 all_teams = sorted(df["Компоненты"].dropna().unique().tolist())
 
-# сначала фильтр по датам
 df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
 if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
-# команды/резолюции только из выбранного периода
 teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
 
-# сохраняем выбор, но только пересечение с доступными значениями
 prev_teams = st.session_state.get("sel_teams", teams_in_range)
 default_teams = [t for t in prev_teams if t in teams_in_range] or teams_in_range
 
@@ -229,7 +218,6 @@ sel_res = st.sidebar.multiselect(
     key="sel_res"
 )
 
-# финальный датафрейм
 f_df = df_in_range[
     (df_in_range["Компоненты"].isin(sel_teams)) &
     (df_in_range["Резолюция"].isin(sel_res))
@@ -238,9 +226,9 @@ f_df = df_in_range[
 # --- ЗАГОЛОВОК ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-# --- KPI (с новой метрикой ожидания) ---
-r1 = st.columns(3, gap="small")
-r2 = st.columns(3, gap="small")
+# --- KPI (оставляем только ожидание в днях) ---
+r1 = st.columns(4, gap="small")
+r2 = st.columns(1)
 
 with r1[0]:
     kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
@@ -253,152 +241,87 @@ with r1[2]:
     val = f_df["cycle_time"].mean() if len(f_df) else 0.0
     kpi_card("Cycle time (дн)", f"{val:.2f}", "Среднее время активной работы")
 
+with r1[3]:
+    crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
+    kpi_card("Критичные позже", f"{crit_late}", "Критичные задачи со статусом Позже")
+
 with r2[0]:
     val = f_df["wait_time_days"].mean() if len(f_df) else 0.0
     kpi_card("Ожидание (дн)", f"{val:.2f}", "Среднее время вне активной работы: TTM − Cycle time")
 
-with r2[1]:
-    val = f_df["wait_share_pct"].mean() if len(f_df) else 0.0
-    kpi_card("Ожидание (%)", f"{val:.1f}%", "Доля ожидания от общего TTM: (TTM−Cycle)/TTM")
-
-with r2[2]:
-    crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
-    kpi_card("Критичные позже", f"{crit_late}", "Критичные задачи со статусом Позже")
-
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- ГРАФИКИ ---
+# --- ГРАФИКИ (цвета как было) ---
 c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
     st.markdown(
         f'<div class="card-header">Нагрузка по командам</div>'
-        f'<span class="hint-icon" data-hint="Количество задач по резолюциям для каждой команды">?</span>',
+        f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
         unsafe_allow_html=True
     )
-
-    if f_df.empty:
-        st.info("Нет данных для графика за выбранный период/фильтры.")
-    else:
-        t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
-        fig_l = px.bar(
-            t_counts,
-            x="Кол-во",
-            y="Компоненты",
-            color="Резолюция",
-            orientation="h",
-            text="Кол-во",
-            category_orders={"Компоненты": t_order},
-            template="plotly_white"
-        )
-        fig_l.update_layout(height=320, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
-        st.plotly_chart(fig_l, use_container_width=True)
+    t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
+    fig_l = px.bar(
+        t_counts,
+        x="Кол-во",
+        y="Компоненты",
+        color="Резолюция",
+        orientation="h",
+        text="Кол-во",
+        category_orders={"Компоненты": t_order},
+        color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
+        template="plotly_white"
+    )
+    fig_l.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+    st.plotly_chart(fig_l, use_container_width=True)
 
 with c2:
     st.markdown(
-        f'<div class="card-header">Средний TTM по командам</div>'
-        f'<span class="hint-icon" data-hint="Средний TTM (в днях) для каждой команды">?</span>',
+        f'<div class="card-header">Среднее время работы</div>'
+        f'<span class="hint-icon" data-hint="Средний TTM в днях для каждой команды">?</span>',
         unsafe_allow_html=True
     )
-
-    if f_df.empty:
-        st.info("Нет данных для графика за выбранный период/фильтры.")
-    else:
-        t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
-        fig_a = px.bar(
-            t_avg,
-            x="ttm_days",
-            y="Компоненты",
-            orientation="h",
-            text_auto=".1f",
-            template="plotly_white",
-            category_orders={"Компоненты": t_order}
-        )
-        fig_a.update_layout(height=320, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
-        st.plotly_chart(fig_a, use_container_width=True)
-
-# --- ДОП. ГРАФИК: ожидание (%) по командам ---
-st.markdown("<br>", unsafe_allow_html=True)
-w1, w2 = st.columns(2, gap="large")
-
-with w1:
-    st.markdown(
-        f'<div class="card-header">Ожидание (дни) по командам</div>'
-        f'<span class="hint-icon" data-hint="Среднее ожидание = TTM − Cycle time (в днях)">?</span>',
-        unsafe_allow_html=True
+    t_avg = f_df.groupby("Компоненты")["ttm_days"].mean().reset_index()
+    fig_a = px.bar(
+        t_avg,
+        x="ttm_days",
+        y="Компоненты",
+        orientation="h",
+        text_auto=".1f",
+        color_discrete_sequence=["#6244BB"],
+        template="plotly_white",
+        category_orders={"Компоненты": t_order}
     )
-    if f_df.empty:
-        st.info("Нет данных для графика за выбранный период/фильтры.")
-    else:
-        t_wait_d = f_df.groupby("Компоненты")["wait_time_days"].mean().reset_index()
-        fig_wd = px.bar(
-            t_wait_d,
-            x="wait_time_days",
-            y="Компоненты",
-            orientation="h",
-            text_auto=".1f",
-            template="plotly_white",
-            category_orders={"Компоненты": t_order}
-        )
-        fig_wd.update_layout(height=320, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
-        st.plotly_chart(fig_wd, use_container_width=True)
+    fig_a.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+    st.plotly_chart(fig_a, use_container_width=True)
 
-with w2:
-    st.markdown(
-        f'<div class="card-header">Ожидание (%) по командам</div>'
-        f'<span class="hint-icon" data-hint="Доля ожидания от TTM: (TTM−Cycle)/TTM * 100">?</span>',
-        unsafe_allow_html=True
-    )
-    if f_df.empty:
-        st.info("Нет данных для графика за выбранный период/фильтры.")
-    else:
-        t_wait_p = f_df.groupby("Компоненты")["wait_share_pct"].mean().reset_index()
-        fig_wp = px.bar(
-            t_wait_p,
-            x="wait_share_pct",
-            y="Компоненты",
-            orientation="h",
-            text_auto=".1f",
-            template="plotly_white",
-            category_orders={"Компоненты": t_order}
-        )
-        fig_wp.update_layout(height=320, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
-        st.plotly_chart(fig_wp, use_container_width=True)
-
-# --- ДИНАМИКА ---
-st.markdown("<br>", unsafe_allow_html=True)
+# --- ДИНАМИКА (цвет как было) ---
 dh1, dh2 = st.columns([5, 1])
-
 with dh1:
     st.markdown(
         f'<div class="card-header">Динамика поступления задач</div>'
-        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям/месяцам">?</span>',
+        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям">?</span>',
         unsafe_allow_html=True
     )
-
 with dh2:
     unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], label_visibility="collapsed")
 
 u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
+resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
+fig_d = px.line(
+    resampled,
+    x="Дата создания",
+    y="Задач",
+    markers=True,
+    color_discrete_sequence=["#6244BB"],
+    template="plotly_white"
+)
+fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
+st.plotly_chart(fig_d, use_container_width=True)
 
-if f_df.empty:
-    st.info("Нет данных для динамики за выбранный период/фильтры.")
-else:
-    resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
-    fig_d = px.line(
-        resampled,
-        x="Дата создания",
-        y="Задач",
-        markers=True,
-        template="plotly_white"
-    )
-    fig_d.update_layout(height=320, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
-    st.plotly_chart(fig_d, use_container_width=True)
-
-# --- ТАБЛИЦА: команды без задач за период (относительно выбранных дат) ---
-df_period_res = df_in_range  # уже по датам
-active_teams_in_period = df_period_res["Компоненты"].dropna().unique()
+# --- ТАБЛИЦА: команды без задач за период ---
+active_teams_in_period = df_in_range["Компоненты"].dropna().unique()
 inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
 
 if inactive_teams:
