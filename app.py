@@ -45,7 +45,7 @@ st.markdown(
         font-size: 16px;
         font-weight: 600;
         color: #1A1C1E;
-        min-height: 56px;           /* одинаковая высота под заголовок */
+        min-height: 30px;           /* одинаковая высота под заголовок */
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
