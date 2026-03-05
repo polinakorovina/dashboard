@@ -4,12 +4,12 @@ import sqlite3
 import plotly.express as px
 import yadisk
 import os
-from datetime import timedelta
+from datetime import timedelta, date
 
 # 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# 2) BI-стиль + компактная вёрстка + тултипы + sidebar multiselect chips (фиолетовые) + календарь (фиолетовый) + русификация поля
+# 2) BI-стиль + тултипы + sidebar chips + календарь (фиолетовый) + русификация поля
 st.markdown(
     """
     <style>
@@ -26,8 +26,6 @@ st.markdown(
     [data-testid="stSidebar"] span {
         color: white !important;
     }
-
-    /* --- POLISHED SIDEBAR CONTROLS --- */
 
     /* Контейнер select/multiselect: белый, скруглённый */
     [data-baseweb="select"] > div {
@@ -60,17 +58,10 @@ st.markdown(
     [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 2px #6244BB inset !important; }
 
     /* ===================== DATE INPUT (SAFE PURPLE) ===================== */
-
     /* скрыть английский helper "Choose a date range" */
     [data-testid="stDateInput"] p { display: none !important; }
 
-    /*
-      ВАЖНО:
-      Не трогаем глобально button внутри календаря — это может ломать выбор диапазона.
-      Красим ТОЛЬКО выбранные/диапазонные дни по точным классам.
-    */
-
-    /* --- Variant A: react-datepicker --- */
+    /* Красим только выделенные/диапазонные дни по точным классам (не трогаем все кнопки!) */
     .react-datepicker__day--selected,
     .react-datepicker__day--keyboard-selected,
     .react-datepicker__day--range-start,
@@ -79,8 +70,6 @@ st.markdown(
         color: #ffffff !important;
         border-radius: 999px !important;
     }
-
-    /* середина диапазона (мягкая подсветка) */
     .react-datepicker__day--in-range,
     .react-datepicker__day--in-selecting-range {
         background-color: rgba(98, 68, 187, 0.22) !important;
@@ -88,20 +77,18 @@ st.markdown(
         border-radius: 10px !important;
     }
 
-    /* --- Variant B: rdp (другая реализация календаря) --- */
     .rdp-day_selected,
     .rdp-day_range_start,
     .rdp-day_range_end {
         background-color: #6244BB !important;
         color: #ffffff !important;
     }
-
     .rdp-day_range_middle {
         background-color: rgba(98, 68, 187, 0.22) !important;
         color: #1A1C1E !important;
     }
 
-    /* --- Иногда выделение обозначается aria-selected --- */
+    /* Иногда выделение отмечается aria-selected */
     [data-testid="stDateInput"] [aria-selected="true"]{
         background-color: #6244BB !important;
         color: #ffffff !important;
@@ -256,38 +243,38 @@ if df.empty:
     st.warning("Данные не найдены.")
     st.stop()
 
-# --- САЙДБАР: диапазон дат + фильтры только активных команд в периоде ---
+# ===================== SIDEBAR FILTERS (FIXED DATE RANGE) =====================
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
-default_range = (db_max - timedelta(days=7), db_max)
 
-saved = st.session_state.get("date_range", default_range)
-if not (isinstance(saved, tuple) and len(saved) == 2):
-    saved = default_range
+# дефолт: последние 7 дней от последней даты в базе (а не от today)
+default_start = max(db_min, db_max - timedelta(days=7))
+default_range = (default_start, db_max)
 
-s0, s1 = saved
-s0 = pd.to_datetime(s0).date()
-s1 = pd.to_datetime(s1).date()
-
-s0 = max(db_min, min(s0, db_max))
-s1 = max(db_min, min(s1, db_max))
-if s0 > s1:
-    s0, s1 = s1, s0
-
-st.session_state["date_range"] = (s0, s1)
-
+# ВАЖНО: НЕ перезаписываем session_state до date_input — иначе ломается выбор диапазона
 date_range = st.sidebar.date_input(
     "Период анализа",
+    value=st.session_state.get("date_range", default_range),
     min_value=db_min,
     max_value=db_max,
     key="date_range",
     format="DD.MM.YYYY"
 )
-if not (isinstance(date_range, tuple) and len(date_range) == 2):
+
+# Нормализуем значение после выбора
+if isinstance(date_range, tuple) and len(date_range) == 2:
+    start_date, end_date = date_range
+elif isinstance(date_range, (date,)):
+    start_date, end_date = date_range, date_range
+else:
     st.stop()
 
-start_d = pd.to_datetime(date_range[0])
-end_d = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+# гарантируем порядок
+if start_date > end_date:
+    start_date, end_date = end_date, start_date
+
+start_d = pd.to_datetime(start_date)
+end_d = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
 all_teams = sorted(df["Компоненты"].dropna().unique().tolist())
 
@@ -309,10 +296,9 @@ sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=def
 
 f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
 
-# --- ЗАГОЛОВОК ---
+# ===================== UI =====================
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-# --- KPI (5 карточек в один ряд) ---
 k1, k2, k3, k4, k5 = st.columns(5, gap="small")
 
 with k1:
@@ -332,7 +318,6 @@ with k5:
 
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-# --- ГРАФИКИ ---
 c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
@@ -377,7 +362,6 @@ with c2:
     fig_a.update_layout(height=230, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_a, use_container_width=True)
 
-# --- НИЖНИЙ РЯД: динамика + таблица ---
 b1, b2 = st.columns([3, 2], gap="large")
 
 with b1:
@@ -386,7 +370,6 @@ with b1:
         f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям/месяцам">?</span>',
         unsafe_allow_html=True
     )
-
     unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], key="unit_bottom", label_visibility="collapsed")
     u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
 
@@ -408,7 +391,6 @@ with b2:
         f'<span class="hint-icon" data-hint="Команды, у которых не было задач в выбранный период">?</span>',
         unsafe_allow_html=True
     )
-
     active_teams_in_period = df_in_range["Компоненты"].dropna().unique()
     inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
 
