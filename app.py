@@ -9,7 +9,7 @@ from datetime import timedelta
 # 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# 2) BI-стиль + Кастомные тултипы
+# 2) BI-стиль + компактная вёрстка + тултипы
 st.markdown(
     """
     <style>
@@ -23,42 +23,47 @@ st.markdown(
         color: white !important;
     }
 
+    /* Компактные отступы страницы */
+    .block-container { 
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
     /* Заголовки */
-    .main-header { font-size: 34px; font-weight: 800; color: #1A1C1E; margin: 4px 0 18px 0; }
+    .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 8px 0; }
     .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
 
-    /* KPI карточки */
+    /* KPI карточки (одинаковый размер + компактно) */
     .kpi-card {
-    background: #ffffff;
-    border: 1px solid #E6E9EF;
-    border-radius: 16px;
-    padding: 18px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    text-align: left;
-    height: 110px;              /* фиксированная высота карточки */
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    }
-    
-    .kpi-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #1A1C1E;
-        min-height: 30px;           /* одинаковая высота под заголовок */
+        background: #ffffff;
+        border: 1px solid #E6E9EF;
+        border-radius: 16px;
+        padding: 14px 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        text-align: left;
+        height: 165px;              /* фиксированная высота */
         display: flex;
-        align-items: flex-start;
+        flex-direction: column;
         justify-content: space-between;
-        line-height: 1.35;
     }
-    
-    .kpi-value {
-        font-size: 36px;
-        font-weight: 500;
-        color: #6244BB;
-        line-height: 1;
+    .kpi-title { 
+        font-size: 15px; 
+        font-weight: 650; 
+        color: #1A1C1E; 
+        min-height: 42px;           /* фикс под заголовок */
+        display: flex; 
+        align-items: flex-start; 
+        justify-content: space-between;
+        line-height: 1.25;
+    }
+    .kpi-value { 
+        font-size: 30px; 
+        font-weight: 600; 
+        color: #6244BB; 
+        line-height: 1; 
         margin-top: auto;
     }
+
     /* КРУГЛАЯ СЕРАЯ ИКОНКА ПОДСКАЗКИ */
     .hint-icon {
         display: inline-flex;
@@ -77,7 +82,7 @@ st.markdown(
         flex: 0 0 auto;
     }
 
-    /* Тултип (текст при наведении) */
+    /* Тултип */
     .hint-icon:hover::after {
         content: attr(data-hint);
         position: absolute;
@@ -96,18 +101,15 @@ st.markdown(
         font-weight: normal;
     }
 
-    /* СТИЛИЗАЦИЯ ТАБЛИЦЫ */
+    /* Таблица */
     th {
         background-color: #6244BB !important;
         color: white !important;
         font-weight: 600 !important;
         text-align: left !important;
     }
-    /* СКРЫТИЕ ИНДЕКСОВ в st.table */
     thead tr th:first-child { display:none; }
     tbody tr th:first-child { display:none; }
-
-    .block-container { padding-top: 1.7rem !important; }
     </style>
     """,
     unsafe_allow_html=True
@@ -146,7 +148,6 @@ def load_data():
     df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
     df_ = df_.dropna(subset=["Дата создания"])
 
-    # Стадии
     ttm_stages = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
     cycle_stages = ["Бэклог разработки", "В работе"]
 
@@ -155,14 +156,10 @@ def load_data():
             df_[col] = 0
         df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
 
-    # Метрики (в днях)
     df_["ttm_days"] = df_[ttm_stages].sum(axis=1) / 1440
     df_["cycle_time"] = df_[cycle_stages].sum(axis=1) / 1440
-
-    # Ожидание (вне активной работы)
     df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
 
-    # Текстовые поля
     df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
@@ -170,17 +167,16 @@ def load_data():
     return df_
 
 df = load_data()
-
 if df.empty:
     st.warning("Данные не найдены.")
     st.stop()
 
-# --- САЙДБАР: диапазон дат и "живые" фильтры ---
+# --- САЙДБАР: диапазон дат + фильтры только активных команд в периоде ---
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
 default_range = (db_max - timedelta(days=7), db_max)
 
-# ВАЖНО: date_input с key берёт значение из session_state => нужно "обрезать" ДО отрисовки
+# date_input с key берёт значение из session_state => "обрезаем" ДО отрисовки
 saved = st.session_state.get("date_range", default_range)
 if not (isinstance(saved, tuple) and len(saved) == 2):
     saved = default_range
@@ -202,14 +198,13 @@ date_range = st.sidebar.date_input(
     max_value=db_max,
     key="date_range"
 )
-
 if not (isinstance(date_range, tuple) and len(date_range) == 2):
     st.stop()
 
 start_d = pd.to_datetime(date_range[0])
 end_d = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
-# Все команды в базе (нужно для таблицы "без задач")
+# Все команды в базе (для таблицы "без задач")
 all_teams = sorted(df["Компоненты"].dropna().unique().tolist())
 
 # Сначала фильтруем по датам
@@ -218,41 +213,25 @@ if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
-# Команды/резолюции — только те, что реально были в период
+# Фильтры только по активным значениям в периоде
 teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
 
-# Пересечение прошлого выбора с текущим периодом
 prev_teams = st.session_state.get("sel_teams", teams_in_range)
 default_teams = [t for t in prev_teams if t in teams_in_range] or teams_in_range
-
-sel_teams = st.sidebar.multiselect(
-    "Команды",
-    teams_in_range,
-    default=default_teams,
-    key="sel_teams"
-)
+sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=default_teams, key="sel_teams")
 
 prev_res = st.session_state.get("sel_res", res_in_range)
 default_res = [r for r in prev_res if r in res_in_range] or res_in_range
-
-sel_res = st.sidebar.multiselect(
-    "Резолюции",
-    res_in_range,
-    default=default_res,
-    key="sel_res"
-)
+sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=default_res, key="sel_res")
 
 # Финальный df
-f_df = df_in_range[
-    (df_in_range["Компоненты"].isin(sel_teams)) &
-    (df_in_range["Резолюция"].isin(sel_res))
-].copy()
+f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
 
 # --- ЗАГОЛОВОК ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-# --- KPI (5 карточек в один ряд, ожидание = 5-я) ---
+# --- KPI (5 карточек в один ряд) ---
 k1, k2, k3, k4, k5 = st.columns(5, gap="small")
 
 with k1:
@@ -274,9 +253,9 @@ with k5:
     val = f_df["wait_time_days"].mean() if len(f_df) else 0.0
     kpi_card("Ожидание (дн)", f"{val:.2f}", "Среднее время вне активной работы: TTM − Cycle time")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-# --- ГРАФИКИ (цвета как было) ---
+# --- ГРАФИКИ (компактные высоты + цвета как было) ---
 c1, c2 = st.columns(2, gap="large")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
@@ -298,7 +277,7 @@ with c1:
         color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
         template="plotly_white"
     )
-    fig_l.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+    fig_l.update_layout(height=230, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_l, use_container_width=True)
 
 with c2:
@@ -318,15 +297,15 @@ with c2:
         template="plotly_white",
         category_orders={"Компоненты": t_order}
     )
-    fig_a.update_layout(height=300, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+    fig_a.update_layout(height=230, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_a, use_container_width=True)
 
-# --- ДИНАМИКА (цвет как было) ---
+# --- ДИНАМИКА (компактная высота + цвет как было) ---
 dh1, dh2 = st.columns([5, 1])
 with dh1:
     st.markdown(
         f'<div class="card-header">Динамика поступления задач</div>'
-        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям">?</span>',
+        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям/месяцам">?</span>',
         unsafe_allow_html=True
     )
 with dh2:
@@ -342,7 +321,7 @@ fig_d = px.line(
     color_discrete_sequence=["#6244BB"],
     template="plotly_white"
 )
-fig_d.update_layout(height=300, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
+fig_d.update_layout(height=220, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
 st.plotly_chart(fig_d, use_container_width=True)
 
 # --- ТАБЛИЦА: команды без задач за период ---
