@@ -35,7 +35,7 @@ st.markdown(
     padding: 18px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     text-align: left;
-    height: 100px;              /* фиксированная высота карточки */
+    height: 110px;              /* фиксированная высота карточки */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
