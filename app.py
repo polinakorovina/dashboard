@@ -347,7 +347,7 @@ with c1:
         color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
         template="plotly_white"
     )
-    fig_l.update_layout(height=230, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
+    fig_l.update_layout(height=270, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=10, t=10, b=0))
     st.plotly_chart(fig_l, use_container_width=True)
 
 with c2:
@@ -387,7 +387,7 @@ with c2:
         template="plotly_white",
     )
     fig_a.update_layout(
-        height=230,
+        height=270,
         xaxis_title=None,
         yaxis_title=None,
         legend_title=None,
@@ -416,7 +416,7 @@ with b1:
         color_discrete_sequence=["#6244BB"],
         template="plotly_white"
     )
-    fig_d.update_layout(height=220, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
+    fig_d.update_layout(height=180, xaxis_title=None, margin=dict(l=0, r=0, t=10, b=0))
     st.plotly_chart(fig_d, use_container_width=True)
 
 with b2:
@@ -430,6 +430,6 @@ with b2:
 
     if inactive_teams:
         inactive_df = pd.DataFrame(inactive_teams, columns=["Команда"])
-        st.dataframe(inactive_df, use_container_width=True, height=220, hide_index=True)
+        st.dataframe(inactive_df, use_container_width=True, height=180, hide_index=True)
     else:
         st.success("Все команды были активны в этот период.")
