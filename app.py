@@ -27,6 +27,35 @@ st.markdown(
 
     /* Контейнер select/multiselect: белый, скруглённый */
     [data-baseweb="select"] > div {
+        /* DATE INPUT selected dates */
+        button[kind="secondary"] {
+            background-color: #6244BB !important;
+            color: white !important;
+            border: none !important;
+        }
+        
+        /* hover selected date */
+        button[kind="secondary"]:hover {
+            background-color: #6244BB !important;
+            color: white !important;
+        }
+        
+        /* date range background */
+        [data-testid="stDateInput"] button {
+            border-radius: 10px !important;
+        }
+        
+        /* active range */
+        [data-testid="stDateInput"] [aria-selected="true"] {
+            background-color: #6244BB !important;
+            color: white !important;
+        }
+        
+        /* today's selected circle */
+        [data-testid="stDateInput"] button[aria-pressed="true"] {
+            background-color: #6244BB !important;
+            color: white !important;
+        }
         background-color: white !important;
         border-radius: 14px !important;
         border: none !important;
