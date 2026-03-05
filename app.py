@@ -13,13 +13,17 @@ st.set_page_config(page_title="Аналитика дежурств", layout="wid
 st.markdown(
     """
     <style>
-    /* Общий фон */
+    /* ===================== BASE THEME ===================== */
     .stApp { background-color: #F7F2FA; }
 
-    /* Сайдбар */
+    /* ===================== SIDEBAR ===================== */
     [data-testid="stSidebar"] { background-color: #A485E0; color: white; }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span {
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3, 
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] label, 
+    [data-testid="stSidebar"] span {
         color: white !important;
     }
 
@@ -40,7 +44,7 @@ st.markdown(
 
     /* chips выбранных элементов */
     [data-baseweb="tag"] {
-        background-color: #6244BB !important; /* фиолетовый как графики */
+        background-color: #6244BB !important;
         color: white !important;
         border-radius: 8px !important;
         border: none !important;
@@ -72,39 +76,84 @@ st.markdown(
         box-shadow: 0 0 0 2px #6244BB inset !important;
     }
 
-    /* --- DATE INPUT (календарь) в фирменном фиолетовом --- */
-    /* выбранные даты/кружки (некоторые версии Streamlit) */
-    button[kind="secondary"],
-    button[kind="secondary"]:hover {
-        background-color: #6244BB !important;
-        color: white !important;
-        border: none !important;
-    }
-
-    /* выбранные элементы по aria-selected */
-    [data-testid="stDateInput"] [aria-selected="true"] {
-        background-color: #6244BB !important;
-        color: white !important;
-    }
-
-    /* нажатая дата (иногда так помечается) */
-    [data-testid="stDateInput"] button[aria-pressed="true"] {
-        background-color: #6244BB !important;
-        color: white !important;
-        border: none !important;
-    }
-
-    /* скругления кнопок дат */
-    [data-testid="stDateInput"] button {
-        border-radius: 10px !important;
-    }
+    /* ===================== DATE INPUT (PURPLE) ===================== */
 
     /* скрыть английский helper "Choose a date range" */
     [data-testid="stDateInput"] p {
         display: none !important;
     }
 
-    /* Компактные отступы страницы */
+    /* ===== DATEPICKER PURPLE THEME (covers different Streamlit versions) ===== */
+
+    /* --- Variant A: react-datepicker --- */
+    .react-datepicker__day--selected,
+    .react-datepicker__day--in-selecting-range,
+    .react-datepicker__day--in-range,
+    .react-datepicker__day--keyboard-selected,
+    .react-datepicker__month-text--selected,
+    .react-datepicker__month-text--in-range,
+    .react-datepicker__month-text--in-selecting-range,
+    .react-datepicker__quarter-text--selected,
+    .react-datepicker__quarter-text--in-range,
+    .react-datepicker__quarter-text--in-selecting-range,
+    .react-datepicker__year-text--selected,
+    .react-datepicker__year-text--in-range,
+    .react-datepicker__year-text--in-selecting-range {
+        background-color: #6244BB !important;
+        color: #ffffff !important;
+        border-radius: 999px !important;
+    }
+
+    .react-datepicker__day--selected:hover,
+    .react-datepicker__day--in-selecting-range:hover,
+    .react-datepicker__day--in-range:hover,
+    .react-datepicker__day--keyboard-selected:hover {
+        background-color: #6244BB !important;
+        color: #ffffff !important;
+    }
+
+    /* подсветка диапазона (полоса) */
+    .react-datepicker__day--in-range {
+        background-color: rgba(98, 68, 187, 0.22) !important;
+        color: #1A1C1E !important;
+        border-radius: 10px !important;
+    }
+
+    /* край диапазона */
+    .react-datepicker__day--range-start,
+    .react-datepicker__day--range-end {
+        background-color: #6244BB !important;
+        color: #ffffff !important;
+        border-radius: 999px !important;
+    }
+
+    /* --- Variant B: rdp --- */
+    .rdp-day_selected,
+    .rdp-day_selected:focus,
+    .rdp-day_selected:hover {
+        background-color: #6244BB !important;
+        color: #ffffff !important;
+    }
+
+    .rdp-day_range_start,
+    .rdp-day_range_end {
+        background-color: #6244BB !important;
+        color: #ffffff !important;
+    }
+
+    .rdp-day_range_middle {
+        background-color: rgba(98, 68, 187, 0.22) !important;
+        color: #1A1C1E !important;
+    }
+
+    /* --- Иногда круги рисуются через aria-selected --- */
+    [data-testid="stDateInput"] [aria-selected="true"] {
+        background-color: #6244BB !important;
+        color: #ffffff !important;
+        border-radius: 999px !important;
+    }
+
+    /* ===================== LAYOUT ===================== */
     .block-container { 
         padding-top: 2.0rem !important;
         padding-bottom: 0.65rem !important;
@@ -114,7 +163,7 @@ st.markdown(
     .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
     .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
 
-    /* KPI карточки (одинаковый размер + компактно) */
+    /* KPI карточки */
     .kpi-card {
         background: #ffffff;
         border: 1px solid #E6E9EF;
@@ -122,7 +171,7 @@ st.markdown(
         padding: 14px 16px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
-        height: 110px;              /* фиксированная высота */
+        height: 110px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -131,7 +180,7 @@ st.markdown(
         font-size: 15px; 
         font-weight: 650; 
         color: #1A1C1E; 
-        min-height: 42px;           /* фикс под заголовок */
+        min-height: 42px;
         display: flex; 
         align-items: flex-start; 
         justify-content: space-between;
@@ -145,7 +194,7 @@ st.markdown(
         margin-top: auto;
     }
 
-    /* КРУГЛАЯ СЕРАЯ ИКОНКА ПОДСКАЗКИ */
+    /* Иконка подсказки */
     .hint-icon {
         display: inline-flex;
         justify-content: center;
@@ -277,7 +326,7 @@ date_range = st.sidebar.date_input(
     min_value=db_min,
     max_value=db_max,
     key="date_range",
-    format="DD.MM.YYYY"   # русское отображение в поле
+    format="DD.MM.YYYY"
 )
 if not (isinstance(date_range, tuple) and len(date_range) == 2):
     st.stop()
