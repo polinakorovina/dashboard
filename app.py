@@ -9,7 +9,7 @@ from datetime import timedelta
 # 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# 2) BI-стиль + компактная вёрстка + тултипы + sidebar multiselect chips (фиолетовые)
+# 2) BI-стиль + компактная вёрстка + тултипы + sidebar multiselect chips (фиолетовые) + календарь (фиолетовый) + русификация поля
 st.markdown(
     """
     <style>
@@ -27,35 +27,6 @@ st.markdown(
 
     /* Контейнер select/multiselect: белый, скруглённый */
     [data-baseweb="select"] > div {
-        /* DATE INPUT selected dates */
-        button[kind="secondary"] {
-            background-color: #6244BB !important;
-            color: white !important;
-            border: none !important;
-        }
-        
-        /* hover selected date */
-        button[kind="secondary"]:hover {
-            background-color: #6244BB !important;
-            color: white !important;
-        }
-        
-        /* date range background */
-        [data-testid="stDateInput"] button {
-            border-radius: 10px !important;
-        }
-        
-        /* active range */
-        [data-testid="stDateInput"] [aria-selected="true"] {
-            background-color: #6244BB !important;
-            color: white !important;
-        }
-        
-        /* today's selected circle */
-        [data-testid="stDateInput"] button[aria-pressed="true"] {
-            background-color: #6244BB !important;
-            color: white !important;
-        }
         background-color: white !important;
         border-radius: 14px !important;
         border: none !important;
@@ -99,6 +70,38 @@ st.markdown(
     }
     [data-baseweb="select"] > div:focus-within {
         box-shadow: 0 0 0 2px #6244BB inset !important;
+    }
+
+    /* --- DATE INPUT (календарь) в фирменном фиолетовом --- */
+    /* выбранные даты/кружки (некоторые версии Streamlit) */
+    button[kind="secondary"],
+    button[kind="secondary"]:hover {
+        background-color: #6244BB !important;
+        color: white !important;
+        border: none !important;
+    }
+
+    /* выбранные элементы по aria-selected */
+    [data-testid="stDateInput"] [aria-selected="true"] {
+        background-color: #6244BB !important;
+        color: white !important;
+    }
+
+    /* нажатая дата (иногда так помечается) */
+    [data-testid="stDateInput"] button[aria-pressed="true"] {
+        background-color: #6244BB !important;
+        color: white !important;
+        border: none !important;
+    }
+
+    /* скругления кнопок дат */
+    [data-testid="stDateInput"] button {
+        border-radius: 10px !important;
+    }
+
+    /* скрыть английский helper "Choose a date range" */
+    [data-testid="stDateInput"] p {
+        display: none !important;
     }
 
     /* Компактные отступы страницы */
@@ -273,7 +276,8 @@ date_range = st.sidebar.date_input(
     "Период анализа",
     min_value=db_min,
     max_value=db_max,
-    key="date_range"
+    key="date_range",
+    format="DD.MM.YYYY"   # русское отображение в поле
 )
 if not (isinstance(date_range, tuple) and len(date_range) == 2):
     st.stop()
