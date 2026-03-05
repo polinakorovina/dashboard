@@ -41,7 +41,7 @@ st.markdown(
         padding: 14px 16px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
-        height: 165px;              /* фиксированная высота */
+        height: 110px;              /* фиксированная высота */
         display: flex;
         flex-direction: column;
         justify-content: space-between;
