@@ -286,17 +286,22 @@ if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
+# --- доступные значения в текущем диапазоне ---
 teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
 
-prev_teams = st.session_state.get("sel_teams", teams_in_range)
-default_teams = [t for t in prev_teams if t in teams_in_range] or teams_in_range
-sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=default_teams, key="sel_teams")
+# --- ключ "сигнатуры" периода, чтобы понять что период изменился ---
+period_sig = (start_date, end_date)  # start_date/end_date у тебя получаются из date_input
 
-prev_res = st.session_state.get("sel_res", res_in_range)
-default_res = [r for r in prev_res if r in res_in_range] or res_in_range
-sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=default_res, key="sel_res")
+# если период поменялся — сбрасываем выбор фильтров на "все доступные"
+if st.session_state.get("_period_sig") != period_sig:
+    st.session_state["_period_sig"] = period_sig
+    st.session_state["sel_teams"] = teams_in_range
+    st.session_state["sel_res"] = res_in_range
 
+# теперь multiselect всегда показывает актуальные активные команды периода
+sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=st.session_state["sel_teams"], key="sel_teams")
+sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=st.session_state["sel_res"], key="sel_res")
 f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
 
 # ===================== UI =====================
