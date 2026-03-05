@@ -29,17 +29,36 @@ st.markdown(
 
     /* KPI карточки */
     .kpi-card {
-        background: #ffffff;
-        border: 1px solid #E6E9EF;
-        border-radius: 16px;
-        padding: 16px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        text-align: left;
-        height: 100%;
+    background: #ffffff;
+    border: 1px solid #E6E9EF;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    text-align: left;
+    height: 210px;              /* фиксированная высота карточки */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     }
-    .kpi-title { font-size: 16px; font-weight: 600; color: #1A1C1E; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
-    .kpi-value { font-size: 36px; font-weight: 500; color: #6244BB; line-height: 1.2; }
-
+    
+    .kpi-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1A1C1E;
+        min-height: 56px;           /* одинаковая высота под заголовок */
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        line-height: 1.35;
+    }
+    
+    .kpi-value {
+        font-size: 36px;
+        font-weight: 500;
+        color: #6244BB;
+        line-height: 1;
+        margin-top: auto;
+    }
     /* КРУГЛАЯ СЕРАЯ ИКОНКА ПОДСКАЗКИ */
     .hint-icon {
         display: inline-flex;
