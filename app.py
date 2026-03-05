@@ -251,6 +251,10 @@ db_max = df["Дата создания"].max().date()
 default_start = max(db_min, db_max - timedelta(days=7))
 default_range = (default_start, db_max)
 
+st.sidebar.markdown(
+    "<div style='font-size:13px; font-weight:600; margin-bottom:4px;'>Выбор даты</div>",
+    unsafe_allow_html=True
+)
 date_range = st.sidebar.date_input(
     "Период анализа",
     value=st.session_state.get("date_range", default_range),
