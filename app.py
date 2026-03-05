@@ -252,7 +252,7 @@ default_start = max(db_min, db_max - timedelta(days=7))
 default_range = (default_start, db_max)
 
 st.sidebar.markdown(
-    "<div style='font-size:13px; font-weight:600; margin-bottom:-23px;'>Выбор даты</div>",
+    "<div style='font-size:20px; font-weight:600; margin-bottom:-35px;'>Выбор даты</div>",
     unsafe_allow_html=True
 )
 date_range = st.sidebar.date_input(
