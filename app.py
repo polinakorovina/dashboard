@@ -35,6 +35,7 @@ st.markdown(
         padding: 16px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
+        height: 100%;
     }
     .kpi-title { font-size: 16px; font-weight: 600; color: #1A1C1E; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
     .kpi-value { font-size: 36px; font-weight: 500; color: #6244BB; line-height: 1.2; }
@@ -54,6 +55,7 @@ st.markdown(
         cursor: help;
         position: relative;
         margin-left: 8px;
+        flex: 0 0 auto;
     }
 
     /* Тултип (текст при наведении) */
@@ -125,7 +127,7 @@ def load_data():
     df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
     df_ = df_.dropna(subset=["Дата создания"])
 
-    # стадии
+    # Стадии
     ttm_stages = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
     cycle_stages = ["Бэклог разработки", "В работе"]
 
@@ -134,14 +136,14 @@ def load_data():
             df_[col] = 0
         df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
 
-    # базовые метрики (в днях)
+    # Метрики (в днях)
     df_["ttm_days"] = df_[ttm_stages].sum(axis=1) / 1440
     df_["cycle_time"] = df_[cycle_stages].sum(axis=1) / 1440
 
-    # ожидание (вне активной работы)
+    # Ожидание (вне активной работы)
     df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
 
-    # текстовые поля
+    # Текстовые поля
     df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
@@ -188,16 +190,20 @@ if not (isinstance(date_range, tuple) and len(date_range) == 2):
 start_d = pd.to_datetime(date_range[0])
 end_d = pd.to_datetime(date_range[1]) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
+# Все команды в базе (нужно для таблицы "без задач")
 all_teams = sorted(df["Компоненты"].dropna().unique().tolist())
 
+# Сначала фильтруем по датам
 df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
 if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
+# Команды/резолюции — только те, что реально были в период
 teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
 
+# Пересечение прошлого выбора с текущим периодом
 prev_teams = st.session_state.get("sel_teams", teams_in_range)
 default_teams = [t for t in prev_teams if t in teams_in_range] or teams_in_range
 
@@ -218,6 +224,7 @@ sel_res = st.sidebar.multiselect(
     key="sel_res"
 )
 
+# Финальный df
 f_df = df_in_range[
     (df_in_range["Компоненты"].isin(sel_teams)) &
     (df_in_range["Резолюция"].isin(sel_res))
@@ -226,26 +233,25 @@ f_df = df_in_range[
 # --- ЗАГОЛОВОК ---
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-# --- KPI (оставляем только ожидание в днях) ---
-r1 = st.columns(4, gap="small")
-r2 = st.columns(1)
+# --- KPI (5 карточек в один ряд, ожидание = 5-я) ---
+k1, k2, k3, k4, k5 = st.columns(5, gap="small")
 
-with r1[0]:
+with k1:
     kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
 
-with r1[1]:
+with k2:
     val = f_df["ttm_days"].mean() if len(f_df) else 0.0
     kpi_card("TTM в днях", f"{val:.2f}", "Среднее время от открытия до закрытия")
 
-with r1[2]:
+with k3:
     val = f_df["cycle_time"].mean() if len(f_df) else 0.0
     kpi_card("Cycle time (дн)", f"{val:.2f}", "Среднее время активной работы")
 
-with r1[3]:
+with k4:
     crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
     kpi_card("Критичные позже", f"{crit_late}", "Критичные задачи со статусом Позже")
 
-with r2[0]:
+with k5:
     val = f_df["wait_time_days"].mean() if len(f_df) else 0.0
     kpi_card("Ожидание (дн)", f"{val:.2f}", "Среднее время вне активной работы: TTM − Cycle time")
 
