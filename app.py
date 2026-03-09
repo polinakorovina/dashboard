@@ -896,39 +896,56 @@ with tab2:
 
             st.plotly_chart(fig_flow, use_container_width=True)
 
-        with g4:
+                with g4:
             st.markdown(
-                f'<div class="card-header">Сводная таблица week-to-week</div>'
-                f'<span class="hint-icon" data-hint="Текущая неделя, предыдущая неделя и изменение">?</span>',
+                f'<div class="card-header">Структура количества обращений</div>'
+                f'<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели">?</span>',
                 unsafe_allow_html=True
             )
 
-            show_df = summary_df.copy()
+            cat_order = ["1-4", "5-10", "11-100", "100+"]
 
-            def format_table_row(row):
-                metric = row["Метрика"]
-                cur = row["Текущая"]
-                prev = row["Предыдущая"]
-                diff = row["Изменение"]
+            curr_contacts = (
+                current_week_df["Количество обращений"]
+                .value_counts()
+                .reindex(cat_order, fill_value=0)
+                .reset_index()
+            )
+            curr_contacts.columns = ["Количество обращений", "Кол-во"]
+            curr_contacts["Период"] = "Текущая неделя"
 
-                if metric == "Всего задач":
-                    return pd.Series([
-                        f"{int(round(cur))}",
-                        f"{int(round(prev))}",
-                        f"{diff:+.0f}"
-                    ])
-                elif metric in ["Позже %", "Активная работа %"]:
-                    return pd.Series([
-                        f"{cur:.1f}%",
-                        f"{prev:.1f}%",
-                        f"{diff:+.1f} п.п."
-                    ])
-                else:
-                    return pd.Series([
-                        f"{cur:.2f}",
-                        f"{prev:.2f}",
-                        f"{diff:+.2f}"
-                    ])
+            prev_contacts = (
+                previous_week_df["Количество обращений"]
+                .value_counts()
+                .reindex(cat_order, fill_value=0)
+                .reset_index()
+            )
+            prev_contacts.columns = ["Количество обращений", "Кол-во"]
+            prev_contacts["Период"] = "Предыдущая неделя"
 
-            show_df[["Текущая", "Предыдущая", "Изменение"]] = show_df.apply(format_table_row, axis=1)
-            st.dataframe(show_df, use_container_width=True, hide_index=True)
+            contacts_compare = pd.concat([curr_contacts, prev_contacts], ignore_index=True)
+
+            fig_contacts_compare = px.bar(
+                contacts_compare,
+                x="Количество обращений",
+                y="Кол-во",
+                color="Период",
+                barmode="group",
+                text_auto=".0f",
+                category_orders={"Количество обращений": cat_order},
+                color_discrete_map={
+                    "Текущая неделя": "#6244BB",
+                    "Предыдущая неделя": "#D6CCFF"
+                },
+                template="plotly_white"
+            )
+
+            fig_contacts_compare.update_layout(
+                height=320,
+                xaxis_title=None,
+                yaxis_title="Кол-во задач",
+                legend_title=None,
+                margin=dict(l=20, r=20, t=15, b=10)
+            )
+
+            st.plotly_chart(fig_contacts_compare, use_container_width=True)
