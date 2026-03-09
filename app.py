@@ -530,7 +530,7 @@ with b3:
 
     fig_contacts.update_layout(
         height=250,
-        margin=dict(l=10, r=20, t=10, b=10),
+        margin=dict(l=20, r=20, t=15, b=15),
         legend_title=None,
         paper_bgcolor="white",
         plot_bgcolor="white",
