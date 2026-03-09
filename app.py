@@ -448,15 +448,39 @@ with b1:
 
 with b2:
     st.markdown(
-        f'<div class="card-header">Команды без задач</div>'
-        f'<span class="hint-icon" data-hint="Команды, у которых не было задач в выбранный период">?</span>',
+        f'<div class="card-header">Передачи между командами</div>'
+        f'<span class="hint-icon" data-hint="Среднее число передач задачи между командами">?</span>',
         unsafe_allow_html=True
     )
-    active_teams_in_period = df_in_range["Компоненты"].dropna().unique()
-    inactive_teams = sorted([team for team in all_teams if team not in active_teams_in_period])
 
-    if inactive_teams:
-        inactive_df = pd.DataFrame(inactive_teams, columns=["Команда"])
-        st.dataframe(inactive_df, use_container_width=True, height=170, hide_index=True)
-    else:
-        st.success("Все команды были активны в этот период.")
+    pp = (
+        f_df.groupby("Компоненты")["ping_pong_count"]
+        .mean()
+        .reset_index()
+        .sort_values("ping_pong_count", ascending=True)
+    )
+
+    fig_pp = px.bar(
+        pp,
+        x="ping_pong_count",
+        y="Компоненты",
+        orientation="h",
+        text_auto=".1f",
+        color_discrete_sequence=["#6244BB"],
+        template="plotly_white"
+    )
+
+    fig_pp.update_layout(
+        height=170,
+        xaxis_title=None,
+        yaxis_title=None,
+        margin=dict(l=20, r=20, t=20, b=10),
+        paper_bgcolor="white",
+        plot_bgcolor="white"
+    )
+
+    st.plotly_chart(
+        fig_pp,
+        use_container_width=True,
+        config={"scrollZoom": False}
+    )
