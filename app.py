@@ -97,9 +97,12 @@ st.markdown(
 
     /* ===================== LAYOUT ===================== */
     .block-container {
-        padding-top: 2.0rem !important;
-        padding-bottom: 0.65rem !important;
-    }
+    padding-top: 2.0rem !important;
+    padding-bottom: 0.65rem !important;
+    padding-left: 1.2rem !important;
+    padding-right: 1.2rem !important;
+    max-width: 100% !important;
+}
 
     /* Заголовки */
     .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
