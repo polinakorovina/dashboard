@@ -366,7 +366,11 @@ with c1:
         template="plotly_white"
     )
     fig_l.update_layout(height=320, xaxis_title=None, yaxis_title=None, margin=dict(l=0, r=0, t=0, b=0))
-    st.plotly_chart(fig_l, use_container_width=True)
+    st.plotly_chart(
+        fig_l,
+        use_container_width=True,
+        config={"scrollZoom": False}
+    )
 
 with c2:
     st.markdown(
