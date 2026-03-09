@@ -17,7 +17,11 @@ st.markdown(
     .stApp { background-color: #F7F2FA; }
 
     /* ===================== SIDEBAR ===================== */
-    [data-testid="stSidebar"] { background-color: #A485E0; color: white; }
+    [data-testid="stSidebar"] { 
+        background: linear-gradient(180deg, #A485E0 0%, #8E6EDB 100%);
+        color: white;
+    }
+
     [data-testid="stSidebar"] h1,
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3,
@@ -97,12 +101,16 @@ st.markdown(
 
     /* ===================== LAYOUT ===================== */
     .block-container {
-    padding-top: 2.0rem !important;
-    padding-bottom: 0.65rem !important;
-    padding-left: 1.2rem !important;
-    padding-right: 1.2rem !important;
-    max-width: 100% !important;
-}
+        padding-top: 2.0rem !important;
+        padding-bottom: 0.65rem !important;
+        padding-left: 1.2rem !important;
+        padding-right: 1.2rem !important;
+        max-width: 100% !important;
+    }
+
+    div[data-testid="stVerticalBlock"] > div {
+        gap: 0.6rem;
+    }
 
     /* Заголовки */
     .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
@@ -174,6 +182,15 @@ st.markdown(
         z-index: 1000;
         box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         font-weight: normal;
+    }
+
+    /* Графики как карточки */
+    [data-testid="stPlotlyChart"] {
+        background: white;
+        border-radius: 16px;
+        padding: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        border: 1px solid #ECEAF3;
     }
 
     /* Таблица */
@@ -250,7 +267,6 @@ if df.empty:
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
 
-# дефолт: последние 7 дней от последней даты в базе (а не от today)
 default_start = max(db_min, db_max - timedelta(days=7))
 default_range = (default_start, db_max)
 
@@ -275,7 +291,6 @@ elif isinstance(date_range, (date,)):
 else:
     st.stop()
 
-# гарантируем порядок
 if start_date > end_date:
     start_date, end_date = end_date, start_date
 
@@ -294,7 +309,7 @@ teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().to
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
 
 # --- ключ "сигнатуры" периода, чтобы понять что период изменился ---
-period_sig = (start_date, end_date)  # start_date/end_date у тебя получаются из date_input
+period_sig = (start_date, end_date)
 
 # если период поменялся — сбрасываем выбор фильтров на "все доступные"
 if st.session_state.get("_period_sig") != period_sig:
@@ -302,9 +317,9 @@ if st.session_state.get("_period_sig") != period_sig:
     st.session_state["sel_teams"] = teams_in_range
     st.session_state["sel_res"] = res_in_range
 
-# теперь multiselect всегда показывает актуальные активные команды периода
 sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=st.session_state["sel_teams"], key="sel_teams")
 sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=st.session_state["sel_res"], key="sel_res")
+
 f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
 
 # ===================== UI =====================
@@ -366,7 +381,6 @@ with c2:
         .reset_index()
     )
 
-    # делаем "длинный" формат для stacked bar
     t_parts_long = t_parts.melt(
         id_vars="Компоненты",
         value_vars=["cycle_time", "wait_time_days"],
