@@ -4,3 +4,5 @@ openpyxl
 sqlalchemy
 psycopg2-binary
 plotly
+streamlit-plotly-events
+altair==4.2.2
