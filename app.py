@@ -188,7 +188,7 @@ st.markdown(
     [data-testid="stPlotlyChart"] {
         background: white;
         border-radius: 6px;
-        padding: 6px;
+        padding: 10px;
         box-shadow: 0 6px 12px rgba(0,0,0,0.06);
         overflow: hidden;
     }
