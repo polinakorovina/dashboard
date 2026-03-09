@@ -193,6 +193,10 @@ st.markdown(
         border: 1px solid #ECEAF3;
         overflow: hidden;
     }
+    [data-testid="stPlotlyChart"] > div {
+        background: white !important;
+        border-radius: 18px !important;
+    }
 
     /* Таблица */
     th {
