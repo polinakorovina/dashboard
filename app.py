@@ -835,39 +835,66 @@ with tab2:
 
         with g3:
             st.markdown(
-                f'<div class="card-header">Изменение основных метрик</div>'
-                f'<span class="hint-icon" data-hint="Разница между текущей и предыдущей неделей">?</span>',
+                f'<div class="card-header">Поступление задач: текущая vs предыдущая неделя</div>'
+                f'<span class="hint-icon" data-hint="Сравнение количества новых задач по дням недели">?</span>',
                 unsafe_allow_html=True
             )
 
-            summary_df = pd.DataFrame([
-                {"Метрика": "Всего задач", "Текущая": current_metrics["tasks_total"], "Предыдущая": previous_metrics["tasks_total"]},
-                {"Метрика": "TTM", "Текущая": current_metrics["ttm"], "Предыдущая": previous_metrics["ttm"]},
-                {"Метрика": "Cycle time", "Текущая": current_metrics["cycle"], "Предыдущая": previous_metrics["cycle"]},
-                {"Метрика": "Ожидание", "Текущая": current_metrics["wait"], "Предыдущая": previous_metrics["wait"]},
-                {"Метрика": "Позже %", "Текущая": current_metrics["later_pct"], "Предыдущая": previous_metrics["later_pct"]},
-                {"Метрика": "Активная работа %", "Текущая": current_metrics["active_pct"], "Предыдущая": previous_metrics["active_pct"]},
-                {"Метрика": "Пинг-понг", "Текущая": current_metrics["pingpong"], "Предыдущая": previous_metrics["pingpong"]},
-            ])
+            weekday_order = [0, 1, 2, 3, 4, 5, 6]
+            weekday_map = {
+                0: "Пн",
+                1: "Вт",
+                2: "Ср",
+                3: "Чт",
+                4: "Пт",
+                5: "Сб",
+                6: "Вс"
+            }
 
-            summary_df["Изменение"] = summary_df["Текущая"] - summary_df["Предыдущая"]
+            curr_daily = (
+                current_week_df.assign(weekday=current_week_df["Дата создания"].dt.weekday)
+                .groupby("weekday")
+                .size()
+                .reindex(weekday_order, fill_value=0)
+                .reset_index(name="Задач")
+            )
+            curr_daily["Период"] = "Текущая неделя"
 
-            fig_summary = px.bar(
-                summary_df,
-                x="Изменение",
-                y="Метрика",
-                orientation="h",
-                text_auto=".2f",
-                color_discrete_sequence=["#2563EB"],
+            prev_daily = (
+                previous_week_df.assign(weekday=previous_week_df["Дата создания"].dt.weekday)
+                .groupby("weekday")
+                .size()
+                .reindex(weekday_order, fill_value=0)
+                .reset_index(name="Задач")
+            )
+            prev_daily["Период"] = "Предыдущая неделя"
+
+            weekly_flow = pd.concat([curr_daily, prev_daily], ignore_index=True)
+            weekly_flow["День"] = weekly_flow["weekday"].map(weekday_map)
+
+            fig_flow = px.line(
+                weekly_flow,
+                x="День",
+                y="Задач",
+                color="Период",
+                markers=True,
+                category_orders={"День": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]},
+                color_discrete_map={
+                    "Текущая неделя": "#6244BB",
+                    "Предыдущая неделя": "#2563EB"
+                },
                 template="plotly_white"
             )
-            fig_summary.update_layout(
+
+            fig_flow.update_layout(
                 height=320,
-                xaxis_title="Изменение к прошлой неделе",
-                yaxis_title=None,
+                xaxis_title=None,
+                yaxis_title="Кол-во задач",
+                legend_title=None,
                 margin=dict(l=20, r=20, t=15, b=10)
             )
-            st.plotly_chart(fig_summary, use_container_width=True)
+
+            st.plotly_chart(fig_flow, use_container_width=True)
 
         with g4:
             st.markdown(
