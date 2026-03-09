@@ -365,7 +365,7 @@ with c1:
         color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
         template="plotly_white"
     )
-    fig_l.update_layout(height=270, xaxis_title=None, yaxis_title=None, margin=dict(l=50, r=0, t=0, b=0))
+    fig_l.update_layout(height=270, xaxis_title=None, yaxis_title=None, margin=dict(l=50, r=10, t=10, b=0))
     st.plotly_chart(
         fig_l,
         use_container_width=True
