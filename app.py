@@ -424,7 +424,7 @@ with c2:
 
     st.plotly_chart(fig_a, use_container_width=True)
 
-b1, b2 = st.columns([3, 2], gap="large")
+b1, b2 = st.columns(2, gap="small")
 
 with b1:
     st.markdown(
