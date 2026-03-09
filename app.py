@@ -344,7 +344,7 @@ with k5:
 
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-c1, c2 = st.columns(2, gap="large")
+c1, c2 = st.columns(2, gap="small")
 t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
