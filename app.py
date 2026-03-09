@@ -190,7 +190,6 @@ st.markdown(
         border-radius: 6px;
         padding: 6px;
         box-shadow: 0 6px 12px rgba(0,0,0,0.06);
-        border: 1px solid #ECEAF3;
         overflow: hidden;
     }
 
