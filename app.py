@@ -322,7 +322,7 @@ sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=st.
 sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=st.session_state["sel_res"], key="sel_res")
 
 f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
-
+df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(1)
 # ===================== UI =====================
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
@@ -454,15 +454,15 @@ with b2:
     )
 
     pp = (
-        f_df.groupby("Компоненты")["ping_pong_count"]
+        f_df.groupby("Компоненты")["Пинг-понг обращения"]
         .mean()
         .reset_index()
-        .sort_values("ping_pong_count", ascending=True)
+        .sort_values("Пинг-понг", ascending=True)
     )
 
     fig_pp = px.bar(
         pp,
-        x="ping_pong_count",
+        x="Пинг-понг",
         y="Компоненты",
         orientation="h",
         text_auto=".1f",
