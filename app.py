@@ -187,9 +187,9 @@ st.markdown(
     /* Графики как карточки */
     [data-testid="stPlotlyChart"] {
         background: white;
-        border-radius: 18px;
+        border-radius: 16px;
         padding: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.06);
         border: 1px solid #ECEAF3;
     }
 
