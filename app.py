@@ -365,7 +365,7 @@ with c1:
         color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
         template="plotly_white"
     )
-    fig_l.update_layout(height=270, xaxis_title=None, yaxis_title=None, margin=dict(l=40, r=20, t=20, b=10))
+    fig_l.update_layout(height=270, xaxis_title=None, yaxis_title=None, margin=dict(l=40, r=20, t=0, b=10))
     st.plotly_chart(
         fig_l,
         use_container_width=True
@@ -411,7 +411,7 @@ with c2:
         xaxis_title=None,
         yaxis_title=None,
         legend_title=None,
-        margin=dict(l=40, r=20, t=25, b=10),
+        margin=dict(l=40, r=20, t=0, b=10),
     )
 
     st.plotly_chart(fig_a, use_container_width=True)
@@ -436,7 +436,7 @@ with b1:
         color_discrete_sequence=["#6244BB"],
         template="plotly_white"
     )
-    fig_d.update_layout(height=170, xaxis_title=None, margin=dict(l=20, r=20, t=20, b=10))
+    fig_d.update_layout(height=170, xaxis_title=None, margin=dict(l=20, r=20, t=0, b=10))
     st.plotly_chart(fig_d, use_container_width=True)
 
 with b2:
