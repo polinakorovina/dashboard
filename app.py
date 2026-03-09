@@ -326,7 +326,7 @@ f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_i
 # ===================== UI =====================
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-k1, k2, k3, k4, k5, k6 = st.columns(5, gap="small")
+k1, k2, k3, k4, k5, k6 = st.columns(6, gap="small")
 
 with k1:
     kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
