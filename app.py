@@ -256,6 +256,7 @@ def load_data():
     df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(1)
 
     return df_
 
@@ -322,7 +323,7 @@ sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=st.
 sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=st.session_state["sel_res"], key="sel_res")
 
 f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
-df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(1)
+
 # ===================== UI =====================
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
