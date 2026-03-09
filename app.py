@@ -5,19 +5,18 @@ import plotly.express as px
 import yadisk
 import os
 from datetime import timedelta, date
+from streamlit_plotly_events import plotly_events
 
 # 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# 2) BI-стиль + тултипы + sidebar chips + календарь (фиолетовый) + русификация поля
+# 2) BI-стиль
 st.markdown(
     """
     <style>
-    /* ===================== BASE THEME ===================== */
     .stApp { background-color: #F7F2FA; }
 
-    /* ===================== SIDEBAR ===================== */
-    [data-testid="stSidebar"] { 
+    [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #A485E0 0%, #8E6EDB 100%);
         color: white;
     }
@@ -31,7 +30,6 @@ st.markdown(
         color: white !important;
     }
 
-    /* Контейнер select/multiselect: белый, скруглённый */
     [data-baseweb="select"] > div {
         background-color: white !important;
         border-radius: 14px !important;
@@ -39,10 +37,8 @@ st.markdown(
         min-height: 48px !important;
     }
 
-    /* input внутри multiselect */
     [data-baseweb="select"] input { color: #1A1C1E !important; }
 
-    /* chips выбранных элементов */
     [data-baseweb="tag"] {
         background-color: #6244BB !important;
         color: white !important;
@@ -51,21 +47,28 @@ st.markdown(
         padding: 2px 6px !important;
         font-size: 13px !important;
     }
-    [data-baseweb="tag"] span { color: white !important; font-weight: 500 !important; }
-    [data-baseweb="tag"] svg { fill: white !important; }
 
-    /* стрелка dropdown */
+    [data-baseweb="tag"] span {
+        color: white !important;
+        font-weight: 500 !important;
+    }
+
+    [data-baseweb="tag"] svg {
+        fill: white !important;
+    }
+
     [data-baseweb="select"] svg { fill: #6244BB !important; }
 
-    /* hover/focus обводка */
-    [data-baseweb="select"] > div:hover { box-shadow: 0 0 0 1px #6244BB inset !important; }
-    [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 2px #6244BB inset !important; }
+    [data-baseweb="select"] > div:hover {
+        box-shadow: 0 0 0 1px #6244BB inset !important;
+    }
 
-    /* ===================== DATE INPUT (SAFE PURPLE) ===================== */
-    /* скрыть английский helper "Choose a date range" */
+    [data-baseweb="select"] > div:focus-within {
+        box-shadow: 0 0 0 2px #6244BB inset !important;
+    }
+
     [data-testid="stDateInput"] p { display: none !important; }
 
-    /* Красим только выделенные/диапазонные дни по точным классам (не трогаем все кнопки!) */
     .react-datepicker__day--selected,
     .react-datepicker__day--keyboard-selected,
     .react-datepicker__day--range-start,
@@ -74,6 +77,7 @@ st.markdown(
         color: #ffffff !important;
         border-radius: 999px !important;
     }
+
     .react-datepicker__day--in-range,
     .react-datepicker__day--in-selecting-range {
         background-color: rgba(98, 68, 187, 0.22) !important;
@@ -87,19 +91,18 @@ st.markdown(
         background-color: #6244BB !important;
         color: #ffffff !important;
     }
+
     .rdp-day_range_middle {
         background-color: rgba(98, 68, 187, 0.22) !important;
         color: #1A1C1E !important;
     }
 
-    /* Иногда выделение отмечается aria-selected */
-    [data-testid="stDateInput"] [aria-selected="true"]{
+    [data-testid="stDateInput"] [aria-selected="true"] {
         background-color: #6244BB !important;
         color: #ffffff !important;
         border-radius: 999px !important;
     }
 
-    /* ===================== LAYOUT ===================== */
     .block-container {
         padding-top: 2.0rem !important;
         padding-bottom: 0.65rem !important;
@@ -112,11 +115,20 @@ st.markdown(
         gap: 0.6rem;
     }
 
-    /* Заголовки */
-    .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
-    .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
+    .main-header {
+        font-size: 32px;
+        font-weight: 800;
+        color: #1A1C1E;
+        margin: 0 0 10px 0;
+    }
 
-    /* KPI карточки */
+    .card-header {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1A1C1E;
+        display: inline-block;
+    }
+
     .kpi-card {
         background: #ffffff;
         border: 1px solid #E6E9EF;
@@ -129,6 +141,7 @@ st.markdown(
         flex-direction: column;
         justify-content: space-between;
     }
+
     .kpi-title {
         font-size: 15px;
         font-weight: 650;
@@ -139,6 +152,7 @@ st.markdown(
         justify-content: space-between;
         line-height: 1.25;
     }
+
     .kpi-value {
         font-size: 30px;
         font-weight: 600;
@@ -147,7 +161,6 @@ st.markdown(
         margin-top: auto;
     }
 
-    /* Иконка подсказки */
     .hint-icon {
         display: inline-flex;
         justify-content: center;
@@ -165,7 +178,6 @@ st.markdown(
         flex: 0 0 auto;
     }
 
-    /* Тултип */
     .hint-icon:hover::after {
         content: attr(data-hint);
         position: absolute;
@@ -184,25 +196,23 @@ st.markdown(
         font-weight: normal;
     }
 
-    /* Графики как карточки */
     [data-testid="stPlotlyChart"] {
         background: white;
         border-radius: 18px;
         padding: 8px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.04);
         border: 1px solid #ECEAF3;
-        overflow: hidden;
     }
 
-    /* Таблица */
     th {
         background-color: #6244BB !important;
         color: white !important;
         font-weight: 600 !important;
         text-align: left !important;
     }
-    thead tr th:first-child { display:none; }
-    tbody tr th:first-child { display:none; }
+
+    thead tr th:first-child { display: none; }
+    tbody tr th:first-child { display: none; }
     </style>
     """,
     unsafe_allow_html=True
@@ -220,12 +230,38 @@ def kpi_card(title: str, value: str, hint: str = ""):
         unsafe_allow_html=True
     )
 
-# 3) Подключение к Я.Диску + БД
+def apply_team_highlight(fig, selected_team):
+    if not selected_team:
+        return fig
+    for trace in fig.data:
+        if hasattr(trace, "y") and trace.y is not None:
+            trace.marker.opacity = [1.0 if y == selected_team else 0.25 for y in trace.y]
+    return fig
+
+def apply_contact_highlight(fig, selected_category):
+    if not selected_category or not fig.data:
+        return fig
+    labels = list(fig.data[0].labels)
+    fig.data[0].marker.opacity = [1.0 if label == selected_category else 0.25 for label in labels]
+    return fig
+
+def toggle_team_filter(selected_team):
+    if st.session_state.get("chart_team_filter") == selected_team:
+        st.session_state["chart_team_filter"] = None
+    else:
+        st.session_state["chart_team_filter"] = selected_team
+
+def toggle_contact_filter(selected_category):
+    if st.session_state.get("chart_contact_filter") == selected_category:
+        st.session_state["chart_contact_filter"] = None
+    else:
+        st.session_state["chart_contact_filter"] = selected_category
+
 TOKEN = os.getenv("YANDEX_TOKEN")
 y = yadisk.YaDisk(token=TOKEN)
 DB_PATH = "/Data/my_database.db"
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=3600)
 def load_data():
     if not y.exists(DB_PATH):
         return pd.DataFrame()
@@ -257,6 +293,7 @@ def load_data():
     df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(1)
+    df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
 
     return df_
 
@@ -265,7 +302,6 @@ if df.empty:
     st.warning("Данные не найдены.")
     st.stop()
 
-# ===================== SIDEBAR FILTERS (FIXED DATE RANGE) =====================
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
 
@@ -276,6 +312,7 @@ st.sidebar.markdown(
     "<div style='font-size:20px; font-weight:600; margin-bottom:-35px;'>Выбор даты</div>",
     unsafe_allow_html=True
 )
+
 date_range = st.sidebar.date_input(
     "Период анализа",
     value=st.session_state.get("date_range", default_range),
@@ -285,10 +322,9 @@ date_range = st.sidebar.date_input(
     format="DD.MM.YYYY"
 )
 
-# Нормализуем значение после выбора
 if isinstance(date_range, tuple) and len(date_range) == 2:
     start_date, end_date = date_range
-elif isinstance(date_range, (date,)):
+elif isinstance(date_range, date):
     start_date, end_date = date_range, date_range
 else:
     st.stop()
@@ -299,33 +335,72 @@ if start_date > end_date:
 start_d = pd.to_datetime(start_date)
 end_d = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
-all_teams = sorted(df["Компоненты"].dropna().unique().tolist())
-
 df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
 if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
-# --- доступные значения в текущем диапазоне ---
 teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
 
-# --- ключ "сигнатуры" периода, чтобы понять что период изменился ---
 period_sig = (start_date, end_date)
-
-# если период поменялся — сбрасываем выбор фильтров на "все доступные"
 if st.session_state.get("_period_sig") != period_sig:
     st.session_state["_period_sig"] = period_sig
     st.session_state["sel_teams"] = teams_in_range
     st.session_state["sel_res"] = res_in_range
+    st.session_state["chart_team_filter"] = None
+    st.session_state["chart_contact_filter"] = None
 
-sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=st.session_state["sel_teams"], key="sel_teams")
-sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=st.session_state["sel_res"], key="sel_res")
+sel_teams = st.sidebar.multiselect(
+    "Команды",
+    teams_in_range,
+    default=st.session_state["sel_teams"],
+    key="sel_teams"
+)
 
-f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
+sel_res = st.sidebar.multiselect(
+    "Резолюции",
+    res_in_range,
+    default=st.session_state["sel_res"],
+    key="sel_res"
+)
 
-# ===================== UI =====================
+if "chart_team_filter" not in st.session_state:
+    st.session_state["chart_team_filter"] = None
+
+if "chart_contact_filter" not in st.session_state:
+    st.session_state["chart_contact_filter"] = None
+
+if st.sidebar.button("Сбросить выбор с графиков"):
+    st.session_state["chart_team_filter"] = None
+    st.session_state["chart_contact_filter"] = None
+    st.rerun()
+
+effective_teams = sel_teams
+if st.session_state["chart_team_filter"] is not None:
+    effective_teams = [st.session_state["chart_team_filter"]]
+
+effective_contacts = None
+if st.session_state["chart_contact_filter"] is not None:
+    effective_contacts = st.session_state["chart_contact_filter"]
+
+f_df = df_in_range[
+    (df_in_range["Компоненты"].isin(effective_teams)) &
+    (df_in_range["Резолюция"].isin(sel_res))
+].copy()
+
+if effective_contacts is not None:
+    f_df = f_df[f_df["Количество обращений"] == effective_contacts].copy()
+
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
+
+active_filters = []
+if st.session_state["chart_team_filter"]:
+    active_filters.append(f"Команда: {st.session_state['chart_team_filter']}")
+if st.session_state["chart_contact_filter"]:
+    active_filters.append(f"Обращения: {st.session_state['chart_contact_filter']}")
+if active_filters:
+    st.info(" | ".join(active_filters))
 
 k1, k2, k3, k4, k5, k6 = st.columns(6, gap="small")
 
@@ -357,11 +432,13 @@ t_order = f_df["Компоненты"].value_counts().index.tolist()
 
 with c1:
     st.markdown(
-        f'<div class="card-header">Нагрузка по командам</div>'
-        f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
+        '<div class="card-header">Нагрузка по командам</div>'
+        '<span class="hint-icon" data-hint="Нажми на команду, чтобы отфильтровать весь дашборд">?</span>',
         unsafe_allow_html=True
     )
+
     t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
+
     fig_l = px.bar(
         t_counts,
         x="Кол-во",
@@ -373,16 +450,35 @@ with c1:
         color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
         template="plotly_white"
     )
-    fig_l.update_layout(height=270, xaxis_title=None, yaxis_title=None, margin=dict(l=40, r=20, t=10, b=10))
-    st.plotly_chart(
-        fig_l,
-        use_container_width=True
+
+    fig_l.update_layout(
+        height=270,
+        xaxis_title=None,
+        yaxis_title=None,
+        margin=dict(l=40, r=20, t=10, b=10),
+        paper_bgcolor="white",
+        plot_bgcolor="white"
     )
+
+    fig_l = apply_team_highlight(fig_l, st.session_state["chart_team_filter"])
+
+    selected_points = plotly_events(
+        fig_l,
+        click_event=True,
+        hover_event=False,
+        select_event=False,
+        key="load_chart"
+    )
+
+    if selected_points:
+        selected_team = selected_points[0]["y"]
+        toggle_team_filter(selected_team)
+        st.rerun()
 
 with c2:
     st.markdown(
-        f'<div class="card-header">Cycle vs ожидание</div>'
-        f'<span class="hint-icon" data-hint="Средний Cycle time и среднее ожидание (TTM − Cycle) по командам">?</span>',
+        '<div class="card-header">Cycle vs ожидание</div>'
+        '<span class="hint-icon" data-hint="Средний Cycle time и среднее ожидание (TTM − Cycle) по командам">?</span>',
         unsafe_allow_html=True
     )
 
@@ -412,30 +508,37 @@ with c2:
         text_auto=".1f",
         category_orders={"Компоненты": t_order},
         color_discrete_map={"Cycle time": "#6244BB", "Ожидание": "#A485E0"},
-        template="plotly_white",
+        template="plotly_white"
     )
+
     fig_a.update_layout(
         height=270,
         xaxis_title=None,
         yaxis_title=None,
         legend_title=None,
         margin=dict(l=40, r=20, t=10, b=10),
+        paper_bgcolor="white",
+        plot_bgcolor="white"
     )
 
-    st.plotly_chart(fig_a, use_container_width=True)
+    fig_a = apply_team_highlight(fig_a, st.session_state["chart_team_filter"])
+
+    st.plotly_chart(fig_a, use_container_width=True, config={"scrollZoom": False})
 
 b1, b2, b3 = st.columns(3, gap="small")
 
 with b1:
     st.markdown(
-        f'<div class="card-header">Динамика поступления задач</div>'
-        f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям/месяцам">?</span>',
+        '<div class="card-header">Динамика поступления задач</div>'
+        '<span class="hint-icon" data-hint="Количество новых задач по дням/неделям/месяцам">?</span>',
         unsafe_allow_html=True
     )
+
     unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], key="unit_bottom", label_visibility="collapsed")
     u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
 
     resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
+
     fig_d = px.line(
         resampled,
         x="Дата создания",
@@ -444,13 +547,21 @@ with b1:
         color_discrete_sequence=["#6244BB"],
         template="plotly_white"
     )
-    fig_d.update_layout(height=185, xaxis_title=None, margin=dict(l=20, r=20, t=10, b=10))
-    st.plotly_chart(fig_d, use_container_width=True)
+
+    fig_d.update_layout(
+        height=185,
+        xaxis_title=None,
+        margin=dict(l=20, r=20, t=10, b=10),
+        paper_bgcolor="white",
+        plot_bgcolor="white"
+    )
+
+    st.plotly_chart(fig_d, use_container_width=True, config={"scrollZoom": False})
 
 with b2:
     st.markdown(
-        f'<div class="card-header">Передачи между командами</div>'
-        f'<span class="hint-icon" data-hint="Среднее число передач задачи между командами">?</span>',
+        '<div class="card-header">Передачи между командами</div>'
+        '<span class="hint-icon" data-hint="Среднее число передач задачи между командами">?</span>',
         unsafe_allow_html=True
     )
 
@@ -480,16 +591,14 @@ with b2:
         plot_bgcolor="white"
     )
 
-    st.plotly_chart(
-        fig_pp,
-        use_container_width=True,
-        config={"scrollZoom": False}
-    )
+    fig_pp = apply_team_highlight(fig_pp, st.session_state["chart_team_filter"])
+
+    st.plotly_chart(fig_pp, use_container_width=True, config={"scrollZoom": False})
 
 with b3:
     st.markdown(
-        f'<div class="card-header">Структура обращений</div>'
-        f'<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений">?</span>',
+        '<div class="card-header">Структура обращений</div>'
+        '<span class="hint-icon" data-hint="Нажми на категорию, чтобы отфильтровать весь дашборд">?</span>',
         unsafe_allow_html=True
     )
 
@@ -538,8 +647,17 @@ with b3:
         font=dict(size=11)
     )
 
-    st.plotly_chart(
+    fig_contacts = apply_contact_highlight(fig_contacts, st.session_state["chart_contact_filter"])
+
+    selected_points = plotly_events(
         fig_contacts,
-        use_container_width=True,
-        config={"scrollZoom": False}
+        click_event=True,
+        hover_event=False,
+        select_event=False,
+        key="contacts_chart"
     )
+
+    if selected_points:
+        selected_category = selected_points[0]["label"]
+        toggle_contact_filter(selected_category)
+        st.rerun()
