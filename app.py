@@ -326,7 +326,7 @@ f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_i
 # ===================== UI =====================
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-k1, k2, k3, k4, k5 = st.columns(5, gap="small")
+k1, k2, k3, k4, k5, k6 = st.columns(5, gap="small")
 
 with k1:
     kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
@@ -337,11 +337,17 @@ with k3:
     val = f_df["cycle_time"].mean() if len(f_df) else 0.0
     kpi_card("Cycle time (дн)", f"{val:.2f}", "Среднее время активной работы")
 with k4:
-    crit_late = len(f_df[(f_df["Резолюция"] == "Позже") & (f_df["Приоритет"] == "Критичный")])
-    kpi_card("Критичные позже", f"{crit_late}", "Критичные задачи со статусом Позже")
-with k5:
     val = f_df["wait_time_days"].mean() if len(f_df) else 0.0
     kpi_card("Ожидание (дн)", f"{val:.2f}", "Среднее время вне активной работы: TTM − Cycle time")
+with k5:
+    late_share = (f_df["Резолюция"] == "Позже").mean() * 100 if len(f_df) else 0
+    kpi_card("Позже %", f"{late_share:.1f}%", "Доля задач со статусом 'Позже' от общего числа")
+with k6:
+    active_share = (
+        (f_df["cycle_time"].mean() / f_df["ttm_days"].mean()) * 100
+        if len(f_df) and f_df["ttm_days"].mean() > 0 else 0
+    )
+    kpi_card("Активная работа %", f"{active_share:.0f}%", "Доля времени, когда задача реально находилась в работе")
 
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
