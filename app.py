@@ -896,7 +896,7 @@ with tab2:
 
             st.plotly_chart(fig_flow, use_container_width=True)
 
-                with g4:
+        with g4:
             st.markdown(
                 f'<div class="card-header">Структура количества обращений</div>'
                 f'<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели">?</span>',
