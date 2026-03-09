@@ -458,12 +458,12 @@ with b2:
         f_df.groupby("Компоненты")["Пинг-понг обращения"]
         .mean()
         .reset_index()
-        .sort_values("Пинг-понг", ascending=True)
+        .sort_values("Пинг-понг обращения", ascending=True)
     )
 
     fig_pp = px.bar(
         pp,
-        x="Пинг-понг",
+        x="Пинг-понг обращения",
         y="Компоненты",
         orientation="h",
         text_auto=".1f",
