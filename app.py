@@ -360,7 +360,6 @@ with c1:
         y="Компоненты",
         color="Резолюция",
         orientation="h",
-        text="Кол-во",
         category_orders={"Компоненты": t_order},
         color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
         template="plotly_white"
@@ -398,7 +397,6 @@ with c2:
         color="Метрика",
         orientation="h",
         barmode="stack",
-        text_auto=".1f",
         category_orders={"Компоненты": t_order},
         color_discrete_map={"Cycle time": "#6244BB", "Ожидание": "#A485E0"},
         template="plotly_white",
