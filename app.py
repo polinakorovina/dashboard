@@ -529,7 +529,7 @@ with b3:
     )
 
     fig_contacts.update_layout(
-        height=170,
+        height=250,
         margin=dict(l=10, r=10, t=10, b=10),
         legend_title=None,
         paper_bgcolor="white",
