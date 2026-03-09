@@ -198,6 +198,13 @@ st.markdown(
         border-radius: 18px !important;
     }
 
+    [data-testid="stPlotlyChart"] .js-plotly-plot,
+    [data-testid="stPlotlyChart"] .plot-container,
+    [data-testid="stPlotlyChart"] .svg-container {
+        background: white !important;
+        border-radius: 14px;
+    }
+
     /* Таблица */
     th {
         background-color: #6244BB !important;
