@@ -444,7 +444,7 @@ with b1:
         color_discrete_sequence=["#6244BB"],
         template="plotly_white"
     )
-    fig_d.update_layout(height=175, xaxis_title=None, margin=dict(l=20, r=20, t=10, b=10))
+    fig_d.update_layout(height=185, xaxis_title=None, margin=dict(l=20, r=20, t=10, b=10))
     st.plotly_chart(fig_d, use_container_width=True)
 
 with b2:
