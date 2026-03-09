@@ -319,9 +319,8 @@ if st.session_state.get("_period_sig") != period_sig:
     st.session_state["sel_teams"] = teams_in_range
     st.session_state["sel_res"] = res_in_range
 
-sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=st.session_state["sel_teams"], key="sel_teams")
-sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=st.session_state["sel_res"], key="sel_res")
-
+sel_teams = st.sidebar.multiselect("Команды", teams_in_range, key="sel_teams")
+sel_res = st.sidebar.multiselect("Резолюции", res_in_range, key="sel_res")
 f_df = df_in_range[(df_in_range["Компоненты"].isin(sel_teams)) & (df_in_range["Резолюция"].isin(sel_res))].copy()
 
 # ===================== UI =====================
