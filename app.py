@@ -191,6 +191,7 @@ st.markdown(
         padding: 10px;
         box-shadow: 0 6px 12px rgba(0,0,0,0.06);
         border: 1px solid #ECEAF3;
+        overflow: hidden;
     }
 
     /* Таблица */
