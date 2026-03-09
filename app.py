@@ -424,7 +424,7 @@ with c2:
 
     st.plotly_chart(fig_a, use_container_width=True)
 
-b1, b2 = st.columns(2, gap="small")
+b1, b2, b3 = st.columns(3, gap="small")
 
 with b1:
     st.markdown(
@@ -482,6 +482,70 @@ with b2:
 
     st.plotly_chart(
         fig_pp,
+        use_container_width=True,
+        config={"scrollZoom": False}
+    )
+
+with b3:
+    st.markdown(
+        f'<div class="card-header">Структура обращений</div>'
+        f'<span class="hint-icon" data-hint="Доли категорий обращений внутри каждой команды">?</span>',
+        unsafe_allow_html=True
+    )
+
+    # --- подготовка данных ---
+    contacts_share = (
+        f_df.groupby(["Компоненты", "Количество обращений"])
+        .size()
+        .reset_index(name="cnt")
+    )
+
+    contacts_share["team_total"] = contacts_share.groupby("Компоненты")["cnt"].transform("sum")
+    contacts_share["share_pct"] = contacts_share["cnt"] / contacts_share["team_total"] * 100
+
+    cat_order = ["1-4", "5-10", "11-100", "100+"]
+    contacts_share["Количество обращений"] = pd.Categorical(
+        contacts_share["Количество обращений"],
+        categories=cat_order,
+        ordered=True
+    )
+
+    contacts_share = contacts_share.sort_values(["Компоненты", "Количество обращений"])
+
+    # --- график ---
+    fig_contacts = px.bar(
+        contacts_share,
+        x="share_pct",
+        y="Компоненты",
+        color="Количество обращений",
+        orientation="h",
+        barmode="stack",
+        category_orders={
+            "Количество обращений": cat_order,
+            "Компоненты": t_order
+        },
+        color_discrete_map={
+            "1-4": "#6244BB",
+            "5-10": "#8B6DE0",
+            "11-100": "#B39DFF",
+            "100+": "#D6CCFF"
+        },
+        template="plotly_white"
+    )
+
+    fig_contacts.update_layout(
+        height=170,
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title=None,
+        margin=dict(l=20, r=20, t=20, b=10),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        font=dict(size=10)
+    )
+
+    st.plotly_chart(
+        fig_contacts,
         use_container_width=True,
         config={"scrollZoom": False}
     )
