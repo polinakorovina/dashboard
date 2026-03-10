@@ -204,8 +204,8 @@ st.markdown(
 
     /* ===================== TABS STYLING ===================== */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
-        margin-bottom: 10px;
+        gap: 4px;
+        margin-bottom: 6px;
     }
     
     .stTabs [data-baseweb="tab"] {
