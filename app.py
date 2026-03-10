@@ -16,8 +16,8 @@ st.markdown(
 
     header[data-testid="stHeader"] {
         background: #F7F2FA !important;
-        height: 1.7rem !important;
-        min-height: 1.7rem !important;
+        height: 1.6rem !important;
+        min-height: 1.6rem !important;
     }
 
     /* ===================== BASE THEME ===================== */
@@ -128,7 +128,7 @@ st.markdown(
         padding: 14px 16px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
-        height: 110px;
+        height: 100px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -212,7 +212,7 @@ st.markdown(
     /* ===================== TABS STYLING ===================== */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
     }
     
     .stTabs [data-baseweb="tab"] {
