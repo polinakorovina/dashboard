@@ -743,6 +743,14 @@ with tab2:
 
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
+
+        team_order_week = (
+            pd.concat([current_week_df["Компоненты"], previous_week_df["Компоненты"]])
+            .dropna()
+            .value_counts()
+            .index
+            .tolist()
+        )
         g1, g2 = st.columns(2, gap="small")
 
         with g1:
@@ -804,13 +812,6 @@ with tab2:
                 value_name="TTM"
             )
 
-            team_order_week = (
-                pd.concat([current_week_df["Компоненты"], previous_week_df["Компоненты"]])
-                .dropna()
-                .value_counts()
-                .index
-                .tolist()
-            )
 
             fig_ttm_compare = px.bar(
                 ttm_long,
