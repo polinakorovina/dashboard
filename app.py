@@ -15,6 +15,7 @@ st.markdown(
     <style>
 
     header[data-testid="stHeader"] {
+        background: #F7F2FA !important;
         height: 1.7rem !important;
         min-height: 1.7rem !important;
     }
