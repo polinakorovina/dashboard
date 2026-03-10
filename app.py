@@ -329,7 +329,7 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
 
     st.markdown(
         f"""
-        <div class="kpi-card" style="height: 100px; padding: 6px 10px;">
+        <div class="kpi-card" style="height: 110px; padding: 6px 10px;">
             <div class="kpi-title" style="font-size:12px; min-height:22px;">
                 {title} {hint_html}
             </div>
