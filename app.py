@@ -20,13 +20,37 @@ st.markdown(
         min-height: 1.6rem !important;
     }
 
-        /* Floating cloud widget */
-    div[data-testid="stStatusWidget"] {
+        /* Нижний floating launcher / Manage app */
+    [data-testid="stStatusWidget"] {
         display: none !important;
+        visibility: hidden !important;
     }
     
     button[title="Manage app"] {
         display: none !important;
+        visibility: hidden !important;
+    }
+    
+    button[aria-label="Manage app"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Иногда это рендерится как фиксированный контейнер внизу справа */
+    div[style*="position: fixed"][style*="bottom"] {
+        z-index: 0 !important;
+    }
+    
+    div[style*="position: fixed"][style*="bottom"] button {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* На случай iframe / launcher-обёртки */
+    iframe[title*="Manage app"],
+    iframe[title*="Streamlit"] {
+        display: none !important;
+        visibility: hidden !important;
     }
 
     /* ===================== BASE THEME ===================== */
