@@ -747,6 +747,47 @@ with tab2:
 
         with g1:
             st.markdown(
+                f'<div class="card-header">Количество задач по командам</div>'
+                f'<span class="hint-icon" data-hint="Сравнение объёма задач по командам за две недели">?</span>',
+                unsafe_allow_html=True
+            )
+
+            curr_cnt_team = current_week_df.groupby("Компоненты").size().reset_index(name="Текущая неделя")
+            prev_cnt_team = previous_week_df.groupby("Компоненты").size().reset_index(name="Предыдущая неделя")
+            cnt_cmp = pd.merge(curr_cnt_team, prev_cnt_team, on="Компоненты", how="outer").fillna(0)
+
+            cnt_long = cnt_cmp.melt(
+                id_vars="Компоненты",
+                value_vars=["Текущая неделя", "Предыдущая неделя"],
+                var_name="Период",
+                value_name="Кол-во задач"
+            )
+
+            fig_cnt_compare = px.bar(
+                cnt_long,
+                x="Компоненты",
+                y="Кол-во задач",
+                color="Период",
+                barmode="group",
+                text_auto=".0f",
+                category_orders={"Компоненты": team_order_week},
+                color_discrete_map={
+                    "Текущая неделя": "#6244BB",
+                    "Предыдущая неделя": "#D6CCFF"
+                },
+                template="plotly_white"
+            )
+            fig_cnt_compare.update_layout(
+                height=320,
+                xaxis_title=None,
+                yaxis_title="Кол-во задач",
+                legend_title=None,
+                margin=dict(l=20, r=20, t=15, b=10)
+            )
+            st.plotly_chart(fig_cnt_compare, use_container_width=True)
+
+        with g2:
+            st.markdown(
                 f'<div class="card-header">TTM по командам: текущая vs предыдущая неделя</div>'
                 f'<span class="hint-icon" data-hint="Сравнение среднего TTM по командам">?</span>',
                 unsafe_allow_html=True
@@ -793,47 +834,7 @@ with tab2:
                 margin=dict(l=20, r=20, t=15, b=10)
             )
             st.plotly_chart(fig_ttm_compare, use_container_width=True)
-
-        with g2:
-            st.markdown(
-                f'<div class="card-header">Количество задач по командам</div>'
-                f'<span class="hint-icon" data-hint="Сравнение объёма задач по командам за две недели">?</span>',
-                unsafe_allow_html=True
-            )
-
-            curr_cnt_team = current_week_df.groupby("Компоненты").size().reset_index(name="Текущая неделя")
-            prev_cnt_team = previous_week_df.groupby("Компоненты").size().reset_index(name="Предыдущая неделя")
-            cnt_cmp = pd.merge(curr_cnt_team, prev_cnt_team, on="Компоненты", how="outer").fillna(0)
-
-            cnt_long = cnt_cmp.melt(
-                id_vars="Компоненты",
-                value_vars=["Текущая неделя", "Предыдущая неделя"],
-                var_name="Период",
-                value_name="Кол-во задач"
-            )
-
-            fig_cnt_compare = px.bar(
-                cnt_long,
-                x="Компоненты",
-                y="Кол-во задач",
-                color="Период",
-                barmode="group",
-                text_auto=".0f",
-                category_orders={"Компоненты": team_order_week},
-                color_discrete_map={
-                    "Текущая неделя": "#6244BB",
-                    "Предыдущая неделя": "#D6CCFF"
-                },
-                template="plotly_white"
-            )
-            fig_cnt_compare.update_layout(
-                height=320,
-                xaxis_title=None,
-                yaxis_title="Кол-во задач",
-                legend_title=None,
-                margin=dict(l=20, r=20, t=15, b=10)
-            )
-            st.plotly_chart(fig_cnt_compare, use_container_width=True)
+            
 
         g3, g4 = st.columns(2, gap="small")
 
