@@ -711,7 +711,7 @@ with tab1:
                     bgcolor="rgba(243,238,252,1)",
                     bordercolor="#E4DDF7",
                     borderwidth=1,
-                    font=dict(size=11, color="#5D4AA8"),
+                    font=dict(size=9, color="#5D4AA8"),
                     buttons=[
                         dict(
                             label="D",
