@@ -20,6 +20,15 @@ st.markdown(
         min-height: 1.6rem !important;
     }
 
+        /* Floating cloud widget */
+    div[data-testid="stStatusWidget"] {
+        display: none !important;
+    }
+    
+    button[title="Manage app"] {
+        display: none !important;
+    }
+
     /* ===================== BASE THEME ===================== */
     .stApp { background-color: #F7F2FA; }
 
