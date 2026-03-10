@@ -981,11 +981,13 @@ with tab2:
         with g3:
             st.markdown(
                 f'<div class="card-header">Поступление задач</div>'
-                f'<span class="hint-icon" data-hint="Сравнение количества новых задач по дням недели">?</span>',
+                f'<span class="hint-icon" data-hint="Сравнение количества новых задач по дням двух 7-дневных периодов">?</span>',
                 unsafe_allow_html=True
             )
-
-            weekday_order = [0, 1, 2, 3, 4, 5, 6]
+        
+            current_dates = pd.date_range(cw_start.normalize(), cw_end.normalize(), freq="D")
+            previous_dates = pd.date_range(pw_start.normalize(), pw_end.normalize(), freq="D")
+        
             weekday_map = {
                 0: "Пн",
                 1: "Вт",
@@ -995,42 +997,47 @@ with tab2:
                 5: "Сб",
                 6: "Вс"
             }
-
+        
+            x_labels = [weekday_map[d.weekday()] for d in current_dates]
+        
             curr_daily = (
-                current_week_df.assign(weekday=current_week_df["Дата создания"].dt.weekday)
-                .groupby("weekday")
+                current_week_df.assign(Дата=current_week_df["Дата создания"].dt.normalize())
+                .groupby("Дата")
                 .size()
-                .reindex(weekday_order, fill_value=0)
+                .reindex(current_dates, fill_value=0)
                 .reset_index(name="Задач")
             )
+            curr_daily.columns = ["Дата", "Задач"]
+            curr_daily["X"] = x_labels
             curr_daily["Период"] = "Текущая неделя"
-
+        
             prev_daily = (
-                previous_week_df.assign(weekday=previous_week_df["Дата создания"].dt.weekday)
-                .groupby("weekday")
+                previous_week_df.assign(Дата=previous_week_df["Дата создания"].dt.normalize())
+                .groupby("Дата")
                 .size()
-                .reindex(weekday_order, fill_value=0)
+                .reindex(previous_dates, fill_value=0)
                 .reset_index(name="Задач")
             )
+            prev_daily.columns = ["Дата", "Задач"]
+            prev_daily["X"] = x_labels
             prev_daily["Период"] = "Предыдущая неделя"
-
+        
             weekly_flow = pd.concat([curr_daily, prev_daily], ignore_index=True)
-            weekly_flow["День"] = weekly_flow["weekday"].map(weekday_map)
-
+        
             fig_flow = px.line(
                 weekly_flow,
-                x="День",
+                x="X",
                 y="Задач",
                 color="Период",
                 markers=True,
-                category_orders={"День": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]},
+                category_orders={"X": x_labels},
                 color_discrete_map={
                     "Текущая неделя": "#6244BB",
                     "Предыдущая неделя": "#D6CCFF"
                 },
                 template="plotly_white"
             )
-
+        
             fig_flow.update_layout(
                 height=230,
                 xaxis_title=None,
@@ -1038,7 +1045,7 @@ with tab2:
                 legend_title=None,
                 margin=dict(l=20, r=20, t=15, b=10)
             )
-
+        
             st.plotly_chart(fig_flow, use_container_width=True)
 
         with g4:
