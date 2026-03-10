@@ -210,13 +210,13 @@ st.markdown(
     
     .stTabs [data-baseweb="tab"] {
         min-height: 34px !important;
-        height: 34px !important;
-        padding: 0px 12px !important;
+        height: 30px !important;
+        padding: 0px 10px !important;
         background: #F3EEFC;
         border-radius: 10px;
         color: #5D4AA8;
         border: 1px solid #E4DDF7;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
     }
     
