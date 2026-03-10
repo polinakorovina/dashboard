@@ -329,7 +329,7 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
 
     st.markdown(
         f"""
-        <div class="kpi-card" style="height: 110px; padding: 6px 10px;">
+        <div class="kpi-card" style="height: 120px; padding: 6px 10px;">
             <div class="kpi-title" style="font-size:14px; min-height:22px;">
                 {title} {hint_html}
             </div>
@@ -877,7 +877,7 @@ with tab2:
             )
         with w2:
             kpi_compare_card(
-                "TTM в днях",
+                "TTM (дн)",
                 current_metrics["ttm"],
                 previous_metrics["ttm"],
                 hint="Среднее время от открытия до закрытия"
@@ -899,7 +899,7 @@ with tab2:
 
         with w5:
             kpi_compare_card(
-                "Позже %",
+                "Позже",
                 current_metrics["later_pct"],
                 previous_metrics["later_pct"],
                 hint="Доля задач с резолюцией 'Позже'",
@@ -907,7 +907,7 @@ with tab2:
             )
         with w6:
             kpi_compare_card(
-                "Активная работа %",
+                "Активная работа",
                 current_metrics["active_pct"],
                 previous_metrics["active_pct"],
                 hint="Доля активной работы в общем времени",
