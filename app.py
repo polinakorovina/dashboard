@@ -333,13 +333,13 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
             <div class="kpi-title" style="font-size:14px; min-height:22px;">
                 {title} {hint_html}
             </div>
-            <div class="kpi-value" style="font-size:24px; line-height:1;">
+            <div class="kpi-value" style="font-size:22px; line-height:1;">
                 {current_str}
             </div>
-            <div style="font-size:12px; color:#7E8694; margin-top:2px; line-height:1;">
+            <div style="font-size:15px; color:#7E8694; margin-top:2px; line-height:1;">
                 Пред. неделя: {previous_str}
             </div>
-            <div style="font-size:12px; font-weight:700; color:#4F46E5; margin-top:3px; line-height:1;">
+            <div style="font-size:15px; font-weight:700; color:#4F46E5; margin-top:3px; line-height:1;">
                 Изменение: {diff_str}
             </div>
         </div>
