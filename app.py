@@ -712,7 +712,6 @@ with tab1:
                     bordercolor="#E4DDF7",
                     borderwidth=1,
                     font=dict(size=7, color="#5D4AA8"),
-                    pad=dict(r=2, t=2),
                     buttons=[
                         dict(
                             label="D",
