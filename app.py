@@ -755,7 +755,7 @@ with tab2:
 
         with g1:
             st.markdown(
-                f'<div class="card-header">Количество задач по командам</div>'
+                f'<div class="card-header">Количество задач</div>'
                 f'<span class="hint-icon" data-hint="Сравнение объёма задач по командам за две недели">?</span>',
                 unsafe_allow_html=True
             )
@@ -786,7 +786,7 @@ with tab2:
                 template="plotly_white"
             )
             fig_cnt_compare.update_layout(
-                height=320,
+                height=230,
                 xaxis_title=None,
                 yaxis_title="Кол-во задач",
                 legend_title=None,
@@ -796,7 +796,7 @@ with tab2:
 
         with g2:
             st.markdown(
-                f'<div class="card-header">TTM по командам: текущая vs предыдущая неделя</div>'
+                f'<div class="card-header">TTM по командам</div>'
                 f'<span class="hint-icon" data-hint="Сравнение среднего TTM по командам">?</span>',
                 unsafe_allow_html=True
             )
@@ -828,7 +828,7 @@ with tab2:
                 template="plotly_white"
             )
             fig_ttm_compare.update_layout(
-                height=320,
+                height=230,
                 xaxis_title=None,
                 yaxis_title="TTM, дней",
                 legend_title=None,
@@ -841,7 +841,7 @@ with tab2:
 
         with g3:
             st.markdown(
-                f'<div class="card-header">Поступление задач: текущая vs предыдущая неделя</div>'
+                f'<div class="card-header">Поступление задач</div>'
                 f'<span class="hint-icon" data-hint="Сравнение количества новых задач по дням недели">?</span>',
                 unsafe_allow_html=True
             )
@@ -893,7 +893,7 @@ with tab2:
             )
 
             fig_flow.update_layout(
-                height=320,
+                height=230,
                 xaxis_title=None,
                 yaxis_title="Кол-во задач",
                 legend_title=None,
@@ -904,7 +904,7 @@ with tab2:
 
         with g4:
             st.markdown(
-                f'<div class="card-header">Структура количества обращений</div>'
+                f'<div class="card-header">Количество обращений</div>'
                 f'<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели">?</span>',
                 unsafe_allow_html=True
             )
@@ -947,7 +947,7 @@ with tab2:
             )
 
             fig_contacts_compare.update_layout(
-                height=320,
+                height=230,
                 xaxis_title=None,
                 yaxis_title="Кол-во задач",
                 legend_title=None,
