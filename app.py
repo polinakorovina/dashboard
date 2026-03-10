@@ -632,7 +632,7 @@ with tab1:
     b1, b2, b3 = st.columns(3, gap="small")
 
     with b1:
-        h1, h2 = st.columns([4.5, 1.2], gap="small")
+        h1, h2 = st.columns(2, gap="small")
     
         with h1:
             st.markdown(
