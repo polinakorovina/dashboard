@@ -15,8 +15,8 @@ st.markdown(
     <style>
 
     header[data-testid="stHeader"] {
-        height: 1.8rem !important;
-        min-height: 1.8rem !important;
+        height: 1.7rem !important;
+        min-height: 1.7rem !important;
     }
 
     /* ===================== BASE THEME ===================== */
@@ -104,10 +104,10 @@ st.markdown(
 
     /* ===================== LAYOUT ===================== */
     .block-container {
-        padding-top: 1.0rem !important;
+        padding-top: 0.8rem !important;
         padding-bottom: 0.65rem !important;
-        padding-left: 1.2rem !important;
-        padding-right: 1.2rem !important;
+        padding-left: 1.0rem !important;
+        padding-right: 1.0rem !important;
         max-width: 100% !important;
     }
 
