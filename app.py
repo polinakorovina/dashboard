@@ -13,6 +13,12 @@ st.set_page_config(page_title="Аналитика дежурств", layout="wid
 st.markdown(
     """
     <style>
+
+    header[data-testid="stHeader"] {
+        height: 1.8rem !important;
+        min-height: 1.8rem !important;
+    }
+
     /* ===================== BASE THEME ===================== */
     .stApp { background-color: #F7F2FA; }
 
@@ -98,7 +104,7 @@ st.markdown(
 
     /* ===================== LAYOUT ===================== */
     .block-container {
-        padding-top: 0.3rem !important;
+        padding-top: 1.8rem !important;
         padding-bottom: 0.65rem !important;
         padding-left: 1.2rem !important;
         padding-right: 1.2rem !important;
