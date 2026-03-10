@@ -349,15 +349,20 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
 
 
 def get_week_bounds(anchor_date):
+    """
+    Скользящее сравнение двух 7-дневных периодов:
+    - текущая неделя: последние 7 дней включая anchor_date
+    - предыдущая неделя: 7 дней перед текущей
+    """
     anchor_date = pd.Timestamp(anchor_date).normalize()
-    current_week_start = anchor_date - pd.Timedelta(days=anchor_date.weekday())
-    current_week_end = current_week_start + pd.Timedelta(days=6, hours=23, minutes=59, seconds=59)
+
+    current_week_start = anchor_date - pd.Timedelta(days=6)
+    current_week_end = anchor_date + pd.Timedelta(hours=23, minutes=59, seconds=59)
 
     prev_week_start = current_week_start - pd.Timedelta(days=7)
     prev_week_end = current_week_start - pd.Timedelta(seconds=1)
 
     return current_week_start, current_week_end, prev_week_start, prev_week_end
-
 
 def calc_metrics(df_):
     if df_.empty:
@@ -441,7 +446,7 @@ if df.empty:
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
 
-default_start = max(db_min, db_max - timedelta(days=7))
+default_start = max(db_min, db_max - timedelta(days=6))
 default_range = (default_start, db_max)
 
 st.sidebar.markdown(
