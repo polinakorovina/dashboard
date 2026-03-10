@@ -200,6 +200,34 @@ st.markdown(
     }
     thead tr th:first-child { display:none; }
     tbody tr th:first-child { display:none; }
+
+
+    /* ===================== TABS STYLING ===================== */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: #F3EEFC;
+        border-radius: 14px;
+        color: #5D4AA8;
+        padding: 8px 16px;
+        border: 1px solid #E4DDF7;
+        font-weight: 600;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: white !important;
+        color: #6244BB !important;
+        border: 1px solid #D8CDF4 !important;
+        box-shadow: 0 2px 8px rgba(98, 68, 187, 0.08);
+    }
+    
+    .stTabs [data-baseweb="tab-highlight"] {
+        display: none !important;
+    }
+
     </style>
     """,
     unsafe_allow_html=True
