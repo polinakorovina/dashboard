@@ -241,9 +241,9 @@ st.markdown(
         display: none !important;
     }
 
-    /* ===================== COMPACT RADIO SWITCH ===================== */
+    /* ===================== COMPACT SEGMENT SWITCH ===================== */
     div[role="radiogroup"] {
-        gap: 6px !important;
+        gap: 4px !important;
         flex-wrap: nowrap !important;
     }
     
@@ -251,20 +251,35 @@ st.markdown(
         background: #F3EEFC !important;
         border: 1px solid #E4DDF7 !important;
         border-radius: 8px !important;
-        padding: 2px 10px !important;
-        min-height: 28px !important;
+        padding: 0px 8px !important;
+        min-height: 26px !important;
+        display: flex !important;
+        align-items: center !important;
     }
     
+    /* скрыть кружок radio */
+    div[role="radiogroup"] label > div:first-child {
+        display: none !important;
+    }
+    
+    /* текст */
     div[role="radiogroup"] label p {
-        font-size: 12px !important;
-        font-weight: 600 !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
         color: #5D4AA8 !important;
+        margin: 0 !important;
     }
     
-    div[role="radiogroup"] input:checked + div,
-    div[role="radiogroup"] label[data-selected="true"] {
+    /* активный вариант */
+    div[role="radiogroup"] label:has(input:checked) {
         background: white !important;
-        border-color: #D8CDF4 !important;
+        border: 1px solid #D8CDF4 !important;
+        box-shadow: 0 1px 4px rgba(98, 68, 187, 0.06);
+    }
+    
+    /* убрать белое выделение текста */
+    div[role="radiogroup"] * {
+        user-select: none !important;
     }
 
     </style>
@@ -617,21 +632,33 @@ with tab1:
     b1, b2, b3 = st.columns(3, gap="small")
 
     with b1:
-        st.markdown(
-            f'<div class="card-header">Динамика поступления задач</div>'
-            f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям/месяцам">?</span>',
-            unsafe_allow_html=True
+        h1, h2 = st.columns([4.5, 1.2], gap="small")
+    
+        with h1:
+            st.markdown(
+                f'<div class="card-header">Динамика поступления задач</div>'
+                f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам">?</span>',
+                unsafe_allow_html=True
+            )
+    
+        with h2:
+            unit = st.radio(
+                "",
+                ["D", "W", "M"],
+                horizontal=True,
+                key="unit_bottom",
+                label_visibility="collapsed"
+            )
+    
+        u_map = {"D": "D", "W": "W", "M": "ME"}
+    
+        resampled = (
+            f_df.set_index("Дата создания")
+            .resample(u_map[unit])
+            .size()
+            .reset_index(name="Задач")
         )
-        unit = st.radio(
-            "",
-            ["День", "Неделя", "Месяц"],
-            horizontal=True,
-            key="unit_bottom",
-            label_visibility="collapsed"
-        )
-        u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
-
-        resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
+    
         fig_d = px.line(
             resampled,
             x="Дата создания",
@@ -640,9 +667,16 @@ with tab1:
             color_discrete_sequence=["#6244BB"],
             template="plotly_white"
         )
-        fig_d.update_layout(height=185, xaxis_title=None, margin=dict(l=20, r=20, t=10, b=10))
+    
+        fig_d.update_layout(
+            height=185,
+            xaxis_title=None,
+            margin=dict(l=20, r=20, t=10, b=10)
+        )
+    
         st.plotly_chart(fig_d, use_container_width=True)
 
+    
     with b2:
         st.markdown(
             f'<div class="card-header">Передачи между командами</div>'
