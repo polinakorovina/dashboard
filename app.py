@@ -445,23 +445,14 @@ else:
     previous_metrics = calc_metrics(previous_week_df)
 
 # ===================== UI =====================
-header_col, switch_col = st.columns([5, 2])
+st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-with header_col:
-    st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
-
-with switch_col:
-    view_mode = st.radio(
-        "",
-        ["Общий обзор", "Сравнение недель"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+tab1, tab2 = st.tabs(["Общий обзор", "Сравнение недель"])
 
 # =========================================================
-# PAGE 1 — ОБЩИЙ ОБЗОР
+# TAB 1 — ОБЩИЙ ОБЗОР
 # =========================================================
-if view_mode == "Общий обзор":
+with tab1:
     k1, k2, k3, k4, k5, k6 = st.columns(6, gap="small")
 
     with k1:
@@ -508,12 +499,7 @@ if view_mode == "Общий обзор":
             color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
             template="plotly_white"
         )
-        fig_l.update_layout(
-            height=270,
-            xaxis_title=None,
-            yaxis_title=None,
-            margin=dict(l=40, r=20, t=10, b=10)
-        )
+        fig_l.update_layout(height=270, xaxis_title=None, yaxis_title=None, margin=dict(l=40, r=20, t=10, b=10))
         st.plotly_chart(fig_l, use_container_width=True)
 
     with c2:
@@ -682,9 +668,9 @@ if view_mode == "Общий обзор":
         )
 
 # =========================================================
-# PAGE 2 — СРАВНЕНИЕ НЕДЕЛЬ
+# TAB 2 — СРАВНЕНИЕ НЕДЕЛЬ
 # =========================================================
-if view_mode == "Сравнение недель":
+with tab2:
     st.markdown(
         f"""
         <div style="font-size:16px; font-weight:600; margin-bottom:8px;">
@@ -700,7 +686,6 @@ if view_mode == "Сравнение недель":
         st.warning("Недостаточно данных для сравнения текущей и предыдущей недели.")
     else:
         w1, w2, w3, w4, w5, w6, w7 = st.columns(7, gap="small")
-
         with w1:
             kpi_compare_card(
                 "Всего задач",
@@ -730,6 +715,7 @@ if view_mode == "Сравнение недель":
                 previous_metrics["wait"],
                 hint="Среднее неактивное время"
             )
+
         with w5:
             kpi_compare_card(
                 "Позже %",
@@ -756,6 +742,7 @@ if view_mode == "Сравнение недель":
 
         st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
+
         team_order_week = (
             pd.concat([current_week_df["Компоненты"], previous_week_df["Компоненты"]])
             .dropna()
@@ -763,7 +750,6 @@ if view_mode == "Сравнение недель":
             .index
             .tolist()
         )
-
         g1, g2 = st.columns(2, gap="small")
 
         with g1:
@@ -825,6 +811,7 @@ if view_mode == "Сравнение недель":
                 value_name="TTM"
             )
 
+
             fig_ttm_compare = px.bar(
                 ttm_long,
                 x="Компоненты",
@@ -847,6 +834,7 @@ if view_mode == "Сравнение недель":
                 margin=dict(l=20, r=20, t=15, b=10)
             )
             st.plotly_chart(fig_ttm_compare, use_container_width=True)
+            
 
         g3, g4 = st.columns(2, gap="small")
 
