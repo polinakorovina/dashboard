@@ -243,7 +243,7 @@ st.markdown(
 
     /* ===================== COMPACT SEGMENT SWITCH ===================== */
     div[role="radiogroup"] {
-        gap: 4px !important;
+        gap: 1px !important;
         flex-wrap: nowrap !important;
     }
     
@@ -251,7 +251,7 @@ st.markdown(
         background: #F3EEFC !important;
         border: 1px solid #E4DDF7 !important;
         border-radius: 8px !important;
-        padding: 0px 8px !important;
+        padding: 0px 6px !important;
         min-height: 26px !important;
         display: flex !important;
         align-items: center !important;
