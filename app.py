@@ -110,8 +110,8 @@ st.markdown(
     }
 
     /* Заголовки */
-    .main-header { font-size: 32px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
-    .card-header { font-size: 18px; font-weight: 700; color: #1A1C1E; display: inline-block; }
+    .main-header { font-size: 24px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
+    .card-header { font-size: 14px; font-weight: 700; color: #1A1C1E; display: inline-block; }
 
     /* KPI карточки */
     .kpi-card {
@@ -247,7 +247,7 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
 
     st.markdown(
         f"""
-        <div class="kpi-card" style="height: 96px; padding: 6px 10px;">
+        <div class="kpi-card" style="height: 100px; padding: 6px 10px;">
             <div class="kpi-title" style="font-size:12px; min-height:22px;">
                 {title} {hint_html}
             </div>
@@ -740,7 +740,7 @@ with tab2:
                 hint="Среднее число передач между командами"
             )
 
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
 
         team_order_week = (
