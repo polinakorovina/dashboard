@@ -786,7 +786,7 @@ with tab2:
                 template="plotly_white"
             )
             fig_cnt_compare.update_layout(
-                height=230,
+                height=250,
                 xaxis_title=None,
                 yaxis_title="Кол-во задач",
                 legend_title=None,
@@ -828,7 +828,7 @@ with tab2:
                 template="plotly_white"
             )
             fig_ttm_compare.update_layout(
-                height=230,
+                height=250,
                 xaxis_title=None,
                 yaxis_title="TTM, дней",
                 legend_title=None,
