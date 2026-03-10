@@ -247,13 +247,13 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
 
     st.markdown(
         f"""
-        <div class="kpi-card" style="height: 148px;">
+        <div class="kpi-card" style="height: 126px;">
             <div class="kpi-title">{title} {hint_html}</div>
             <div class="kpi-value">{current_str}</div>
             <div style="font-size:13px; color:#7E8694; margin-top:4px;">
                 Пред. неделя: {previous_str}
             </div>
-            <div style="font-size:14px; font-weight:700; color:#2563EB; margin-top:6px;">
+            <div style="font-size:14px; font-weight:700; color:#4F46E5; margin-top:6px;">
                 Изменение: {diff_str}
             </div>
         </div>
@@ -881,7 +881,7 @@ with tab2:
                 category_orders={"День": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]},
                 color_discrete_map={
                     "Текущая неделя": "#6244BB",
-                    "Предыдущая неделя": "#2563EB"
+                    "Предыдущая неделя": "#D6CCFF"
                 },
                 template="plotly_white"
             )
