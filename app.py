@@ -216,13 +216,16 @@ st.markdown(
     }
     
     .stTabs [data-baseweb="tab"] {
-        min-height: 34px !important;
-        height: 30px !important;
+        min-height: 28px !important;
+        height: 28px !important;
+        min-width: 90px !important;
         padding: 0px 10px !important;
+    
         background: #F3EEFC;
-        border-radius: 10px;
+        border-radius: 8px;
         color: #5D4AA8;
         border: 1px solid #E4DDF7;
+    
         font-size: 12px;
         font-weight: 600;
     }
@@ -231,7 +234,7 @@ st.markdown(
         background: white !important;
         color: #6244BB !important;
         border: 1px solid #D8CDF4 !important;
-        box-shadow: 0 2px 6px rgba(98, 68, 187, 0.06);
+        box-shadow: 0 1px 4px rgba(98, 68, 187, 0.06);
     }
     
     .stTabs [data-baseweb="tab-highlight"] {
