@@ -703,7 +703,7 @@ with tab1:
                 dict(
                     type="buttons",
                     direction="right",
-                    x=1.0,
+                    x=0.0,
                     y=1.18,
                     xanchor="left",
                     yanchor="top",
