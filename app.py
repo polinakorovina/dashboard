@@ -705,7 +705,7 @@ with tab1:
                     direction="right",
                     x=1.0,
                     y=1.18,
-                    xanchor="right",
+                    xanchor="left",
                     yanchor="top",
                     showactive=True,
                     bgcolor="rgba(243,238,252,1)",
