@@ -241,6 +241,32 @@ st.markdown(
         display: none !important;
     }
 
+    /* ===================== COMPACT RADIO SWITCH ===================== */
+    div[role="radiogroup"] {
+        gap: 6px !important;
+        flex-wrap: nowrap !important;
+    }
+    
+    div[role="radiogroup"] label {
+        background: #F3EEFC !important;
+        border: 1px solid #E4DDF7 !important;
+        border-radius: 8px !important;
+        padding: 2px 10px !important;
+        min-height: 28px !important;
+    }
+    
+    div[role="radiogroup"] label p {
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        color: #5D4AA8 !important;
+    }
+    
+    div[role="radiogroup"] input:checked + div,
+    div[role="radiogroup"] label[data-selected="true"] {
+        background: white !important;
+        border-color: #D8CDF4 !important;
+    }
+
     </style>
     """,
     unsafe_allow_html=True
@@ -596,7 +622,13 @@ with tab1:
             f'<span class="hint-icon" data-hint="Количество новых задач по дням/неделям/месяцам">?</span>',
             unsafe_allow_html=True
         )
-        unit = st.selectbox("Групп.", ["День", "Неделя", "Месяц"], key="unit_bottom", label_visibility="collapsed")
+        unit = st.radio(
+            "",
+            ["День", "Неделя", "Месяц"],
+            horizontal=True,
+            key="unit_bottom",
+            label_visibility="collapsed"
+        )
         u_map = {"День": "D", "Неделя": "W", "Месяц": "ME"}
 
         resampled = f_df.set_index("Дата создания").resample(u_map[unit]).size().reset_index(name="Задач")
