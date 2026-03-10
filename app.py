@@ -212,7 +212,7 @@ st.markdown(
     /* ===================== TABS STYLING ===================== */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
-        margin-bottom: 5px;
+        margin-bottom: 4px;
     }
     
     .stTabs [data-baseweb="tab"] {
@@ -222,7 +222,7 @@ st.markdown(
         padding: 0px 10px !important;
     
         background: #F3EEFC;
-        border-radius: 8px;
+        border-radius: 5px;
         color: #5D4AA8;
         border: 1px solid #E4DDF7;
     
@@ -239,47 +239,6 @@ st.markdown(
     
     .stTabs [data-baseweb="tab-highlight"] {
         display: none !important;
-    }
-
-    /* ===================== COMPACT SEGMENT SWITCH ===================== */
-    div[role="radiogroup"] {
-        gap: 1px !important;
-        flex-wrap: nowrap !important;
-    }
-    
-    div[role="radiogroup"] label {
-        background: #F3EEFC !important;
-        border: 1px solid #E4DDF7 !important;
-        border-radius: 8px !important;
-        padding: 0px 6px !important;
-        min-height: 26px !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-    
-    /* скрыть кружок radio */
-    div[role="radiogroup"] label > div:first-child {
-        display: none !important;
-    }
-    
-    /* текст */
-    div[role="radiogroup"] label p {
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        color: #5D4AA8 !important;
-        margin: 0 !important;
-    }
-    
-    /* активный вариант */
-    div[role="radiogroup"] label:has(input:checked) {
-        background: white !important;
-        border: 1px solid #D8CDF4 !important;
-        box-shadow: 0 1px 4px rgba(98, 68, 187, 0.06);
-    }
-    
-    /* убрать белое выделение текста */
-    div[role="radiogroup"] * {
-        user-select: none !important;
     }
 
     </style>
