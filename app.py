@@ -740,7 +740,7 @@ with tab1:
             margin=dict(l=40, r=20, t=10, b=10)
         )
         st.plotly_chart(fig_l, use_container_width=True)
-    
+        st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
         b1, b2, b3 = st.columns(3, gap="small")
     
         with b1:
