@@ -698,15 +698,15 @@ with tab1:
                 dict(
                     type="buttons",
                     direction="right",
-                    x=0.0,
-                    y=1.10,
-                    xanchor="left",
-                    yanchor="top",
+                    x=1.0,
+                    y=0.02,
+                    xanchor="right",
+                    yanchor="bottom",
                     showactive=True,
-                    bgcolor="rgba(243,238,252,1)",
+                    bgcolor="rgba(243,238,252,0.95)",
                     bordercolor="#E4DDF7",
                     borderwidth=1,
-                    font=dict(size=10, color="#5D4AA8"),
+                    font=dict(size=9, color="#5D4AA8"),
                     pad=dict(r=0, t=0, l=0, b=0),
                     buttons=[
                         dict(
@@ -718,7 +718,7 @@ with tab1:
                             ],
                         ),
                         dict(
-                            label="Только ожидание",
+                            label="Ожидание",
                             method="update",
                             args=[
                                 {"visible": visible_wait},
