@@ -40,7 +40,6 @@ st.markdown(
         visibility: hidden !important;
     }
 
-    /* Иногда это рендерится как фиксированный контейнер внизу справа */
     div[style*="position: fixed"][style*="bottom"] {
         z-index: 0 !important;
     }
@@ -50,7 +49,6 @@ st.markdown(
         visibility: hidden !important;
     }
 
-    /* На случай iframe / launcher-обёртки */
     iframe[title*="Manage app"],
     iframe[title*="Streamlit"] {
         display: none !important;
@@ -75,7 +73,6 @@ st.markdown(
         color: white !important;
     }
 
-    /* Контейнер select/multiselect: белый, скруглённый */
     [data-baseweb="select"] > div {
         background-color: white !important;
         border-radius: 14px !important;
@@ -83,10 +80,8 @@ st.markdown(
         min-height: 48px !important;
     }
 
-    /* input внутри multiselect */
     [data-baseweb="select"] input { color: #1A1C1E !important; }
 
-    /* chips выбранных элементов */
     [data-baseweb="tag"] {
         background-color: #6244BB !important;
         color: white !important;
@@ -98,14 +93,12 @@ st.markdown(
     [data-baseweb="tag"] span { color: white !important; font-weight: 500 !important; }
     [data-baseweb="tag"] svg { fill: white !important; }
 
-    /* стрелка dropdown */
     [data-baseweb="select"] svg { fill: #6244BB !important; }
 
-    /* hover/focus обводка */
     [data-baseweb="select"] > div:hover { box-shadow: 0 0 0 1px #6244BB inset !important; }
     [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 2px #6244BB inset !important; }
 
-    /* ===================== DATE INPUT (SAFE PURPLE) ===================== */
+    /* ===================== DATE INPUT ===================== */
     [data-testid="stDateInput"] p { display: none !important; }
 
     .react-datepicker__day--selected,
@@ -153,11 +146,9 @@ st.markdown(
         gap: 0.6rem;
     }
 
-    /* Заголовки */
     .main-header { font-size: 24px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
     .card-header { font-size: 14px; font-weight: 700; color: #1A1C1E; display: inline-block; }
 
-    /* KPI карточки */
     .kpi-card {
         background: #ffffff;
         border: 1px solid #E6E9EF;
@@ -166,12 +157,11 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
         height: 100px;
-    
         display: grid;
         grid-template-rows: auto 1fr auto;
         align-items: stretch;
     }
-    
+
     .kpi-title {
         font-size: 15px;
         font-weight: 650;
@@ -183,18 +173,17 @@ st.markdown(
         min-height: 0;
         margin: 0;
     }
-    
+
     .kpi-value {
         font-size: 26px;
         font-weight: 650;
         color: #6244BB;
         line-height: 1;
         margin: 0;
-    
         display: flex;
         align-items: center;
     }
-    /* Иконка подсказки */
+
     .hint-icon {
         display: inline-flex;
         justify-content: center;
@@ -212,7 +201,6 @@ st.markdown(
         flex: 0 0 auto;
     }
 
-    /* Тултип */
     .hint-icon:hover::after {
         content: attr(data-hint);
         position: absolute;
@@ -231,7 +219,6 @@ st.markdown(
         font-weight: normal;
     }
 
-    /* Графики как карточки */
     [data-testid="stPlotlyChart"] {
         background: white;
         border-radius: 18px;
@@ -241,7 +228,6 @@ st.markdown(
         overflow: hidden;
     }
 
-    /* Таблица */
     th {
         background-color: #6244BB !important;
         color: white !important;
@@ -251,7 +237,6 @@ st.markdown(
     thead tr th:first-child { display:none; }
     tbody tr th:first-child { display:none; }
 
-    /* ===================== TABS STYLING ===================== */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
         margin-bottom: 4px;
@@ -262,12 +247,10 @@ st.markdown(
         height: 28px !important;
         min-width: 90px !important;
         padding: 0px 10px !important;
-
         background: #F3EEFC;
         border-radius: 5px;
         color: #5D4AA8;
         border: 1px solid #E4DDF7;
-
         font-size: 12px;
         font-weight: 600;
     }
@@ -283,7 +266,6 @@ st.markdown(
         display: none !important;
     }
 
-    /* ===================== LOCAL RADIO ===================== */
     div[role="radiogroup"] {
         gap: 8px;
     }
@@ -304,7 +286,6 @@ st.markdown(
 
 def kpi_card(title: str, value: str, hint: str = "", subvalue: str = "", color: str = "#6244BB"):
     hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
-
     sub_html = (
         f'<div style="font-size:13px; color:#7E8694; line-height:1.2;">{subvalue}</div>'
         if subvalue else ""
@@ -370,19 +351,11 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
 
 
 def get_week_bounds(anchor_date):
-    """
-    Скользящее сравнение двух 7-дневных периодов:
-    - текущая неделя: последние 7 дней включая anchor_date
-    - предыдущая неделя: 7 дней перед текущей
-    """
     anchor_date = pd.Timestamp(anchor_date).normalize()
-
     current_week_start = anchor_date - pd.Timedelta(days=6)
     current_week_end = anchor_date + pd.Timedelta(hours=23, minutes=59, seconds=59)
-
     prev_week_start = current_week_start - pd.Timedelta(days=7)
     prev_week_end = current_week_start - pd.Timedelta(seconds=1)
-
     return current_week_start, current_week_end, prev_week_start, prev_week_end
 
 
@@ -453,6 +426,11 @@ def load_data():
     df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(1)
     df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
 
+    # Нормализация колонки Тип
+    if "Тип" not in df_.columns:
+        df_["Тип"] = "Не указано"
+    df_["Тип"] = df_["Тип"].fillna("Не указано").astype(str).str.strip()
+
     return df_
 
 
@@ -502,6 +480,7 @@ if df_in_range.empty:
 
 teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
 res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
+types_in_range = sorted(df_in_range["Тип"].dropna().unique().tolist())
 
 period_sig = (start_date, end_date)
 
@@ -509,6 +488,7 @@ if st.session_state.get("_period_sig") != period_sig:
     st.session_state["_period_sig"] = period_sig
     st.session_state["sel_teams"] = teams_in_range
     st.session_state["sel_res"] = res_in_range
+    st.session_state["sel_types"] = types_in_range
 
 sel_teams = st.sidebar.multiselect(
     "Команды",
@@ -524,9 +504,17 @@ sel_res = st.sidebar.multiselect(
     key="sel_res"
 )
 
+sel_types = st.sidebar.multiselect(
+    "Тип",
+    types_in_range,
+    default=st.session_state.get("sel_types", types_in_range),
+    key="sel_types"
+)
+
 f_df = df_in_range[
     (df_in_range["Компоненты"].isin(sel_teams)) &
-    (df_in_range["Резолюция"].isin(sel_res))
+    (df_in_range["Резолюция"].isin(sel_res)) &
+    (df_in_range["Тип"].isin(sel_types))
 ].copy()
 
 if f_df.empty:
@@ -536,7 +524,8 @@ if f_df.empty:
 # ===================== WEEKLY COMPARISON DATA =====================
 base_week_df = df[
     (df["Компоненты"].isin(sel_teams)) &
-    (df["Резолюция"].isin(sel_res))
+    (df["Резолюция"].isin(sel_res)) &
+    (df["Тип"].isin(sel_types))
 ].copy()
 
 weekly_ready = False
@@ -582,7 +571,6 @@ with tab1:
     with k2:
         med = f_df["ttm_days"].median() if len(f_df) else 0.0
         avg = f_df["ttm_days"].mean() if len(f_df) else 0.0
-        
         kpi_card(
             "TTM в днях",
             f"{avg:.2f}",
@@ -592,7 +580,6 @@ with tab1:
     with k3:
         med = f_df["cycle_time"].median() if len(f_df) else 0.0
         avg = f_df["cycle_time"].mean() if len(f_df) else 0.0
-        
         kpi_card(
             "Cycle time (дн)",
             f"{avg:.2f}",
@@ -602,7 +589,6 @@ with tab1:
     with k4:
         avg = f_df["wait_time_days"].mean() if len(f_df) else 0.0
         med = f_df["wait_time_days"].median() if len(f_df) else 0.0
-        
         kpi_card(
             "Ожидание (дн)",
             f"{avg:.2f}",
@@ -611,9 +597,7 @@ with tab1:
         )
     with k5:
         late = ((f_df["Резолюция"] == "Позже").mean() * 100) if len(f_df) else 0
-
         late_color = "#E45757" if late > 50 else "#4CAF7D"
-        
         kpi_card(
             "Позже %",
             f"{late:.1f}%",
@@ -625,9 +609,7 @@ with tab1:
             (f_df["cycle_time"].sum() / f_df["ttm_days"].sum()) * 100
             if f_df["ttm_days"].sum() > 0 else 0
         )
-        
         active_color = "#E45757" if active < 50 else "#4CAF7D"
-        
         kpi_card(
             "Активная работа %",
             f"{active:.0f}%",
@@ -638,8 +620,7 @@ with tab1:
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     c1, c2 = st.columns(2, gap="small")
-    # Порядок команд для двух верхних графиков:
-    # сортируем по среднему суммарному времени задачи (TTM) от большего к меньшему
+
     time_order_df = (
         f_df.groupby("Компоненты")["ttm_days"]
         .mean()
@@ -647,36 +628,35 @@ with tab1:
         .reset_index()
     )
     t_order = time_order_df["Компоненты"].tolist()
-    
+
     with c1:
         st.markdown(
             f'<div class="card-header">Структура времени задачи</div>'
             f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания">?</span>',
             unsafe_allow_html=True
         )
-    
+
         team_stage_avg = f_df.groupby("Компоненты").mean(numeric_only=True).reset_index()
-    
-        # ---------- trace 1: суммарно ----------
+
         t_parts = (
             f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
             .mean()
             .reset_index()
         )
-    
+
         t_parts_long = t_parts.melt(
             id_vars="Компоненты",
             value_vars=["cycle_time", "wait_time_days"],
             var_name="Метрика",
             value_name="Дни"
         )
-    
+
         name_map = {
             "cycle_time": "Cycle time",
             "wait_time_days": "Ожидание"
         }
         t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
-    
+
         fig_a = px.bar(
             t_parts_long,
             x="Дни",
@@ -692,21 +672,20 @@ with tab1:
             },
             template="plotly_white",
         )
-    
-        # ---------- traces 2..n: только ожидание ----------
+
         wait_colors = {
             "Сбор данных": "#5B3FC4",
             "Открыт": "#8A6BE8",
             "Заблокирован": "#B59AF5",
             "На стороне менеджера": "#E3D9FF"
         }
-    
+
         for stage in WAIT_STAGES:
             stage_df = pd.DataFrame({
                 "Компоненты": team_stage_avg["Компоненты"],
                 "Дни": team_stage_avg[stage] / 1440
             })
-    
+
             fig_a.add_bar(
                 x=stage_df["Дни"],
                 y=stage_df["Компоненты"],
@@ -717,10 +696,10 @@ with tab1:
                 textposition="auto",
                 visible=False
             )
-    
+
         visible_sum = [True, True] + [False] * len(WAIT_STAGES)
         visible_wait = [False, False] + [True] * len(WAIT_STAGES)
-    
+
         fig_a.update_layout(
             height=270,
             xaxis_title=None,
@@ -731,8 +710,8 @@ with tab1:
                 dict(
                     type="buttons",
                     direction="right",
-                    x=1.18,
-                    y=0.02,
+                    x=0.98,
+                    y=0.08,
                     xanchor="right",
                     yanchor="bottom",
                     showactive=True,
@@ -762,15 +741,16 @@ with tab1:
                 )
             ],
         )
-    
+
         st.plotly_chart(fig_a, use_container_width=True)
-    
+
     with c2:
         st.markdown(
             f'<div class="card-header">Нагрузка по командам</div>'
-            f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
+            f'<span class="hint-icon" data-hint="Количество задач по командам">?</span>',
             unsafe_allow_html=True
         )
+
         t_counts = f_df.groupby("Компоненты").size().reset_index(name="Кол-во")
         fig_l = px.bar(
             t_counts,
@@ -792,14 +772,14 @@ with tab1:
         st.plotly_chart(fig_l, use_container_width=True)
 
     b1, b2, b3 = st.columns(3, gap="small")
-    
+
     with b1:
         st.markdown(
             f'<div class="card-header">Динамика поступления задач</div>'
             f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам">?</span>',
             unsafe_allow_html=True
         )
-    
+
         daily_df = (
             f_df.set_index("Дата создания")
             .resample("D")
@@ -807,7 +787,7 @@ with tab1:
             .reset_index(name="Задач")
         )
         daily_df["Группировка"] = "D"
-    
+
         weekly_df = (
             f_df.set_index("Дата создания")
             .resample("W")
@@ -815,7 +795,7 @@ with tab1:
             .reset_index(name="Задач")
         )
         weekly_df["Группировка"] = "W"
-    
+
         monthly_df = (
             f_df.set_index("Дата создания")
             .resample("ME")
@@ -823,10 +803,9 @@ with tab1:
             .reset_index(name="Задач")
         )
         monthly_df["Группировка"] = "M"
-    
-        # Выходные: суббота=5, воскресенье=6
+
         weekend_df = daily_df[daily_df["Дата создания"].dt.weekday.isin([5, 6])].copy()
-    
+
         fig_d = px.line(
             daily_df,
             x="Дата создания",
@@ -835,8 +814,7 @@ with tab1:
             color_discrete_sequence=["#6244BB"],
             template="plotly_white"
         )
-    
-        # Основная дневная линия
+
         fig_d.update_traces(
             visible=True,
             name="D",
@@ -844,8 +822,7 @@ with tab1:
             marker=dict(color="#6244BB", size=7),
             hovertemplate="Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
-    
-        # Красные точки на выходных — только для дневного режима
+
         fig_d.add_scatter(
             x=weekend_df["Дата создания"],
             y=weekend_df["Задач"],
@@ -859,8 +836,7 @@ with tab1:
             ),
             hovertemplate="Выходной<br>Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
-    
-        # Недельный режим
+
         fig_d.add_scatter(
             x=weekly_df["Дата создания"],
             y=weekly_df["Задач"],
@@ -871,8 +847,7 @@ with tab1:
             marker=dict(color="#6244BB", size=7),
             hovertemplate="Неделя до: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
-    
-        # Месячный режим
+
         fig_d.add_scatter(
             x=monthly_df["Дата создания"],
             y=monthly_df["Задач"],
@@ -883,7 +858,7 @@ with tab1:
             marker=dict(color="#6244BB", size=7),
             hovertemplate="Месяц: %{x|%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
-    
+
         fig_d.update_layout(
             height=250,
             xaxis_title=None,
@@ -933,7 +908,7 @@ with tab1:
                 )
             ],
         )
-    
+
         st.plotly_chart(fig_d, use_container_width=True)
 
     with b2:
