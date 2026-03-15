@@ -770,7 +770,7 @@ with tab1:
             height=270,
             xaxis_title=None,
             yaxis_title=None,
-            showlegend=False,,
+            showlegend=False,
             margin=dict(l=40, r=20, t=10, b=10)
         )
         st.plotly_chart(fig_l, use_container_width=True)
