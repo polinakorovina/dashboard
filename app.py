@@ -614,136 +614,122 @@ with tab1:
     with c2:
         st.markdown(
             f'<div class="card-header">Структура времени задачи</div>'
-            f'<span class="hint-icon" data-hint="Можно посмотреть время задачи суммарно, по этапам или только этапы ожидания">?</span>',
+            f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания">?</span>',
             unsafe_allow_html=True
         )
-
-        wait_view_mode = st.radio(
-            "Отображение",
-            ["Суммарно", "По этапам", "Только ожидание"],
-            horizontal=True,
-            key="wait_view_mode",
-            label_visibility="collapsed"
-        )
-
+    
         team_stage_avg = f_df.groupby("Компоненты").mean(numeric_only=True).reset_index()
-
-        if wait_view_mode == "Суммарно":
-            t_parts = (
-                f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
-                .mean()
-                .reset_index()
-            )
-
-            t_parts_long = t_parts.melt(
-                id_vars="Компоненты",
-                value_vars=["cycle_time", "wait_time_days"],
-                var_name="Метрика",
-                value_name="Дни"
-            )
-
-            name_map = {
-                "cycle_time": "Cycle time",
-                "wait_time_days": "Ожидание"
-            }
-            t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
-
-            fig_a = px.bar(
-                t_parts_long,
-                x="Дни",
-                y="Компоненты",
-                color="Метрика",
+    
+        # ---------- trace 1: суммарно ----------
+        t_parts = (
+            f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+            .mean()
+            .reset_index()
+        )
+    
+        t_parts_long = t_parts.melt(
+            id_vars="Компоненты",
+            value_vars=["cycle_time", "wait_time_days"],
+            var_name="Метрика",
+            value_name="Дни"
+        )
+    
+        name_map = {
+            "cycle_time": "Cycle time",
+            "wait_time_days": "Ожидание"
+        }
+        t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
+    
+        fig_a = px.bar(
+            t_parts_long,
+            x="Дни",
+            y="Компоненты",
+            color="Метрика",
+            orientation="h",
+            barmode="stack",
+            text_auto=".1f",
+            category_orders={"Компоненты": t_order},
+            color_discrete_map={
+                "Cycle time": "#6244BB",
+                "Ожидание": "#A485E0"
+            },
+            template="plotly_white",
+        )
+    
+        # ---------- traces 2..n: только ожидание ----------
+        wait_colors = {
+            "Сбор данных": "#8B6DE0",
+            "Открыт": "#A485E0",
+            "Заблокирован": "#C3B1F5",
+            "На стороне менеджера": "#E0D7FA"
+        }
+    
+        for stage in WAIT_STAGES:
+            stage_df = pd.DataFrame({
+                "Компоненты": team_stage_avg["Компоненты"],
+                "Дни": team_stage_avg[stage] / 1440
+            })
+    
+            fig_a.add_bar(
+                x=stage_df["Дни"],
+                y=stage_df["Компоненты"],
+                name=stage,
                 orientation="h",
-                barmode="stack",
-                text_auto=".1f",
-                category_orders={"Компоненты": t_order},
-                color_discrete_map={
-                    "Cycle time": "#6244BB",
-                    "Ожидание": "#A485E0"
-                },
-                template="plotly_white",
+                marker_color=wait_colors.get(stage, "#A485E0"),
+                text=[f"{x:.1f}" if x > 0 else "" for x in stage_df["Дни"]],
+                textposition="auto",
+                visible=False
             )
-
-        elif wait_view_mode == "По этапам":
-            plot_df = pd.DataFrame()
-            plot_df["Компоненты"] = team_stage_avg["Компоненты"]
-            plot_df["Cycle time"] = team_stage_avg["cycle_time"]
-
-            for stage in WAIT_STAGES:
-                plot_df[stage] = team_stage_avg[stage] / 1440
-
-            t_parts_long = plot_df.melt(
-                id_vars="Компоненты",
-                var_name="Метрика",
-                value_name="Дни"
-            )
-
-            legend_order = ["Cycle time"] + WAIT_STAGES
-
-            fig_a = px.bar(
-                t_parts_long,
-                x="Дни",
-                y="Компоненты",
-                color="Метрика",
-                orientation="h",
-                barmode="stack",
-                text_auto=".1f",
-                category_orders={
-                    "Компоненты": t_order,
-                    "Метрика": legend_order
-                },
-                color_discrete_map={
-                    "Cycle time": "#6244BB",
-                    "Сбор данных": "#8B6DE0",
-                    "Открыт": "#A485E0",
-                    "Заблокирован": "#C3B1F5",
-                    "На стороне менеджера": "#E0D7FA"
-                },
-                template="plotly_white",
-            )
-
-        else:  # Только ожидание
-            plot_df = pd.DataFrame()
-            plot_df["Компоненты"] = team_stage_avg["Компоненты"]
-
-            for stage in WAIT_STAGES:
-                plot_df[stage] = team_stage_avg[stage] / 1440
-
-            t_parts_long = plot_df.melt(
-                id_vars="Компоненты",
-                var_name="Метрика",
-                value_name="Дни"
-            )
-
-            fig_a = px.bar(
-                t_parts_long,
-                x="Дни",
-                y="Компоненты",
-                color="Метрика",
-                orientation="h",
-                barmode="stack",
-                text_auto=".1f",
-                category_orders={
-                    "Компоненты": t_order,
-                    "Метрика": WAIT_STAGES
-                },
-                color_discrete_map={
-                    "Сбор данных": "#8B6DE0",
-                    "Открыт": "#A485E0",
-                    "Заблокирован": "#C3B1F5",
-                    "На стороне менеджера": "#E0D7FA"
-                },
-                template="plotly_white",
-            )
-
+    
+        # первые 2 trace — это суммарный режим
+        # остальные trace — только ожидание
+        total_traces = 2 + len(WAIT_STAGES)
+    
+        visible_sum = [True, True] + [False] * len(WAIT_STAGES)
+        visible_wait = [False, False] + [True] * len(WAIT_STAGES)
+    
         fig_a.update_layout(
             height=300,
             xaxis_title=None,
             yaxis_title=None,
             legend_title=None,
             margin=dict(l=40, r=20, t=10, b=10),
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    direction="right",
+                    x=0.0,
+                    y=1.18,
+                    xanchor="left",
+                    yanchor="top",
+                    showactive=True,
+                    bgcolor="rgba(243,238,252,1)",
+                    bordercolor="#E4DDF7",
+                    borderwidth=1,
+                    font=dict(size=10, color="#5D4AA8"),
+                    pad=dict(r=0, t=0),
+                    buttons=[
+                        dict(
+                            label="Суммарно",
+                            method="update",
+                            args=[
+                                {"visible": visible_sum},
+                                {"barmode": "stack"}
+                            ],
+                        ),
+                        dict(
+                            label="Только ожидание",
+                            method="update",
+                            args=[
+                                {"visible": visible_wait},
+                                {"barmode": "stack"}
+                            ],
+                        ),
+                    ],
+                )
+            ],
         )
-
+    
         st.plotly_chart(fig_a, use_container_width=True)
 
     b1, b2, b3 = st.columns(3, gap="small")
