@@ -925,10 +925,10 @@ with tab1:
             hole=0.6,
             color="Количество обращений",
             color_discrete_map={
-                "1-4": "#6244BB",
-                "5-10": "#8B6DE0",
-                "11-100": "#B39DFF",
-                "100+": "#D6CCFF"
+                "1-4": "#5B3FC4",
+                "5-10": "#8C6FF0",
+                "11-100": "#B9A3FA",
+                "100+": "#E1D8FF"
             },
             template="plotly_white"
         )
