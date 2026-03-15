@@ -592,27 +592,6 @@ with tab1:
 
     with c1:
         st.markdown(
-            f'<div class="card-header">Нагрузка по командам</div>'
-            f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
-            unsafe_allow_html=True
-        )
-        t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
-        fig_l = px.bar(
-            t_counts,
-            x="Кол-во",
-            y="Компоненты",
-            color="Резолюция",
-            orientation="h",
-            text="Кол-во",
-            category_orders={"Компоненты": t_order},
-            color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
-            template="plotly_white"
-        )
-        fig_l.update_layout(height=270, xaxis_title=None, yaxis_title=None, margin=dict(l=40, r=20, t=10, b=10))
-        st.plotly_chart(fig_l, use_container_width=True)
-
-    with c2:
-        st.markdown(
             f'<div class="card-header">Структура времени задачи</div>'
             f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания">?</span>',
             unsafe_allow_html=True
@@ -681,10 +660,6 @@ with tab1:
                 visible=False
             )
     
-        # первые 2 trace — это суммарный режим
-        # остальные trace — только ожидание
-        total_traces = 2 + len(WAIT_STAGES)
-    
         visible_sum = [True, True] + [False] * len(WAIT_STAGES)
         visible_wait = [False, False] + [True] * len(WAIT_STAGES)
     
@@ -731,122 +706,148 @@ with tab1:
         )
     
         st.plotly_chart(fig_a, use_container_width=True)
-
-    b1, b2, b3 = st.columns(3, gap="small")
-
-    with b1:
+    
+    with c2:
         st.markdown(
-            f'<div class="card-header">Динамика поступления задач</div>'
-            f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам">?</span>',
+            f'<div class="card-header">Нагрузка по командам</div>'
+            f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
             unsafe_allow_html=True
         )
-
-        daily_df = (
-            f_df.set_index("Дата создания")
-            .resample("D")
-            .size()
-            .reset_index(name="Задач")
-        )
-        daily_df["Группировка"] = "D"
-
-        weekly_df = (
-            f_df.set_index("Дата создания")
-            .resample("W")
-            .size()
-            .reset_index(name="Задач")
-        )
-        weekly_df["Группировка"] = "W"
-
-        monthly_df = (
-            f_df.set_index("Дата создания")
-            .resample("ME")
-            .size()
-            .reset_index(name="Задач")
-        )
-        monthly_df["Группировка"] = "M"
-
-        fig_d = px.line(
-            daily_df,
-            x="Дата создания",
-            y="Задач",
-            markers=True,
-            color_discrete_sequence=["#6244BB"],
+        t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
+        fig_l = px.bar(
+            t_counts,
+            x="Кол-во",
+            y="Компоненты",
+            color="Резолюция",
+            orientation="h",
+            text="Кол-во",
+            category_orders={"Компоненты": t_order},
+            color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
             template="plotly_white"
         )
-
-        fig_d.update_traces(visible=True, name="D")
-
-        fig_d.add_scatter(
-            x=weekly_df["Дата создания"],
-            y=weekly_df["Задач"],
-            mode="lines+markers",
-            name="W",
-            visible=False,
-            line=dict(color="#6244BB"),
-            marker=dict(color="#6244BB")
-        )
-
-        fig_d.add_scatter(
-            x=monthly_df["Дата создания"],
-            y=monthly_df["Задач"],
-            mode="lines+markers",
-            name="M",
-            visible=False,
-            line=dict(color="#6244BB"),
-            marker=dict(color="#6244BB")
-        )
-
-        fig_d.update_layout(
-            height=250,
+        fig_l.update_layout(
+            height=270,
             xaxis_title=None,
             yaxis_title=None,
-            margin=dict(l=20, r=20, t=8, b=10),
-            showlegend=False,
-            updatemenus=[
-                dict(
-                    type="buttons",
-                    direction="right",
-                    x=0.0,
-                    y=1.18,
-                    xanchor="left",
-                    yanchor="top",
-                    showactive=True,
-                    bgcolor="rgba(243,238,252,1)",
-                    bordercolor="#E4DDF7",
-                    borderwidth=1,
-                    font=dict(size=10, color="#5D4AA8"),
-                    pad=dict(r=0, t=0),
-                    buttons=[
-                        dict(
-                            label="D",
-                            method="update",
-                            args=[
-                                {"visible": [True, False, False]},
-                                {"title": None}
-                            ],
-                        ),
-                        dict(
-                            label="W",
-                            method="update",
-                            args=[
-                                {"visible": [False, True, False]},
-                                {"title": None}
-                            ],
-                        ),
-                        dict(
-                            label="M",
-                            method="update",
-                            args=[
-                                {"visible": [False, False, True]},
-                                {"title": None}
-                            ],
-                        ),
-                    ],
-                )
-            ],
+            margin=dict(l=40, r=20, t=10, b=10)
         )
-
-        st.plotly_chart(fig_d, use_container_width=True)
+        st.plotly_chart(fig_l, use_container_width=True)
+    
+        b1, b2, b3 = st.columns(3, gap="small")
+    
+        with b1:
+            st.markdown(
+                f'<div class="card-header">Динамика поступления задач</div>'
+                f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам">?</span>',
+                unsafe_allow_html=True
+            )
+    
+            daily_df = (
+                f_df.set_index("Дата создания")
+                .resample("D")
+                .size()
+                .reset_index(name="Задач")
+            )
+            daily_df["Группировка"] = "D"
+    
+            weekly_df = (
+                f_df.set_index("Дата создания")
+                .resample("W")
+                .size()
+                .reset_index(name="Задач")
+            )
+            weekly_df["Группировка"] = "W"
+    
+            monthly_df = (
+                f_df.set_index("Дата создания")
+                .resample("ME")
+                .size()
+                .reset_index(name="Задач")
+            )
+            monthly_df["Группировка"] = "M"
+    
+            fig_d = px.line(
+                daily_df,
+                x="Дата создания",
+                y="Задач",
+                markers=True,
+                color_discrete_sequence=["#6244BB"],
+                template="plotly_white"
+            )
+    
+            fig_d.update_traces(visible=True, name="D")
+    
+            fig_d.add_scatter(
+                x=weekly_df["Дата создания"],
+                y=weekly_df["Задач"],
+                mode="lines+markers",
+                name="W",
+                visible=False,
+                line=dict(color="#6244BB"),
+                marker=dict(color="#6244BB")
+            )
+    
+            fig_d.add_scatter(
+                x=monthly_df["Дата создания"],
+                y=monthly_df["Задач"],
+                mode="lines+markers",
+                name="M",
+                visible=False,
+                line=dict(color="#6244BB"),
+                marker=dict(color="#6244BB")
+            )
+    
+            fig_d.update_layout(
+                height=250,
+                xaxis_title=None,
+                yaxis_title=None,
+                margin=dict(l=20, r=20, t=8, b=10),
+                showlegend=False,
+                updatemenus=[
+                    dict(
+                        type="buttons",
+                        direction="right",
+                        x=0.0,
+                        y=1.18,
+                        xanchor="left",
+                        yanchor="top",
+                        showactive=True,
+                        bgcolor="rgba(243,238,252,1)",
+                        bordercolor="#E4DDF7",
+                        borderwidth=1,
+                        font=dict(size=10, color="#5D4AA8"),
+                        pad=dict(r=0, t=0),
+                        buttons=[
+                            dict(
+                                label="D",
+                                method="update",
+                                args=[
+                                    {"visible": [True, False, False]},
+                                    {"title": None}
+                                ],
+                            ),
+                            dict(
+                                label="W",
+                                method="update",
+                                args=[
+                                    {"visible": [False, True, False]},
+                                    {"title": None}
+                                ],
+                            ),
+                            dict(
+                                label="M",
+                                method="update",
+                                args=[
+                                    {"visible": [False, False, True]},
+                                    {"title": None}
+                                ],
+                            ),
+                        ],
+                    )
+                ],
+            )
+    
+            st.plotly_chart(fig_d, use_container_width=True)
 
     with b2:
         st.markdown(
