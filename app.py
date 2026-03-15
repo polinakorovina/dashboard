@@ -741,7 +741,7 @@ with tab1:
         )
         st.plotly_chart(fig_l, use_container_width=True)
 
-        b1, b2, b3 = st.columns(3, gap="small")
+    b1, b2, b3 = st.columns(3, gap="small")
     
     with b1:
         st.markdown(
