@@ -391,7 +391,7 @@ def load_data():
         return pd.DataFrame()
 
     df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
-    df_ = df_.dropna(subset=["Дата создания"])
+    df_ = df_.dropna(subset=["Дата создания"]).copy()
 
     ttm_stages = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
     cycle_stages = ["Бэклог разработки", "В работе"]
@@ -405,11 +405,24 @@ def load_data():
     df_["cycle_time"] = df_[cycle_stages].sum(axis=1) / 1440
     df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
 
-    df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(1)
-    df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    # Нормализация текстовых полей
+    if "Резолюция" not in df_.columns:
+        df_["Резолюция"] = "Не указано"
+    if "Компоненты" not in df_.columns:
+        df_["Компоненты"] = "Не указано"
+    if "Приоритет" not in df_.columns:
+        df_["Приоритет"] = "Не указано"
+    if "Количество обращений" not in df_.columns:
+        df_["Количество обращений"] = "Не указано"
+
+    df_["Резолюция"] = df_["Резолюция"].fillna("Не указано").astype(str).str.strip()
+    df_["Компоненты"] = df_["Компоненты"].fillna("Не указано").astype(str).str.strip()
+    df_["Приоритет"] = df_["Приоритет"].fillna("Не указано").astype(str).str.strip()
+    df_["Количество обращений"] = df_["Количество обращений"].fillna("Не указано").astype(str).str.strip()
+
+    df_["Пинг-понг обращения"] = pd.to_numeric(
+        df_.get("Пинг-понг обращения", 0), errors="coerce"
+    ).fillna(1)
 
     return df_
 
@@ -430,7 +443,6 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Инициализация date_range только один раз
 if "date_range" not in st.session_state:
     st.session_state["date_range"] = default_range
 
@@ -455,60 +467,76 @@ if start_date > end_date:
 start_d = pd.to_datetime(start_date)
 end_d = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
-df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
+df_in_range = df[
+    (df["Дата создания"] >= start_d) &
+    (df["Дата создания"] <= end_d)
+].copy()
+
 if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
-teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
-res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
+teams_in_range = sorted(df_in_range["Компоненты"].dropna().astype(str).unique().tolist())
+res_in_range = sorted(df_in_range["Резолюция"].dropna().astype(str).unique().tolist())
 
 period_sig = (start_date, end_date)
 
-# При смене периода обновляем значения фильтров
+# При смене периода обновляем доступные значения фильтров
 if st.session_state.get("_period_sig") != period_sig:
     st.session_state["_period_sig"] = period_sig
-    st.session_state["sel_teams"] = teams_in_range
-    st.session_state["sel_res"] = res_in_range
+    st.session_state["teams_widget"] = teams_in_range
+    st.session_state["res_widget"] = res_in_range
 
-# Защита от "битых" значений, если список опций поменялся
-if "sel_teams" not in st.session_state:
-    st.session_state["sel_teams"] = teams_in_range
-else:
-    st.session_state["sel_teams"] = [x for x in st.session_state["sel_teams"] if x in teams_in_range]
-    if not st.session_state["sel_teams"]:
-        st.session_state["sel_teams"] = teams_in_range
+# Если ключей ещё нет — создаём
+if "teams_widget" not in st.session_state:
+    st.session_state["teams_widget"] = teams_in_range
+if "res_widget" not in st.session_state:
+    st.session_state["res_widget"] = res_in_range
 
-if "sel_res" not in st.session_state:
-    st.session_state["sel_res"] = res_in_range
-else:
-    st.session_state["sel_res"] = [x for x in st.session_state["sel_res"] if x in res_in_range]
-    if not st.session_state["sel_res"]:
-        st.session_state["sel_res"] = res_in_range
+# Очищаем выбранные значения от тех, которых уже нет в текущем периоде
+st.session_state["teams_widget"] = [
+    x for x in st.session_state["teams_widget"] if x in teams_in_range
+]
+st.session_state["res_widget"] = [
+    x for x in st.session_state["res_widget"] if x in res_in_range
+]
 
-# ВАЖНО: без default, потому что значения уже берутся из session_state
+# Если после очистки пусто — берём все
+if not st.session_state["teams_widget"]:
+    st.session_state["teams_widget"] = teams_in_range
+if not st.session_state["res_widget"]:
+    st.session_state["res_widget"] = res_in_range
+
 sel_teams = st.sidebar.multiselect(
     "Команды",
-    teams_in_range,
-    key="sel_teams"
+    options=teams_in_range,
+    key="teams_widget"
 )
 
 sel_res = st.sidebar.multiselect(
     "Резолюции",
-    res_in_range,
-    key="sel_res"
+    options=res_in_range,
+    key="res_widget"
 )
 
-f_df = df_in_range[
-    (df_in_range["Компоненты"].isin(sel_teams)) &
-    (df_in_range["Резолюция"].isin(sel_res))
-].copy()
+# Если пользователь вручную всё снял — считаем это как "ничего не выбрано"
+# и не показываем данные
+f_df = df_in_range.copy()
+
+if sel_teams:
+    f_df = f_df[f_df["Компоненты"].isin(sel_teams)]
+
+if sel_res:
+    f_df = f_df[f_df["Резолюция"].isin(sel_res)]
 
 # ===================== WEEKLY COMPARISON DATA =====================
-base_week_df = df[
-    (df["Компоненты"].isin(sel_teams)) &
-    (df["Резолюция"].isin(sel_res))
-].copy()
+base_week_df = df.copy()
+
+if sel_teams:
+    base_week_df = base_week_df[base_week_df["Компоненты"].isin(sel_teams)]
+
+if sel_res:
+    base_week_df = base_week_df[base_week_df["Резолюция"].isin(sel_res)]
 
 weekly_ready = False
 
@@ -539,6 +567,10 @@ else:
 
 # ===================== UI =====================
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
+
+if f_df.empty:
+    st.warning("По выбранным фильтрам данных нет.")
+    st.stop()
 
 tab1, tab2 = st.tabs(["Общий обзор", "Сравнение недель"])
 
@@ -722,21 +754,9 @@ with tab1:
                     font=dict(size=10, color="#5D4AA8"),
                     pad=dict(r=0, t=0),
                     buttons=[
-                        dict(
-                            label="D",
-                            method="update",
-                            args=[{"visible": [True, False, False]}, {"title": None}],
-                        ),
-                        dict(
-                            label="W",
-                            method="update",
-                            args=[{"visible": [False, True, False]}, {"title": None}],
-                        ),
-                        dict(
-                            label="M",
-                            method="update",
-                            args=[{"visible": [False, False, True]}, {"title": None}],
-                        ),
+                        dict(label="D", method="update", args=[{"visible": [True, False, False]}, {"title": None}]),
+                        dict(label="W", method="update", args=[{"visible": [False, True, False]}, {"title": None}]),
+                        dict(label="M", method="update", args=[{"visible": [False, False, True]}, {"title": None}]),
                     ],
                 )
             ],
