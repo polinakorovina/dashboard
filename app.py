@@ -300,7 +300,7 @@ def kpi_card(title: str, value: str, hint: str = "", subvalue: str = ""):
     hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
 
     sub_html = (
-        f'<div style="font-size:14px; color:#7E8694; margin-top:4px;">{subvalue}</div>'
+        f'<div style="font-size:14px; color:#7E8694; margin-top:3px;">{subvalue}</div>'
         if subvalue else ""
     )
 
