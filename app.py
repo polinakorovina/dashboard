@@ -171,7 +171,7 @@ st.markdown(
         justify-content: space-between;
     }
     .kpi-title {
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 650;
         color: #1A1C1E;
         min-height: 42px;
