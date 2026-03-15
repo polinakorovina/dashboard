@@ -6,10 +6,14 @@ import yadisk
 import os
 from datetime import timedelta, date
 
+TTM_STAGES = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
+CYCLE_STAGES = ["Бэклог разработки", "В работе"]
+WAIT_STAGES = [stage for stage in TTM_STAGES if stage not in CYCLE_STAGES]
+
 # 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# 2) BI-стиль + тултипы + sidebar chips + календарь (фиолетовый) + русификация поля
+# 2) BI-стиль + тултипы + sidebar chips + календарь
 st.markdown(
     """
     <style>
@@ -20,32 +24,32 @@ st.markdown(
         min-height: 1.6rem !important;
     }
 
-        /* Нижний floating launcher / Manage app */
+    /* Нижний floating launcher / Manage app */
     [data-testid="stStatusWidget"] {
         display: none !important;
         visibility: hidden !important;
     }
-    
+
     button[title="Manage app"] {
         display: none !important;
         visibility: hidden !important;
     }
-    
+
     button[aria-label="Manage app"] {
         display: none !important;
         visibility: hidden !important;
     }
-    
+
     /* Иногда это рендерится как фиксированный контейнер внизу справа */
     div[style*="position: fixed"][style*="bottom"] {
         z-index: 0 !important;
     }
-    
+
     div[style*="position: fixed"][style*="bottom"] button {
         display: none !important;
         visibility: hidden !important;
     }
-    
+
     /* На случай iframe / launcher-обёртки */
     iframe[title*="Manage app"],
     iframe[title*="Streamlit"] {
@@ -57,7 +61,7 @@ st.markdown(
     .stApp { background-color: #F7F2FA; }
 
     /* ===================== SIDEBAR ===================== */
-    [data-testid="stSidebar"] { 
+    [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #A485E0 0%, #8E6EDB 100%);
         color: white;
     }
@@ -241,37 +245,49 @@ st.markdown(
     thead tr th:first-child { display:none; }
     tbody tr th:first-child { display:none; }
 
-
     /* ===================== TABS STYLING ===================== */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
         margin-bottom: 4px;
     }
-    
+
     .stTabs [data-baseweb="tab"] {
         min-height: 28px !important;
         height: 28px !important;
         min-width: 90px !important;
         padding: 0px 10px !important;
-    
+
         background: #F3EEFC;
         border-radius: 5px;
         color: #5D4AA8;
         border: 1px solid #E4DDF7;
-    
+
         font-size: 12px;
         font-weight: 600;
     }
-    
+
     .stTabs [aria-selected="true"] {
         background: white !important;
         color: #6244BB !important;
         border: 1px solid #D8CDF4 !important;
         box-shadow: 0 1px 4px rgba(98, 68, 187, 0.06);
     }
-    
+
     .stTabs [data-baseweb="tab-highlight"] {
         display: none !important;
+    }
+
+    /* ===================== LOCAL RADIO ===================== */
+    div[role="radiogroup"] {
+        gap: 8px;
+    }
+
+    div[role="radiogroup"] label {
+        background: #F3EEFC !important;
+        border: 1px solid #E4DDF7 !important;
+        border-radius: 10px !important;
+        padding: 6px 12px !important;
+        margin-right: 6px !important;
     }
 
     </style>
@@ -356,6 +372,7 @@ def get_week_bounds(anchor_date):
 
     return current_week_start, current_week_end, prev_week_start, prev_week_end
 
+
 def calc_metrics(df_):
     if df_.empty:
         return {
@@ -408,16 +425,13 @@ def load_data():
     df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
     df_ = df_.dropna(subset=["Дата создания"])
 
-    ttm_stages = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
-    cycle_stages = ["Бэклог разработки", "В работе"]
-
-    for col in set(ttm_stages + cycle_stages):
+    for col in set(TTM_STAGES + CYCLE_STAGES):
         if col not in df_.columns:
             df_[col] = 0
         df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
 
-    df_["ttm_days"] = df_[ttm_stages].sum(axis=1) / 1440
-    df_["cycle_time"] = df_[cycle_stages].sum(axis=1) / 1440
+    df_["ttm_days"] = df_[TTM_STAGES].sum(axis=1) / 1440
+    df_["cycle_time"] = df_[CYCLE_STAGES].sum(axis=1) / 1440
     df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
 
     df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
@@ -434,7 +448,7 @@ if df.empty:
     st.warning("Данные не найдены.")
     st.stop()
 
-# ===================== SIDEBAR FILTERS (FIXED DATE RANGE) =====================
+# ===================== SIDEBAR FILTERS =====================
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
 
@@ -445,6 +459,7 @@ st.sidebar.markdown(
     "<div style='font-size:20px; font-weight:600; margin-bottom:-35px;'>Выбор даты</div>",
     unsafe_allow_html=True
 )
+
 date_range = st.sidebar.date_input(
     "Период анализа",
     value=st.session_state.get("date_range", default_range),
@@ -482,13 +497,28 @@ if st.session_state.get("_period_sig") != period_sig:
     st.session_state["sel_teams"] = teams_in_range
     st.session_state["sel_res"] = res_in_range
 
-sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=st.session_state.get("sel_teams", teams_in_range), key="sel_teams")
-sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=st.session_state.get("sel_res", res_in_range), key="sel_res")
+sel_teams = st.sidebar.multiselect(
+    "Команды",
+    teams_in_range,
+    default=st.session_state.get("sel_teams", teams_in_range),
+    key="sel_teams"
+)
+
+sel_res = st.sidebar.multiselect(
+    "Резолюции",
+    res_in_range,
+    default=st.session_state.get("sel_res", res_in_range),
+    key="sel_res"
+)
 
 f_df = df_in_range[
     (df_in_range["Компоненты"].isin(sel_teams)) &
     (df_in_range["Резолюция"].isin(sel_res))
 ].copy()
+
+if f_df.empty:
+    st.warning("По выбранным фильтрам данных нет.")
+    st.stop()
 
 # ===================== WEEKLY COMPARISON DATA =====================
 base_week_df = df[
@@ -583,41 +613,131 @@ with tab1:
 
     with c2:
         st.markdown(
-            f'<div class="card-header">Cycle vs ожидание</div>'
-            f'<span class="hint-icon" data-hint="Средний Cycle time и среднее ожидание (TTM − Cycle) по командам">?</span>',
+            f'<div class="card-header">Структура времени задачи</div>'
+            f'<span class="hint-icon" data-hint="Можно посмотреть время задачи суммарно, по этапам или только этапы ожидания">?</span>',
             unsafe_allow_html=True
         )
 
-        t_parts = (
-            f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
-            .mean()
-            .reset_index()
+        wait_view_mode = st.radio(
+            "Отображение",
+            ["Суммарно", "По этапам", "Только ожидание"],
+            horizontal=True,
+            key="wait_view_mode",
+            label_visibility="collapsed"
         )
 
-        t_parts_long = t_parts.melt(
-            id_vars="Компоненты",
-            value_vars=["cycle_time", "wait_time_days"],
-            var_name="Метрика",
-            value_name="Дни"
-        )
+        team_stage_avg = f_df.groupby("Компоненты").mean(numeric_only=True).reset_index()
 
-        name_map = {"cycle_time": "Cycle time", "wait_time_days": "Ожидание"}
-        t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
+        if wait_view_mode == "Суммарно":
+            t_parts = (
+                f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+                .mean()
+                .reset_index()
+            )
 
-        fig_a = px.bar(
-            t_parts_long,
-            x="Дни",
-            y="Компоненты",
-            color="Метрика",
-            orientation="h",
-            barmode="stack",
-            text_auto=".1f",
-            category_orders={"Компоненты": t_order},
-            color_discrete_map={"Cycle time": "#6244BB", "Ожидание": "#A485E0"},
-            template="plotly_white",
-        )
+            t_parts_long = t_parts.melt(
+                id_vars="Компоненты",
+                value_vars=["cycle_time", "wait_time_days"],
+                var_name="Метрика",
+                value_name="Дни"
+            )
+
+            name_map = {
+                "cycle_time": "Cycle time",
+                "wait_time_days": "Ожидание"
+            }
+            t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
+
+            fig_a = px.bar(
+                t_parts_long,
+                x="Дни",
+                y="Компоненты",
+                color="Метрика",
+                orientation="h",
+                barmode="stack",
+                text_auto=".1f",
+                category_orders={"Компоненты": t_order},
+                color_discrete_map={
+                    "Cycle time": "#6244BB",
+                    "Ожидание": "#A485E0"
+                },
+                template="plotly_white",
+            )
+
+        elif wait_view_mode == "По этапам":
+            plot_df = pd.DataFrame()
+            plot_df["Компоненты"] = team_stage_avg["Компоненты"]
+            plot_df["Cycle time"] = team_stage_avg["cycle_time"]
+
+            for stage in WAIT_STAGES:
+                plot_df[stage] = team_stage_avg[stage] / 1440
+
+            t_parts_long = plot_df.melt(
+                id_vars="Компоненты",
+                var_name="Метрика",
+                value_name="Дни"
+            )
+
+            legend_order = ["Cycle time"] + WAIT_STAGES
+
+            fig_a = px.bar(
+                t_parts_long,
+                x="Дни",
+                y="Компоненты",
+                color="Метрика",
+                orientation="h",
+                barmode="stack",
+                text_auto=".1f",
+                category_orders={
+                    "Компоненты": t_order,
+                    "Метрика": legend_order
+                },
+                color_discrete_map={
+                    "Cycle time": "#6244BB",
+                    "Сбор данных": "#8B6DE0",
+                    "Открыт": "#A485E0",
+                    "Заблокирован": "#C3B1F5",
+                    "На стороне менеджера": "#E0D7FA"
+                },
+                template="plotly_white",
+            )
+
+        else:  # Только ожидание
+            plot_df = pd.DataFrame()
+            plot_df["Компоненты"] = team_stage_avg["Компоненты"]
+
+            for stage in WAIT_STAGES:
+                plot_df[stage] = team_stage_avg[stage] / 1440
+
+            t_parts_long = plot_df.melt(
+                id_vars="Компоненты",
+                var_name="Метрика",
+                value_name="Дни"
+            )
+
+            fig_a = px.bar(
+                t_parts_long,
+                x="Дни",
+                y="Компоненты",
+                color="Метрика",
+                orientation="h",
+                barmode="stack",
+                text_auto=".1f",
+                category_orders={
+                    "Компоненты": t_order,
+                    "Метрика": WAIT_STAGES
+                },
+                color_discrete_map={
+                    "Сбор данных": "#8B6DE0",
+                    "Открыт": "#A485E0",
+                    "Заблокирован": "#C3B1F5",
+                    "На стороне менеджера": "#E0D7FA"
+                },
+                template="plotly_white",
+            )
+
         fig_a.update_layout(
-            height=270,
+            height=300,
             xaxis_title=None,
             yaxis_title=None,
             legend_title=None,
@@ -634,7 +754,7 @@ with tab1:
             f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам">?</span>',
             unsafe_allow_html=True
         )
-    
+
         daily_df = (
             f_df.set_index("Дата создания")
             .resample("D")
@@ -642,7 +762,7 @@ with tab1:
             .reset_index(name="Задач")
         )
         daily_df["Группировка"] = "D"
-    
+
         weekly_df = (
             f_df.set_index("Дата создания")
             .resample("W")
@@ -650,7 +770,7 @@ with tab1:
             .reset_index(name="Задач")
         )
         weekly_df["Группировка"] = "W"
-    
+
         monthly_df = (
             f_df.set_index("Дата создания")
             .resample("ME")
@@ -658,7 +778,7 @@ with tab1:
             .reset_index(name="Задач")
         )
         monthly_df["Группировка"] = "M"
-    
+
         fig_d = px.line(
             daily_df,
             x="Дата создания",
@@ -667,9 +787,9 @@ with tab1:
             color_discrete_sequence=["#6244BB"],
             template="plotly_white"
         )
-    
+
         fig_d.update_traces(visible=True, name="D")
-    
+
         fig_d.add_scatter(
             x=weekly_df["Дата создания"],
             y=weekly_df["Задач"],
@@ -679,7 +799,7 @@ with tab1:
             line=dict(color="#6244BB"),
             marker=dict(color="#6244BB")
         )
-    
+
         fig_d.add_scatter(
             x=monthly_df["Дата создания"],
             y=monthly_df["Задач"],
@@ -689,7 +809,7 @@ with tab1:
             line=dict(color="#6244BB"),
             marker=dict(color="#6244BB")
         )
-    
+
         fig_d.update_layout(
             height=250,
             xaxis_title=None,
@@ -739,10 +859,9 @@ with tab1:
                 )
             ],
         )
-    
+
         st.plotly_chart(fig_d, use_container_width=True)
 
-    
     with b2:
         st.markdown(
             f'<div class="card-header">Передачи между командами</div>'
@@ -888,7 +1007,6 @@ with tab2:
                 previous_metrics["wait"],
                 hint="Среднее неактивное время"
             )
-
         with w5:
             kpi_compare_card(
                 "Позже",
@@ -914,7 +1032,6 @@ with tab2:
             )
 
         st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
-
 
         team_order_week = (
             pd.concat([current_week_df["Компоненты"], previous_week_df["Компоненты"]])
@@ -984,7 +1101,6 @@ with tab2:
                 value_name="TTM"
             )
 
-
             fig_ttm_compare = px.bar(
                 ttm_long,
                 x="Компоненты",
@@ -1007,7 +1123,6 @@ with tab2:
                 margin=dict(l=20, r=20, t=15, b=10)
             )
             st.plotly_chart(fig_ttm_compare, use_container_width=True)
-            
 
         g3, g4 = st.columns(2, gap="small")
 
@@ -1017,10 +1132,10 @@ with tab2:
                 f'<span class="hint-icon" data-hint="Сравнение количества новых задач по дням двух 7-дневных периодов">?</span>',
                 unsafe_allow_html=True
             )
-        
+
             current_dates = pd.date_range(cw_start.normalize(), cw_end.normalize(), freq="D")
             previous_dates = pd.date_range(pw_start.normalize(), pw_end.normalize(), freq="D")
-        
+
             weekday_map = {
                 0: "Пн",
                 1: "Вт",
@@ -1030,9 +1145,9 @@ with tab2:
                 5: "Сб",
                 6: "Вс"
             }
-        
+
             x_labels = [weekday_map[d.weekday()] for d in current_dates]
-        
+
             curr_daily = (
                 current_week_df.assign(Дата=current_week_df["Дата создания"].dt.normalize())
                 .groupby("Дата")
@@ -1043,7 +1158,7 @@ with tab2:
             curr_daily.columns = ["Дата", "Задач"]
             curr_daily["X"] = x_labels
             curr_daily["Период"] = "Текущая неделя"
-        
+
             prev_daily = (
                 previous_week_df.assign(Дата=previous_week_df["Дата создания"].dt.normalize())
                 .groupby("Дата")
@@ -1054,9 +1169,9 @@ with tab2:
             prev_daily.columns = ["Дата", "Задач"]
             prev_daily["X"] = x_labels
             prev_daily["Период"] = "Предыдущая неделя"
-        
+
             weekly_flow = pd.concat([curr_daily, prev_daily], ignore_index=True)
-        
+
             fig_flow = px.line(
                 weekly_flow,
                 x="X",
@@ -1070,7 +1185,7 @@ with tab2:
                 },
                 template="plotly_white"
             )
-        
+
             fig_flow.update_layout(
                 height=230,
                 xaxis_title=None,
@@ -1078,7 +1193,7 @@ with tab2:
                 legend_title=None,
                 margin=dict(l=20, r=20, t=15, b=10)
             )
-        
+
             st.plotly_chart(fig_flow, use_container_width=True)
 
         with g4:
