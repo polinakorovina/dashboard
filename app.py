@@ -302,11 +302,11 @@ st.markdown(
 )
 
 
-def kpi_card(title: str, value: str, hint: str = "", subvalue: str = ""):
+def kpi_card(title: str, value: str, hint: str = "", subvalue: str = "", color: str = "#6244BB"):
     hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
 
     sub_html = (
-        f'<div style="font-size:13px; color:#7E8694; line-height:1.2; margin-top:0;">{subvalue}</div>'
+        f'<div style="font-size:13px; color:#7E8694; line-height:1.2;">{subvalue}</div>'
         if subvalue else ""
     )
 
@@ -314,7 +314,7 @@ def kpi_card(title: str, value: str, hint: str = "", subvalue: str = ""):
         f"""
         <div class="kpi-card">
             <div class="kpi-title">{title} {hint_html}</div>
-            <div class="kpi-value">{value}</div>
+            <div class="kpi-value" style="color:{color};">{value}</div>
             {sub_html}
         </div>
         """,
@@ -610,14 +610,30 @@ with tab1:
             subvalue=f"медиана: {med:.2f}"
         )
     with k5:
-        late_share = (f_df["Резолюция"] == "Позже").mean() * 100 if len(f_df) else 0
-        kpi_card("Позже %", f"{late_share:.1f}%", "Доля задач со статусом 'Позже' от общего числа")
-    with k6:
-        active_share = (
-            (f_df["cycle_time"].mean() / f_df["ttm_days"].mean()) * 100
-            if len(f_df) and f_df["ttm_days"].mean() > 0 else 0
+        late = ((f_df["Резолюция"] == "Позже").mean() * 100) if len(f_df) else 0
+
+        late_color = "#E45757" if late > 50 else "#F4A259"
+        
+        kpi_card(
+            "Позже %",
+            f"{late:.1f}%",
+            "Доля задач, перенесённых на потом",
+            color=late_color
         )
-        kpi_card("Активная работа %", f"{active_share:.0f}%", "Доля времени, когда задача реально находилась в работе")
+    with k6:
+        active = (
+            (f_df["cycle_time"].sum() / f_df["ttm_days"].sum()) * 100
+            if f_df["ttm_days"].sum() > 0 else 0
+        )
+        
+        active_color = "#E45757" if active < 50 else "#F4A259"
+        
+        kpi_card(
+            "Активная работа %",
+            f"{active:.0f}%",
+            "Доля активной работы в общем времени",
+            color=active_color
+        )
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
