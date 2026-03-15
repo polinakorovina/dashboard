@@ -185,7 +185,7 @@ st.markdown(
         font-weight: 600;
         color: #6244BB;
         line-height: 1;
-        margin-top: 6px;
+        margin-top: 3px;
     }
 
     /* Иконка подсказки */
