@@ -171,21 +171,22 @@ st.markdown(
         justify-content: flex-start;
     }
     .kpi-title {
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 650;
         color: #1A1C1E;
-        min-height: 42px;
+        line-height: 1.2;
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        line-height: 1.25;
+        min-height: 0;
+        margin-bottom: 2px;
     }
     .kpi-value {
         font-size: 26px;
-        font-weight: 600;
+        font-weight: 650;
         color: #6244BB;
         line-height: 1;
-        margin-top: 3px;
+        margin-top: 0;
     }
 
     /* Иконка подсказки */
