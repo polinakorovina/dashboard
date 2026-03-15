@@ -588,7 +588,16 @@ with tab1:
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     c1, c2 = st.columns(2, gap="small")
+    # Порядок команд для двух верхних графиков:
+    # сортируем по среднему суммарному времени задачи (TTM) от большего к меньшему
+    time_order_df = (
+        f_df.groupby("Компоненты")["ttm_days"]
+        .mean()
+        .sort_values(ascending=False)
+        .reset_index()
+    )
 
+t_order = time_order_df["Компоненты"].tolist()
     with c1:
         st.markdown(
             f'<div class="card-header">Структура времени задачи</div>'
