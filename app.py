@@ -171,7 +171,7 @@ st.markdown(
         justify-content: flex-start;
     }
     .kpi-title {
-        font-size: 15px;
+        font-size: 16px;
         font-weight: 650;
         color: #1A1C1E;
         line-height: 1.2;
@@ -182,11 +182,16 @@ st.markdown(
         margin-bottom: 2px;
     }
     .kpi-value {
-        font-size: 26px;
+        font-size: 30px;
         font-weight: 650;
         color: #6244BB;
         line-height: 1;
         margin-top: 0;
+    }
+    .kpi-center {
+        flex: 1;
+        display: flex;
+        align-items: center;
     }
 
     /* Иконка подсказки */
@@ -301,7 +306,7 @@ def kpi_card(title: str, value: str, hint: str = "", subvalue: str = ""):
     hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
 
     sub_html = (
-        f'<div style="font-size:12px; color:#7E8694; margin-top:3px;">{subvalue}</div>'
+        f'<div style="font-size:13px; color:#7E8694; margin-top:4px;">{subvalue}</div>'
         if subvalue else ""
     )
 
@@ -309,7 +314,9 @@ def kpi_card(title: str, value: str, hint: str = "", subvalue: str = ""):
         f"""
         <div class="kpi-card">
             <div class="kpi-title">{title} {hint_html}</div>
-            <div class="kpi-value">{value}</div>
+            <div class="kpi-center">
+                <div class="kpi-value">{value}</div>
+            </div>
             {sub_html}
         </div>
         """,
