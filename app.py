@@ -596,8 +596,8 @@ with tab1:
         .sort_values(ascending=False)
         .reset_index()
     )
-
-t_order = time_order_df["Компоненты"].tolist()
+    t_order = time_order_df["Компоненты"].tolist()
+    
     with c1:
         st.markdown(
             f'<div class="card-header">Структура времени задачи</div>'
