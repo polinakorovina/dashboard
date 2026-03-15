@@ -594,14 +594,14 @@ with tab1:
             subvalue=f"среднее: {avg:.2f}"
         )
     with k4:
-        med = f_df["wait_time_days"].median() if len(f_df) else 0.0
         avg = f_df["wait_time_days"].mean() if len(f_df) else 0.0
+        med = f_df["wait_time_days"].median() if len(f_df) else 0.0
         
         kpi_card(
             "Ожидание (дн)",
-            f"{med:.2f}",
-            "Медианное время вне активной работы",
-            subvalue=f"среднее: {avg:.2f}"
+            f"{avg:.2f}",
+            "Среднее время вне активной работы",
+            subvalue=f"медиана: {med:.2f}"
         )
     with k5:
         late_share = (f_df["Резолюция"] == "Позже").mean() * 100 if len(f_df) else 0
