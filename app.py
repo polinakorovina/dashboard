@@ -699,7 +699,7 @@ with tab1:
                     type="buttons",
                     direction="right",
                     x=0.0,
-                    y=1.18,
+                    y=1.10,
                     xanchor="left",
                     yanchor="top",
                     showactive=True,
@@ -707,7 +707,7 @@ with tab1:
                     bordercolor="#E4DDF7",
                     borderwidth=1,
                     font=dict(size=10, color="#5D4AA8"),
-                    pad=dict(r=0, t=0),
+                    pad=dict(r=0, t=0, l=0, b=0),
                     buttons=[
                         dict(
                             label="Суммарно",
