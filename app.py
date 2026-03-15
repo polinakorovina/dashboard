@@ -168,7 +168,7 @@ st.markdown(
         height: 100px;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: flex-start;
     }
     .kpi-title {
         font-size: 14px;
@@ -181,11 +181,11 @@ st.markdown(
         line-height: 1.25;
     }
     .kpi-value {
-        font-size: 24px;
+        font-size: 26px;
         font-weight: 600;
         color: #6244BB;
         line-height: 1;
-        margin-top: auto;
+        margin-top: 6px;
     }
 
     /* Иконка подсказки */
