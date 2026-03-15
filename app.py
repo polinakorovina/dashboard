@@ -585,9 +585,9 @@ with tab1:
         
         kpi_card(
             "TTM в днях",
-            f"{med:.2f}",
-            "Медианное время от открытия до закрытия",
-            subvalue=f"среднее: {avg:.2f}"
+            f"{avg:.2f}",
+            "Среднее время от открытия до закрытия",
+            subvalue=f"медиана: {med:.2f}"
         )
     with k3:
         med = f_df["cycle_time"].median() if len(f_df) else 0.0
@@ -595,9 +595,9 @@ with tab1:
         
         kpi_card(
             "Cycle time (дн)",
-            f"{med:.2f}",
-            "Медианное время активной работы",
-            subvalue=f"среднее: {avg:.2f}"
+            f"{avg:.2f}",
+            "Среднее время активной работы",
+            subvalue=f"медиана: {med:.2f}"
         )
     with k4:
         avg = f_df["wait_time_days"].mean() if len(f_df) else 0.0
