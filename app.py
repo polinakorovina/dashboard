@@ -698,7 +698,7 @@ with tab1:
                 dict(
                     type="buttons",
                     direction="right",
-                    x=1.0,
+                    x=1.18,
                     y=0.02,
                     xanchor="right",
                     yanchor="bottom",
