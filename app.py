@@ -296,13 +296,20 @@ st.markdown(
 )
 
 
-def kpi_card(title: str, value: str, hint: str = ""):
+def kpi_card(title: str, value: str, hint: str = "", subvalue: str = ""):
     hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
+
+    sub_html = (
+        f'<div style="font-size:14px; color:#7E8694; margin-top:4px;">{subvalue}</div>'
+        if subvalue else ""
+    )
+
     st.markdown(
         f"""
         <div class="kpi-card">
             <div class="kpi-title">{title} {hint_html}</div>
             <div class="kpi-value">{value}</div>
+            {sub_html}
         </div>
         """,
         unsafe_allow_html=True
@@ -567,14 +574,35 @@ with tab1:
     with k1:
         kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
     with k2:
-        val = f_df["ttm_days"].mean() if len(f_df) else 0.0
-        kpi_card("TTM в днях", f"{val:.2f}", "Среднее время от открытия до закрытия")
+        med = f_df["ttm_days"].median() if len(f_df) else 0.0
+        avg = f_df["ttm_days"].mean() if len(f_df) else 0.0
+        
+        kpi_card(
+            "TTM в днях",
+            f"{med:.2f}",
+            "Медианное время от открытия до закрытия",
+            subvalue=f"среднее: {avg:.2f}"
+        )
     with k3:
-        val = f_df["cycle_time"].mean() if len(f_df) else 0.0
-        kpi_card("Cycle time (дн)", f"{val:.2f}", "Среднее время активной работы")
+        med = f_df["cycle_time"].median() if len(f_df) else 0.0
+        avg = f_df["cycle_time"].mean() if len(f_df) else 0.0
+        
+        kpi_card(
+            "Cycle time (дн)",
+            f"{med:.2f}",
+            "Медианное время активной работы",
+            subvalue=f"среднее: {avg:.2f}"
+        )
     with k4:
-        val = f_df["wait_time_days"].mean() if len(f_df) else 0.0
-        kpi_card("Ожидание (дн)", f"{val:.2f}", "Среднее время вне активной работы: TTM − Cycle time")
+        med = f_df["wait_time_days"].median() if len(f_df) else 0.0
+        avg = f_df["wait_time_days"].mean() if len(f_df) else 0.0
+        
+        kpi_card(
+            "Ожидание (дн)",
+            f"{med:.2f}",
+            "Медианное время вне активной работы",
+            subvalue=f"среднее: {avg:.2f}"
+        )
     with k5:
         late_share = (f_df["Резолюция"] == "Позже").mean() * 100 if len(f_df) else 0
         kpi_card("Позже %", f"{late_share:.1f}%", "Доля задач со статусом 'Позже' от общего числа")
