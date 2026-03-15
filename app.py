@@ -808,6 +808,9 @@ with tab1:
         )
         monthly_df["Группировка"] = "M"
     
+        # Выходные: суббота=5, воскресенье=6
+        weekend_df = daily_df[daily_df["Дата создания"].dt.weekday.isin([5, 6])].copy()
+    
         fig_d = px.line(
             daily_df,
             x="Дата создания",
@@ -817,8 +820,31 @@ with tab1:
             template="plotly_white"
         )
     
-        fig_d.update_traces(visible=True, name="D")
+        # Основная дневная линия
+        fig_d.update_traces(
+            visible=True,
+            name="D",
+            line=dict(color="#6244BB"),
+            marker=dict(color="#6244BB", size=7),
+            hovertemplate="Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
+        )
     
+        # Красные точки на выходных — только для дневного режима
+        fig_d.add_scatter(
+            x=weekend_df["Дата создания"],
+            y=weekend_df["Задач"],
+            mode="markers",
+            name="Выходные",
+            visible=True,
+            marker=dict(
+                color="#E45757",
+                size=8,
+                line=dict(color="white", width=1)
+            ),
+            hovertemplate="Выходной<br>Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
+        )
+    
+        # Недельный режим
         fig_d.add_scatter(
             x=weekly_df["Дата создания"],
             y=weekly_df["Задач"],
@@ -826,9 +852,11 @@ with tab1:
             name="W",
             visible=False,
             line=dict(color="#6244BB"),
-            marker=dict(color="#6244BB")
+            marker=dict(color="#6244BB", size=7),
+            hovertemplate="Неделя до: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
     
+        # Месячный режим
         fig_d.add_scatter(
             x=monthly_df["Дата создания"],
             y=monthly_df["Задач"],
@@ -836,7 +864,8 @@ with tab1:
             name="M",
             visible=False,
             line=dict(color="#6244BB"),
-            marker=dict(color="#6244BB")
+            marker=dict(color="#6244BB", size=7),
+            hovertemplate="Месяц: %{x|%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
     
         fig_d.update_layout(
@@ -864,7 +893,7 @@ with tab1:
                             label="D",
                             method="update",
                             args=[
-                                {"visible": [True, False, False]},
+                                {"visible": [True, True, False, False]},
                                 {"title": None}
                             ],
                         ),
@@ -872,7 +901,7 @@ with tab1:
                             label="W",
                             method="update",
                             args=[
-                                {"visible": [False, True, False]},
+                                {"visible": [False, False, True, False]},
                                 {"title": None}
                             ],
                         ),
@@ -880,7 +909,7 @@ with tab1:
                             label="M",
                             method="update",
                             args=[
-                                {"visible": [False, False, True]},
+                                {"visible": [False, False, False, True]},
                                 {"title": None}
                             ],
                         ),
