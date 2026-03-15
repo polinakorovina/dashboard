@@ -672,7 +672,7 @@ with tab1:
         visible_wait = [False, False] + [True] * len(WAIT_STAGES)
     
         fig_a.update_layout(
-            height=300,
+            height=270,
             xaxis_title=None,
             yaxis_title=None,
             legend_title=None,
