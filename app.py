@@ -755,22 +755,22 @@ with tab1:
             f'<span class="hint-icon" data-hint="Количество задач по статусам для каждой команды">?</span>',
             unsafe_allow_html=True
         )
-        t_counts = f_df.groupby(["Компоненты", "Резолюция"]).size().reset_index(name="Кол-во")
+        t_counts = f_df.groupby("Компоненты").size().reset_index(name="Кол-во")
         fig_l = px.bar(
             t_counts,
             x="Кол-во",
             y="Компоненты",
-            color="Резолюция",
             orientation="h",
             text="Кол-во",
             category_orders={"Компоненты": t_order},
-            color_discrete_map={"Решен": "#6244BB", "Позже": "#A485E0"},
+            color_discrete_sequence=["#6244BB"],
             template="plotly_white"
         )
         fig_l.update_layout(
             height=270,
             xaxis_title=None,
             yaxis_title=None,
+            showlegend=False,,
             margin=dict(l=40, r=20, t=10, b=10)
         )
         st.plotly_chart(fig_l, use_container_width=True)
