@@ -612,7 +612,7 @@ with tab1:
     with k5:
         late = ((f_df["Резолюция"] == "Позже").mean() * 100) if len(f_df) else 0
 
-        late_color = "#E45757" if late > 50 else "#F4A259"
+        late_color = "#E45757" if late > 50 else "#4CAF7D"
         
         kpi_card(
             "Позже %",
@@ -626,7 +626,7 @@ with tab1:
             if f_df["ttm_days"].sum() > 0 else 0
         )
         
-        active_color = "#E45757" if active < 50 else "#F4A259"
+        active_color = "#E45757" if active < 50 else "#4CAF7D"
         
         kpi_card(
             "Активная работа %",
