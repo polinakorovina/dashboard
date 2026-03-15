@@ -162,16 +162,18 @@ st.markdown(
         background: #ffffff;
         border: 1px solid #E6E9EF;
         border-radius: 16px;
-        padding: 14px 16px;
+        padding: 12px 16px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         text-align: left;
-        height: 100px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
+        height: 135px;
+    
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        align-items: stretch;
     }
+    
     .kpi-title {
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 650;
         color: #1A1C1E;
         line-height: 1.2;
@@ -179,21 +181,19 @@ st.markdown(
         align-items: flex-start;
         justify-content: space-between;
         min-height: 0;
-        margin-bottom: 2px;
+        margin: 0;
     }
+    
     .kpi-value {
-        font-size: 30px;
+        font-size: 26px;
         font-weight: 650;
         color: #6244BB;
         line-height: 1;
-        margin-top: 0;
-    }
-    .kpi-center {
-        flex: 1;
+        margin: 0;
+    
         display: flex;
         align-items: center;
     }
-
     /* Иконка подсказки */
     .hint-icon {
         display: inline-flex;
@@ -306,7 +306,7 @@ def kpi_card(title: str, value: str, hint: str = "", subvalue: str = ""):
     hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
 
     sub_html = (
-        f'<div style="font-size:13px; color:#7E8694; margin-top:4px;">{subvalue}</div>'
+        f'<div style="font-size:13px; color:#7E8694; line-height:1.2; margin-top:0;">{subvalue}</div>'
         if subvalue else ""
     )
 
@@ -314,9 +314,7 @@ def kpi_card(title: str, value: str, hint: str = "", subvalue: str = ""):
         f"""
         <div class="kpi-card">
             <div class="kpi-title">{title} {hint_html}</div>
-            <div class="kpi-center">
-                <div class="kpi-value">{value}</div>
-            </div>
+            <div class="kpi-value">{value}</div>
             {sub_html}
         </div>
         """,
