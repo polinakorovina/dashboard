@@ -9,7 +9,7 @@ from datetime import timedelta, date
 # 1) Настройка страницы
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
-# 2) BI-стиль + тултипы + sidebar chips + календарь (фиолетовый) + русификация поля
+# 2) BI-стиль + тултипы + sidebar chips + календарь
 st.markdown(
     """
     <style>
@@ -20,33 +20,31 @@ st.markdown(
         min-height: 1.6rem !important;
     }
 
-        /* Нижний floating launcher / Manage app */
+    /* Нижний floating launcher / Manage app */
     [data-testid="stStatusWidget"] {
         display: none !important;
         visibility: hidden !important;
     }
-    
+
     button[title="Manage app"] {
         display: none !important;
         visibility: hidden !important;
     }
-    
+
     button[aria-label="Manage app"] {
         display: none !important;
         visibility: hidden !important;
     }
-    
-    /* Иногда это рендерится как фиксированный контейнер внизу справа */
+
     div[style*="position: fixed"][style*="bottom"] {
         z-index: 0 !important;
     }
-    
+
     div[style*="position: fixed"][style*="bottom"] button {
         display: none !important;
         visibility: hidden !important;
     }
-    
-    /* На случай iframe / launcher-обёртки */
+
     iframe[title*="Manage app"],
     iframe[title*="Streamlit"] {
         display: none !important;
@@ -57,7 +55,7 @@ st.markdown(
     .stApp { background-color: #F7F2FA; }
 
     /* ===================== SIDEBAR ===================== */
-    [data-testid="stSidebar"] { 
+    [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #A485E0 0%, #8E6EDB 100%);
         color: white;
     }
@@ -71,7 +69,6 @@ st.markdown(
         color: white !important;
     }
 
-    /* Контейнер select/multiselect: белый, скруглённый */
     [data-baseweb="select"] > div {
         background-color: white !important;
         border-radius: 14px !important;
@@ -79,10 +76,8 @@ st.markdown(
         min-height: 48px !important;
     }
 
-    /* input внутри multiselect */
     [data-baseweb="select"] input { color: #1A1C1E !important; }
 
-    /* chips выбранных элементов */
     [data-baseweb="tag"] {
         background-color: #6244BB !important;
         color: white !important;
@@ -91,17 +86,16 @@ st.markdown(
         padding: 2px 6px !important;
         font-size: 13px !important;
     }
+
     [data-baseweb="tag"] span { color: white !important; font-weight: 500 !important; }
     [data-baseweb="tag"] svg { fill: white !important; }
 
-    /* стрелка dropdown */
     [data-baseweb="select"] svg { fill: #6244BB !important; }
 
-    /* hover/focus обводка */
     [data-baseweb="select"] > div:hover { box-shadow: 0 0 0 1px #6244BB inset !important; }
     [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 2px #6244BB inset !important; }
 
-    /* ===================== DATE INPUT (SAFE PURPLE) ===================== */
+    /* ===================== DATE INPUT ===================== */
     [data-testid="stDateInput"] p { display: none !important; }
 
     .react-datepicker__day--selected,
@@ -112,6 +106,7 @@ st.markdown(
         color: #ffffff !important;
         border-radius: 999px !important;
     }
+
     .react-datepicker__day--in-range,
     .react-datepicker__day--in-selecting-range {
         background-color: rgba(98, 68, 187, 0.22) !important;
@@ -125,6 +120,7 @@ st.markdown(
         background-color: #6244BB !important;
         color: #ffffff !important;
     }
+
     .rdp-day_range_middle {
         background-color: rgba(98, 68, 187, 0.22) !important;
         color: #1A1C1E !important;
@@ -149,11 +145,20 @@ st.markdown(
         gap: 0.6rem;
     }
 
-    /* Заголовки */
-    .main-header { font-size: 24px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
-    .card-header { font-size: 14px; font-weight: 700; color: #1A1C1E; display: inline-block; }
+    .main-header {
+        font-size: 24px;
+        font-weight: 800;
+        color: #1A1C1E;
+        margin: 0 0 10px 0;
+    }
 
-    /* KPI карточки */
+    .card-header {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1A1C1E;
+        display: inline-block;
+    }
+
     .kpi-card {
         background: #ffffff;
         border: 1px solid #E6E9EF;
@@ -166,6 +171,7 @@ st.markdown(
         flex-direction: column;
         justify-content: space-between;
     }
+
     .kpi-title {
         font-size: 15px;
         font-weight: 650;
@@ -176,6 +182,7 @@ st.markdown(
         justify-content: space-between;
         line-height: 1.25;
     }
+
     .kpi-value {
         font-size: 30px;
         font-weight: 600;
@@ -184,7 +191,6 @@ st.markdown(
         margin-top: auto;
     }
 
-    /* Иконка подсказки */
     .hint-icon {
         display: inline-flex;
         justify-content: center;
@@ -202,7 +208,6 @@ st.markdown(
         flex: 0 0 auto;
     }
 
-    /* Тултип */
     .hint-icon:hover::after {
         content: attr(data-hint);
         position: absolute;
@@ -221,7 +226,6 @@ st.markdown(
         font-weight: normal;
     }
 
-    /* Графики как карточки */
     [data-testid="stPlotlyChart"] {
         background: white;
         border-radius: 18px;
@@ -231,45 +235,41 @@ st.markdown(
         overflow: hidden;
     }
 
-    /* Таблица */
     th {
         background-color: #6244BB !important;
         color: white !important;
         font-weight: 600 !important;
         text-align: left !important;
     }
+
     thead tr th:first-child { display:none; }
     tbody tr th:first-child { display:none; }
 
-
-    /* ===================== TABS STYLING ===================== */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
         margin-bottom: 4px;
     }
-    
+
     .stTabs [data-baseweb="tab"] {
         min-height: 28px !important;
         height: 28px !important;
         min-width: 90px !important;
         padding: 0px 10px !important;
-    
         background: #F3EEFC;
         border-radius: 5px;
         color: #5D4AA8;
         border: 1px solid #E4DDF7;
-    
         font-size: 12px;
         font-weight: 600;
     }
-    
+
     .stTabs [aria-selected="true"] {
         background: white !important;
         color: #6244BB !important;
         border: 1px solid #D8CDF4 !important;
         box-shadow: 0 1px 4px rgba(98, 68, 187, 0.06);
     }
-    
+
     .stTabs [data-baseweb="tab-highlight"] {
         display: none !important;
     }
@@ -278,7 +278,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 
 def kpi_card(title: str, value: str, hint: str = ""):
     hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
@@ -292,7 +291,6 @@ def kpi_card(title: str, value: str, hint: str = ""):
         unsafe_allow_html=True
     )
 
-
 def delta_text(curr, prev, is_percent=False, digits=2):
     if pd.isna(curr) or pd.isna(prev):
         return "н/д"
@@ -302,7 +300,6 @@ def delta_text(curr, prev, is_percent=False, digits=2):
         return f"{sign}{diff:.1f} п.п."
     return f"{sign}{diff:.{digits}f}"
 
-
 def format_value(val, is_percent=False, digits=2, as_int=False):
     if pd.isna(val):
         return "н/д"
@@ -311,7 +308,6 @@ def format_value(val, is_percent=False, digits=2, as_int=False):
     if is_percent:
         return f"{val:.1f}%"
     return f"{val:.{digits}f}"
-
 
 def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int=False, digits=2):
     current_str = format_value(current, is_percent=is_percent, digits=digits, as_int=as_int)
@@ -339,21 +335,12 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
         unsafe_allow_html=True
     )
 
-
 def get_week_bounds(anchor_date):
-    """
-    Скользящее сравнение двух 7-дневных периодов:
-    - текущая неделя: последние 7 дней включая anchor_date
-    - предыдущая неделя: 7 дней перед текущей
-    """
     anchor_date = pd.Timestamp(anchor_date).normalize()
-
     current_week_start = anchor_date - pd.Timedelta(days=6)
     current_week_end = anchor_date + pd.Timedelta(hours=23, minutes=59, seconds=59)
-
     prev_week_start = current_week_start - pd.Timedelta(days=7)
     prev_week_end = current_week_start - pd.Timedelta(seconds=1)
-
     return current_week_start, current_week_end, prev_week_start, prev_week_end
 
 def calc_metrics(df_):
@@ -385,12 +372,10 @@ def calc_metrics(df_):
         "pingpong": pingpong_mean
     }
 
-
 # 3) Подключение к Я.Диску + БД
 TOKEN = os.getenv("YANDEX_TOKEN")
 y = yadisk.YaDisk(token=TOKEN)
 DB_PATH = "/Data/my_database.db"
-
 
 @st.cache_data(ttl=600)
 def load_data():
@@ -428,13 +413,12 @@ def load_data():
 
     return df_
 
-
 df = load_data()
 if df.empty:
     st.warning("Данные не найдены.")
     st.stop()
 
-# ===================== SIDEBAR FILTERS (FIXED DATE RANGE) =====================
+# ===================== SIDEBAR FILTERS =====================
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
 
@@ -445,9 +429,13 @@ st.sidebar.markdown(
     "<div style='font-size:20px; font-weight:600; margin-bottom:-35px;'>Выбор даты</div>",
     unsafe_allow_html=True
 )
+
+# Инициализация date_range только один раз
+if "date_range" not in st.session_state:
+    st.session_state["date_range"] = default_range
+
 date_range = st.sidebar.date_input(
     "Период анализа",
-    value=st.session_state.get("date_range", default_range),
     min_value=db_min,
     max_value=db_max,
     key="date_range",
@@ -477,13 +465,39 @@ res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist
 
 period_sig = (start_date, end_date)
 
+# При смене периода обновляем значения фильтров
 if st.session_state.get("_period_sig") != period_sig:
     st.session_state["_period_sig"] = period_sig
     st.session_state["sel_teams"] = teams_in_range
     st.session_state["sel_res"] = res_in_range
 
-sel_teams = st.sidebar.multiselect("Команды", teams_in_range, default=st.session_state.get("sel_teams", teams_in_range), key="sel_teams")
-sel_res = st.sidebar.multiselect("Резолюции", res_in_range, default=st.session_state.get("sel_res", res_in_range), key="sel_res")
+# Защита от "битых" значений, если список опций поменялся
+if "sel_teams" not in st.session_state:
+    st.session_state["sel_teams"] = teams_in_range
+else:
+    st.session_state["sel_teams"] = [x for x in st.session_state["sel_teams"] if x in teams_in_range]
+    if not st.session_state["sel_teams"]:
+        st.session_state["sel_teams"] = teams_in_range
+
+if "sel_res" not in st.session_state:
+    st.session_state["sel_res"] = res_in_range
+else:
+    st.session_state["sel_res"] = [x for x in st.session_state["sel_res"] if x in res_in_range]
+    if not st.session_state["sel_res"]:
+        st.session_state["sel_res"] = res_in_range
+
+# ВАЖНО: без default, потому что значения уже берутся из session_state
+sel_teams = st.sidebar.multiselect(
+    "Команды",
+    teams_in_range,
+    key="sel_teams"
+)
+
+sel_res = st.sidebar.multiselect(
+    "Резолюции",
+    res_in_range,
+    key="sel_res"
+)
 
 f_df = df_in_range[
     (df_in_range["Компоненты"].isin(sel_teams)) &
@@ -634,31 +648,28 @@ with tab1:
             f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам">?</span>',
             unsafe_allow_html=True
         )
-    
+
         daily_df = (
             f_df.set_index("Дата создания")
             .resample("D")
             .size()
             .reset_index(name="Задач")
         )
-        daily_df["Группировка"] = "D"
-    
+
         weekly_df = (
             f_df.set_index("Дата создания")
             .resample("W")
             .size()
             .reset_index(name="Задач")
         )
-        weekly_df["Группировка"] = "W"
-    
+
         monthly_df = (
             f_df.set_index("Дата создания")
             .resample("ME")
             .size()
             .reset_index(name="Задач")
         )
-        monthly_df["Группировка"] = "M"
-    
+
         fig_d = px.line(
             daily_df,
             x="Дата создания",
@@ -667,9 +678,9 @@ with tab1:
             color_discrete_sequence=["#6244BB"],
             template="plotly_white"
         )
-    
+
         fig_d.update_traces(visible=True, name="D")
-    
+
         fig_d.add_scatter(
             x=weekly_df["Дата создания"],
             y=weekly_df["Задач"],
@@ -679,7 +690,7 @@ with tab1:
             line=dict(color="#6244BB"),
             marker=dict(color="#6244BB")
         )
-    
+
         fig_d.add_scatter(
             x=monthly_df["Дата создания"],
             y=monthly_df["Задач"],
@@ -689,7 +700,7 @@ with tab1:
             line=dict(color="#6244BB"),
             marker=dict(color="#6244BB")
         )
-    
+
         fig_d.update_layout(
             height=250,
             xaxis_title=None,
@@ -714,35 +725,25 @@ with tab1:
                         dict(
                             label="D",
                             method="update",
-                            args=[
-                                {"visible": [True, False, False]},
-                                {"title": None}
-                            ],
+                            args=[{"visible": [True, False, False]}, {"title": None}],
                         ),
                         dict(
                             label="W",
                             method="update",
-                            args=[
-                                {"visible": [False, True, False]},
-                                {"title": None}
-                            ],
+                            args=[{"visible": [False, True, False]}, {"title": None}],
                         ),
                         dict(
                             label="M",
                             method="update",
-                            args=[
-                                {"visible": [False, False, True]},
-                                {"title": None}
-                            ],
+                            args=[{"visible": [False, False, True]}, {"title": None}],
                         ),
                     ],
                 )
             ],
         )
-    
+
         st.plotly_chart(fig_d, use_container_width=True)
 
-    
     with b2:
         st.markdown(
             f'<div class="card-header">Передачи между командами</div>'
@@ -776,11 +777,7 @@ with tab1:
             plot_bgcolor="white"
         )
 
-        st.plotly_chart(
-            fig_pp,
-            use_container_width=True,
-            config={"scrollZoom": False}
-        )
+        st.plotly_chart(fig_pp, use_container_width=True, config={"scrollZoom": False})
 
     with b3:
         st.markdown(
@@ -819,10 +816,7 @@ with tab1:
             template="plotly_white"
         )
 
-        fig_contacts.update_traces(
-            textinfo="percent",
-            textfont_size=12
-        )
+        fig_contacts.update_traces(textinfo="percent", textfont_size=12)
 
         fig_contacts.update_layout(
             height=250,
@@ -834,11 +828,7 @@ with tab1:
             font=dict(size=11)
         )
 
-        st.plotly_chart(
-            fig_contacts,
-            use_container_width=True,
-            config={"scrollZoom": False}
-        )
+        st.plotly_chart(fig_contacts, use_container_width=True, config={"scrollZoom": False})
 
 # =========================================================
 # TAB 2 — СРАВНЕНИЕ НЕДЕЛЬ
@@ -859,62 +849,23 @@ with tab2:
         st.warning("Недостаточно данных для сравнения текущей и предыдущей недели.")
     else:
         w1, w2, w3, w4, w5, w6, w7 = st.columns(7, gap="small")
-        with w1:
-            kpi_compare_card(
-                "Всего задач",
-                current_metrics["tasks_total"],
-                previous_metrics["tasks_total"],
-                hint="Количество задач за текущую неделю",
-                as_int=True
-            )
-        with w2:
-            kpi_compare_card(
-                "TTM (дн)",
-                current_metrics["ttm"],
-                previous_metrics["ttm"],
-                hint="Среднее время от открытия до закрытия"
-            )
-        with w3:
-            kpi_compare_card(
-                "Cycle time (дн)",
-                current_metrics["cycle"],
-                previous_metrics["cycle"],
-                hint="Среднее время активной работы"
-            )
-        with w4:
-            kpi_compare_card(
-                "Ожидание (дн)",
-                current_metrics["wait"],
-                previous_metrics["wait"],
-                hint="Среднее неактивное время"
-            )
 
+        with w1:
+            kpi_compare_card("Всего задач", current_metrics["tasks_total"], previous_metrics["tasks_total"], hint="Количество задач за текущую неделю", as_int=True)
+        with w2:
+            kpi_compare_card("TTM (дн)", current_metrics["ttm"], previous_metrics["ttm"], hint="Среднее время от открытия до закрытия")
+        with w3:
+            kpi_compare_card("Cycle time (дн)", current_metrics["cycle"], previous_metrics["cycle"], hint="Среднее время активной работы")
+        with w4:
+            kpi_compare_card("Ожидание (дн)", current_metrics["wait"], previous_metrics["wait"], hint="Среднее неактивное время")
         with w5:
-            kpi_compare_card(
-                "Позже",
-                current_metrics["later_pct"],
-                previous_metrics["later_pct"],
-                hint="Доля задач с резолюцией 'Позже'",
-                is_percent=True
-            )
+            kpi_compare_card("Позже", current_metrics["later_pct"], previous_metrics["later_pct"], hint="Доля задач с резолюцией 'Позже'", is_percent=True)
         with w6:
-            kpi_compare_card(
-                "Активная работа",
-                current_metrics["active_pct"],
-                previous_metrics["active_pct"],
-                hint="Доля активной работы в общем времени",
-                is_percent=True
-            )
+            kpi_compare_card("Активная работа", current_metrics["active_pct"], previous_metrics["active_pct"], hint="Доля активной работы в общем времени", is_percent=True)
         with w7:
-            kpi_compare_card(
-                "Пинг-понг",
-                current_metrics["pingpong"],
-                previous_metrics["pingpong"],
-                hint="Среднее число передач между командами"
-            )
+            kpi_compare_card("Пинг-понг", current_metrics["pingpong"], previous_metrics["pingpong"], hint="Среднее число передач между командами")
 
         st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
-
 
         team_order_week = (
             pd.concat([current_week_df["Компоненты"], previous_week_df["Компоненты"]])
@@ -923,6 +874,7 @@ with tab2:
             .index
             .tolist()
         )
+
         g1, g2 = st.columns(2, gap="small")
 
         with g1:
@@ -984,7 +936,6 @@ with tab2:
                 value_name="TTM"
             )
 
-
             fig_ttm_compare = px.bar(
                 ttm_long,
                 x="Компоненты",
@@ -1007,7 +958,6 @@ with tab2:
                 margin=dict(l=20, r=20, t=15, b=10)
             )
             st.plotly_chart(fig_ttm_compare, use_container_width=True)
-            
 
         g3, g4 = st.columns(2, gap="small")
 
@@ -1017,10 +967,10 @@ with tab2:
                 f'<span class="hint-icon" data-hint="Сравнение количества новых задач по дням двух 7-дневных периодов">?</span>',
                 unsafe_allow_html=True
             )
-        
+
             current_dates = pd.date_range(cw_start.normalize(), cw_end.normalize(), freq="D")
             previous_dates = pd.date_range(pw_start.normalize(), pw_end.normalize(), freq="D")
-        
+
             weekday_map = {
                 0: "Пн",
                 1: "Вт",
@@ -1030,9 +980,9 @@ with tab2:
                 5: "Сб",
                 6: "Вс"
             }
-        
+
             x_labels = [weekday_map[d.weekday()] for d in current_dates]
-        
+
             curr_daily = (
                 current_week_df.assign(Дата=current_week_df["Дата создания"].dt.normalize())
                 .groupby("Дата")
@@ -1043,7 +993,7 @@ with tab2:
             curr_daily.columns = ["Дата", "Задач"]
             curr_daily["X"] = x_labels
             curr_daily["Период"] = "Текущая неделя"
-        
+
             prev_daily = (
                 previous_week_df.assign(Дата=previous_week_df["Дата создания"].dt.normalize())
                 .groupby("Дата")
@@ -1054,9 +1004,9 @@ with tab2:
             prev_daily.columns = ["Дата", "Задач"]
             prev_daily["X"] = x_labels
             prev_daily["Период"] = "Предыдущая неделя"
-        
+
             weekly_flow = pd.concat([curr_daily, prev_daily], ignore_index=True)
-        
+
             fig_flow = px.line(
                 weekly_flow,
                 x="X",
@@ -1070,7 +1020,7 @@ with tab2:
                 },
                 template="plotly_white"
             )
-        
+
             fig_flow.update_layout(
                 height=230,
                 xaxis_title=None,
@@ -1078,7 +1028,7 @@ with tab2:
                 legend_title=None,
                 margin=dict(l=20, r=20, t=15, b=10)
             )
-        
+
             st.plotly_chart(fig_flow, use_container_width=True)
 
         with g4:
