@@ -423,10 +423,9 @@ def load_data():
     df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
     df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(1)
+    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(0)
     df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
 
-    # Нормализация колонки Тип
     if "Тип" not in df_.columns:
         df_["Тип"] = "Не указано"
     df_["Тип"] = df_["Тип"].fillna("Не указано").astype(str).str.strip()
@@ -564,10 +563,11 @@ tab1, tab2 = st.tabs(["Общий обзор", "Сравнение недель"
 # TAB 1 — ОБЩИЙ ОБЗОР
 # =========================================================
 with tab1:
-    k1, k2, k3, k4, k5, k6 = st.columns(6, gap="small")
+    k1, k2, k3, k4, k5, k6, k7 = st.columns(7, gap="small")
 
     with k1:
         kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
+
     with k2:
         med = f_df["ttm_days"].median() if len(f_df) else 0.0
         avg = f_df["ttm_days"].mean() if len(f_df) else 0.0
@@ -577,6 +577,7 @@ with tab1:
             "Среднее время от открытия до закрытия",
             subvalue=f"медиана: {med:.2f}"
         )
+
     with k3:
         med = f_df["cycle_time"].median() if len(f_df) else 0.0
         avg = f_df["cycle_time"].mean() if len(f_df) else 0.0
@@ -586,6 +587,7 @@ with tab1:
             "Среднее время активной работы",
             subvalue=f"медиана: {med:.2f}"
         )
+
     with k4:
         avg = f_df["wait_time_days"].mean() if len(f_df) else 0.0
         med = f_df["wait_time_days"].median() if len(f_df) else 0.0
@@ -595,6 +597,7 @@ with tab1:
             "Среднее время вне активной работы",
             subvalue=f"медиана: {med:.2f}"
         )
+
     with k5:
         late = ((f_df["Резолюция"] == "Позже").mean() * 100) if len(f_df) else 0
         late_color = "#E45757" if late > 50 else "#4CAF7D"
@@ -604,6 +607,7 @@ with tab1:
             "Доля задач, перенесённых на потом",
             color=late_color
         )
+
     with k6:
         active = (
             (f_df["cycle_time"].sum() / f_df["ttm_days"].sum()) * 100
@@ -615,6 +619,16 @@ with tab1:
             f"{active:.0f}%",
             "Доля активной работы в общем времени",
             color=active_color
+        )
+
+    with k7:
+        pingpong_avg = f_df["Пинг-понг обращения"].mean() if len(f_df) else 0.0
+        pingpong_med = f_df["Пинг-понг обращения"].median() if len(f_df) else 0.0
+        kpi_card(
+            "Передачи между командами",
+            f"{pingpong_avg:.2f}",
+            "Среднее число передач задачи между командами",
+            subvalue=f"медиана: {pingpong_med:.2f}"
         )
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -913,39 +927,50 @@ with tab1:
 
     with b2:
         st.markdown(
-            f'<div class="card-header">Передачи между командами</div>'
-            f'<span class="hint-icon" data-hint="Среднее число передач задачи между командами">?</span>',
+            f'<div class="card-header">Распределение Cycle Time и ожидания</div>'
+            f'<span class="hint-icon" data-hint="Показывает, как распределяются значения активной работы и ожидания по задачам">?</span>',
             unsafe_allow_html=True
         )
 
-        pp = (
-            f_df.groupby("Компоненты")["Пинг-понг обращения"]
-            .mean()
-            .reset_index()
-            .sort_values("Пинг-понг обращения", ascending=True)
+        dist_df = f_df[["cycle_time", "wait_time_days"]].dropna().copy()
+
+        dist_long = dist_df.melt(
+            value_vars=["cycle_time", "wait_time_days"],
+            var_name="Метрика",
+            value_name="Дни"
         )
 
-        fig_pp = px.bar(
-            pp,
-            x="Пинг-понг обращения",
-            y="Компоненты",
-            orientation="h",
-            text_auto=".1f",
-            color_discrete_sequence=["#6244BB"],
+        dist_long["Метрика"] = dist_long["Метрика"].replace({
+            "cycle_time": "Cycle Time",
+            "wait_time_days": "Ожидание"
+        })
+
+        fig_dist = px.histogram(
+            dist_long,
+            x="Дни",
+            color="Метрика",
+            barmode="overlay",
+            nbins=20,
+            opacity=0.65,
+            color_discrete_map={
+                "Cycle Time": "#6244BB",
+                "Ожидание": "#A485E0"
+            },
             template="plotly_white"
         )
 
-        fig_pp.update_layout(
+        fig_dist.update_layout(
             height=250,
-            xaxis_title=None,
-            yaxis_title=None,
+            xaxis_title="Дни",
+            yaxis_title="Количество задач",
+            legend_title=None,
             margin=dict(l=20, r=20, t=20, b=10),
             paper_bgcolor="white",
             plot_bgcolor="white"
         )
 
         st.plotly_chart(
-            fig_pp,
+            fig_dist,
             use_container_width=True,
             config={"scrollZoom": False}
         )
