@@ -615,7 +615,7 @@ with tab1:
         )
         active_color = "#E45757" if active < 50 else "#4CAF7D"
         kpi_card(
-            "Активная работа %",
+            "Flow Efficiency %",
             f"{active:.0f}%",
             "Доля активной работы в общем времени",
             color=active_color
@@ -1091,7 +1091,7 @@ with tab2:
             )
         with w6:
             kpi_compare_card(
-                "Активная работа",
+                "Flow Efficiency",
                 current_metrics["active_pct"],
                 previous_metrics["active_pct"],
                 hint="Доля активной работы в общем времени",
