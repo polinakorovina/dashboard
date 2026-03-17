@@ -1,0 +1,27 @@
+name: Send dashboard report
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run report
+        env:
+          YANDEX_TOKEN: ${{ secrets.YANDEX_TOKEN }}
+          YANDEX_DB_PATH: /Data/my_database.db
+          YANDEX_REPORTS_FOLDER: /dashboard_reports
+        run: python send_report.py
