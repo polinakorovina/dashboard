@@ -7,12 +7,20 @@ import os
 from datetime import timedelta, date
 import plotly.graph_objects as go
 
+st.set_page_config(page_title="Аналитика дежурств", layout="wide")
+ACCESS_TOKEN = st.secrets["ACCESS_TOKEN"]
+token = st.query_params.get("token")
+
+if token != ACCESS_TOKEN:
+    st.markdown("## Доступ ограничен")
+    st.error("Эта ссылка недействительна или у вас нет доступа.")
+    st.stop()
+
+
 TTM_STAGES = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
 CYCLE_STAGES = ["Бэклог разработки", "В работе"]
 WAIT_STAGES = [stage for stage in TTM_STAGES if stage not in CYCLE_STAGES]
 
-# 1) Настройка страницы
-st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
 # 2) BI-стиль + тултипы + sidebar chips + календарь
 st.markdown(
