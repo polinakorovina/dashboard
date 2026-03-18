@@ -221,8 +221,8 @@ st.markdown(
         padding: 8px 12px;
         border-radius: 8px;
         font-size: 12px;
-        width: 200px;
-        max-width: min(200px, calc(100vw - 24px));
+        width: 180px;
+        max-width: min(180px, calc(100vw - 24px));
         white-space: normal;
         word-break: break-word;
         z-index: 1000;
