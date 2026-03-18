@@ -41,16 +41,6 @@ st.markdown(
         visibility: hidden !important;
     }
 
-    button[title="Manage app"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    button[aria-label="Manage app"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
     div[style*="position: fixed"][style*="bottom"] {
         z-index: 0 !important;
     }
@@ -633,14 +623,14 @@ def calc_metrics(df_):
 if "show_upload_block" not in st.session_state:
     st.session_state["show_upload_block"] = False
 
-title_col, action_col = st.columns([8, 2])
+title_col, action_col = st.columns([9, 1])
 
 with title_col:
     st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 with action_col:
     st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
-    if st.button("Импорт данных", key="toggle_upload_btn", use_container_width=True):
+    if st.button("Импорт данных", key="toggle_upload_btn"):
         st.session_state["show_upload_block"] = not st.session_state["show_upload_block"]
 
 if st.session_state["show_upload_block"]:
