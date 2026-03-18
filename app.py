@@ -5,6 +5,7 @@ import plotly.express as px
 import yadisk
 import os
 from datetime import timedelta, date
+import plotly.graph_objects as go
 
 TTM_STAGES = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
 CYCLE_STAGES = ["Бэклог разработки", "В работе"]
