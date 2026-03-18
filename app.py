@@ -214,8 +214,8 @@ st.markdown(
         content: attr(data-hint);
         position: absolute;
         bottom: 125%;
-        left: 70%;
-        transform: translateX(-70%);
+        left: 80%;
+        transform: translateX(-80%);
         background-color: #1A1C1E;
         color: #fff;
         padding: 8px 12px;
