@@ -578,15 +578,15 @@ with tab1:
     k1, k2, k3, k4, k5, k6, k7 = st.columns(7, gap="small")
 
     with k1:
-        kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за период")
+        kpi_card("Всего задач", f"{len(f_df)}", "Общее число задач за выбранный период, которые поступили в работу")
 
     with k2:
         med = f_df["ttm_days"].median() if len(f_df) else 0.0
         avg = f_df["ttm_days"].mean() if len(f_df) else 0.0
         kpi_card(
-            "TTM в днях",
+            "TTM (дн)",
             f"{avg:.2f}",
-            "Среднее время от открытия до закрытия",
+            "Сколько в среднем времени занимал путь задач по процессу целиком, считается в днях. Так же тут указана медиана, она показывает более “типичное” значение",
             subvalue=f"медиана: {med:.2f}"
         )
 
@@ -596,7 +596,7 @@ with tab1:
         kpi_card(
             "Cycle time (дн)",
             f"{avg:.2f}",
-            "Среднее время активной работы",
+            "Среднее время активной работы над задачами, считается в днях. Также тут указана медиана, она показывает более “типичное” значение",
             subvalue=f"медиана: {med:.2f}"
         )
 
@@ -606,7 +606,7 @@ with tab1:
         kpi_card(
             "Ожидание (дн)",
             f"{avg:.2f}",
-            "Среднее время вне активной работы",
+            "Среднее время, которое задача проводила вне активной работы. (Среднее ожидание = среднее значение разницы между TTM и Cycle time). Медиана показывает более “типичное” значение",
             subvalue=f"медиана: {med:.2f}"
         )
 
@@ -614,9 +614,9 @@ with tab1:
         late = ((f_df["Резолюция"] == "Позже").mean() * 100) if len(f_df) else 0
         late_color = "#E45757" if late > 50 else "#4CAF7D"
         kpi_card(
-            "Позже %",
+            "Позже",
             f"{late:.1f}%",
-            "Доля задач, перенесённых на потом",
+            "Доля задач, которые решены позже",
             color=late_color
         )
 
@@ -627,9 +627,9 @@ with tab1:
         )
         active_color = "#E45757" if active < 50 else "#4CAF7D"
         kpi_card(
-            "Flow Efficiency %",
+            "Flow Efficiency",
             f"{active:.0f}%",
-            "Доля активной работы в общем времени",
+            "Доля активной работы в общем времени работы над задачей, то есть cycle time/ TTM",
             color=active_color
         )
 
@@ -645,9 +645,9 @@ with tab1:
         pingpong_color = "#E45757" if pingpong_share > 20 else "#4CAF7D"
     
         kpi_card(
-            "Пинг-понг > 1, %",
+            "Пинг-понг > 1",
             f"{pingpong_share:.1f}%",
-            "Доля задач, которые передавались между командами более одного раза",
+            "Доля задач, которые передавались между командами более одного раза, если была только одна команда, то стоит 1",
             subvalue=f"задач: {tasks_with_pingpong}",
             color=pingpong_color
         )
@@ -666,8 +666,8 @@ with tab1:
 
     with c1:
         st.markdown(
-            f'<div class="card-header">Структура времени задачи</div>'
-            f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания">?</span>',
+            f'<div class="card-header">Структура времени задач по командам</div>'
+            f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание (позволяет понять соотношение активной работы и ожидания)  или только этапы ожидания (позволяет понять где и почему задержалось выполнение задачи)">?</span>',
             unsafe_allow_html=True
         )
 
@@ -782,7 +782,7 @@ with tab1:
     with c2:
         st.markdown(
             f'<div class="card-header">Нагрузка по командам</div>'
-            f'<span class="hint-icon" data-hint="Количество задач по командам">?</span>',
+            f'<span class="hint-icon" data-hint="Количество задач, которые были взяты в работу по командам">?</span>',
             unsafe_allow_html=True
         )
 
@@ -811,7 +811,7 @@ with tab1:
     with b1:
         st.markdown(
             f'<div class="card-header">Динамика поступления задач</div>'
-            f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам">?</span>',
+            f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам. Так же выходные на графике выделены красным, что помогает понять была ли работа в выходные">?</span>',
             unsafe_allow_html=True
         )
 
@@ -949,7 +949,7 @@ with tab1:
     with b2:
         st.markdown(
             f'<div class="card-header">Распределение времени задач</div>'
-            f'<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам">?</span>',
+            f'<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам, это позволяет более подробно взглянуть на метрики и посмотреть нет ли тяжелых хвостов">?</span>',
             unsafe_allow_html=True
         )
     
@@ -1065,7 +1065,7 @@ with tab1:
     with b3:
         st.markdown(
             f'<div class="card-header">Структура обращений</div>'
-            f'<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений">?</span>',
+            f'<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений. Смотрим только в типе запрос на обслуживание">?</span>',
             unsafe_allow_html=True
         )
 
@@ -1144,7 +1144,7 @@ with tab2:
                 "Всего задач",
                 current_metrics["tasks_total"],
                 previous_metrics["tasks_total"],
-                hint="Количество задач за текущую неделю",
+                hint="Количество задач за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями",
                 as_int=True
             )
         with w2:
@@ -1152,28 +1152,28 @@ with tab2:
                 "TTM (дн)",
                 current_metrics["ttm"],
                 previous_metrics["ttm"],
-                hint="Среднее время от открытия до закрытия"
+                hint="Среднее время от открытия задачи до её закрытия за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями"
             )
         with w3:
             kpi_compare_card(
                 "Cycle time (дн)",
                 current_metrics["cycle"],
                 previous_metrics["cycle"],
-                hint="Среднее время активной работы"
+                hint="Среднее время активной работы над задачей за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями"
             )
         with w4:
             kpi_compare_card(
                 "Ожидание (дн)",
                 current_metrics["wait"],
                 previous_metrics["wait"],
-                hint="Среднее неактивное время"
+                hint="Среднее время, которое задачи находились в ожидании за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями"
             )
         with w5:
             kpi_compare_card(
                 "Позже",
                 current_metrics["later_pct"],
                 previous_metrics["later_pct"],
-                hint="Доля задач с резолюцией 'Позже'",
+                hint="Доля задач с резолюцией 'Позже' за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями",
                 is_percent=True
             )
         with w6:
@@ -1181,7 +1181,7 @@ with tab2:
                 "Flow Efficiency",
                 current_metrics["active_pct"],
                 previous_metrics["active_pct"],
-                hint="Доля активной работы в общем времени",
+                hint="Доля активной работы в общем времени за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями",
                 is_percent=True
             )
         with w7:
@@ -1189,7 +1189,7 @@ with tab2:
                 "Пинг-понг > 1",
                 current_metrics["pingpong_share"],
                 previous_metrics["pingpong_share"],
-                hint="Доля задач, которые передавались между командами более одного раза",
+                hint="Доля задач, которые передавались между командами более одного раза за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями",
                 is_percent=True
             )
 
@@ -1248,7 +1248,7 @@ with tab2:
         with g2:
             st.markdown(
                 f'<div class="card-header">TTM по командам</div>'
-                f'<span class="hint-icon" data-hint="Можно посмотреть TTM, только Cycle time или только ожидание по командам за две недели">?</span>',
+                f'<span class="hint-icon" data-hint="Можно посмотреть TTM, только Cycle time или только ожидание по командам за текущую и предыдущую недели">?</span>',
                 unsafe_allow_html=True
             )
         
@@ -1422,7 +1422,7 @@ with tab2:
         with g3:
             st.markdown(
                 f'<div class="card-header">Поступление задач</div>'
-                f'<span class="hint-icon" data-hint="Сравнение количества новых задач по дням двух 7-дневных периодов">?</span>',
+                f'<span class="hint-icon" data-hint="Сравнение количества новых задач по дням для текущей недели и предыдущей">?</span>',
                 unsafe_allow_html=True
             )
 
@@ -1492,7 +1492,7 @@ with tab2:
         with g4:
             st.markdown(
                 f'<div class="card-header">Количество обращений</div>'
-                f'<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели">?</span>',
+                f'<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели, смотрим только в типе запрос на обслуживание">?</span>',
                 unsafe_allow_html=True
             )
 
