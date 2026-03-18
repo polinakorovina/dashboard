@@ -443,35 +443,43 @@ def calc_metrics(df_):
 
 st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-st.markdown("### Загрузка данных")
-st.info("Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, очистятся и дашборд отрисуется.")
+top_left_col, _ = st.columns([1.2, 8])
 
-uploaded_files = st.file_uploader(
-    "Загрузите 2 файла",
-    type=["csv", "xlsx"],
-    accept_multiple_files=True
-)
+with top_left_col:
+    show_upload = st.toggle("Импорт данных", value=False)
 
-if uploaded_files and len(uploaded_files) != 2:
-    st.warning("Пожалуйста, загрузите ровно 2 файла.")
-    st.stop()
+if show_upload:
+    with st.expander("Загрузка файлов", expanded=True):
+        st.info("Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, очистятся и дашборд отрисуется.")
 
-if st.button("Обработать файлы"):
-    if not uploaded_files or len(uploaded_files) != 2:
-        st.error("Нужно загрузить ровно 2 файла.")
-        st.stop()
+        uploaded_files = st.file_uploader(
+            "Загрузите 2 файла",
+            type=["csv", "xlsx"],
+            accept_multiple_files=True,
+            key="uploaded_files_main"
+        )
 
-    df_loaded, error = load_and_prepare_two_files(uploaded_files)
+        if uploaded_files and len(uploaded_files) != 2:
+            st.warning("Пожалуйста, загрузите ровно 2 файла.")
 
-    if error:
-        st.error(error)
-        st.stop()
+        process_clicked = st.button("Обработать файлы", key="process_files_btn")
 
-    st.session_state["data"] = df_loaded
-    st.success("Файлы успешно загружены и обработаны.")
+        if process_clicked:
+            if not uploaded_files or len(uploaded_files) != 2:
+                st.error("Нужно загрузить ровно 2 файла.")
+            else:
+                df_loaded, error = load_and_prepare_two_files(uploaded_files)
+
+                if error:
+                    st.error(error)
+                else:
+                    st.session_state["data"] = df_loaded
+                    st.success("Файлы успешно загружены и обработаны.")
 
 if "data" not in st.session_state:
+    st.info("Для начала анализа откройте «Импорт данных» слева сверху и загрузите 2 файла.")
     st.stop()
+    
 
 df = prepare_dashboard_data(st.session_state["data"])
 
