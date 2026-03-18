@@ -4,6 +4,5 @@ openpyxl
 sqlalchemy
 psycopg2-binary
 plotly
-streamlit
 kaleido
 Pillow
