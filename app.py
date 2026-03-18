@@ -313,7 +313,7 @@ st.markdown(
         font-weight: 600 !important;
         min-height: 34px !important;
         padding: 0.2rem 0.8rem !important;
-        font-size: 14px !important;
+        font-size: 9px !important;
         width: auto !important;
     }
 
@@ -626,14 +626,14 @@ def calc_metrics(df_):
 if "show_upload_block" not in st.session_state:
     st.session_state["show_upload_block"] = False
 
-title_col, action_col = st.columns([9, 1])
+title_col, action_col = st.columns([5, 1])
 
 with title_col:
     st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 with action_col:
     st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-    if st.button("Импорт данных", key="toggle_upload_btn"):
+    if st.button("Импорт", key="toggle_upload_btn"):
         st.session_state["show_upload_block"] = not st.session_state["show_upload_block"]
 
 if st.session_state["show_upload_block"]:
