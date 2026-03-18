@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import timedelta, date
+import os
 import plotly.graph_objects as go
-import os 
-from data_loader import load_and_prepare_two_files
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
@@ -16,7 +15,14 @@ if token != ACCESS_TOKEN:
     st.error("Эта ссылка недействительна или у вас нет доступа.")
     st.stop()
 
-TTM_STAGES = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
+TTM_STAGES = [
+    "Сбор данных",
+    "Открыт",
+    "Заблокирован",
+    "На стороне менеджера",
+    "Бэклог разработки",
+    "В работе"
+]
 CYCLE_STAGES = ["Бэклог разработки", "В работе"]
 WAIT_STAGES = [stage for stage in TTM_STAGES if stage not in CYCLE_STAGES]
 
@@ -149,8 +155,20 @@ st.markdown(
         gap: 0.6rem;
     }
 
-    .main-header { font-size: 24px; font-weight: 800; color: #1A1C1E; margin: 0 0 10px 0; }
-    .card-header { font-size: 14px; font-weight: 700; color: #1A1C1E; display: inline-block; }
+    .main-header {
+        font-size: 24px;
+        font-weight: 800;
+        color: #1A1C1E;
+        margin: 0;
+        padding-top: 6px;
+    }
+
+    .card-header {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1A1C1E;
+        display: inline-block;
+    }
 
     .kpi-card {
         background: #ffffff;
@@ -297,11 +315,210 @@ st.markdown(
         margin-right: 6px !important;
     }
 
+    div.stButton > button {
+        border-radius: 12px !important;
+        border: 1px solid #D8CDF4 !important;
+        background: white !important;
+        color: #6244BB !important;
+        font-weight: 600 !important;
+        min-height: 42px !important;
+    }
+
     </style>
     """,
     unsafe_allow_html=True
 )
 
+# ===================== DATA LOADER INSIDE APP =====================
+
+REQUIRED_KEY_OPTIONS = [
+    ("Ключ", "issue_key"),
+    ("issue_key", "Ключ"),
+]
+
+COLS_TO_DROP = [
+    "Статус",
+    "Дата завершения",
+    "DutyGPT prediction result",
+    "Резолюция по ролям",
+    "Причина блокировки",
+    "Закрыт",
+    "issue_key",
+]
+
+
+def load_single_file(uploaded_file):
+    if uploaded_file is None:
+        return None, "Файл не загружен."
+
+    try:
+        file_name = uploaded_file.name.lower()
+
+        if file_name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        elif file_name.endswith(".xlsx"):
+            df = pd.read_excel(uploaded_file)
+        else:
+            return None, f"Файл {uploaded_file.name}: поддерживаются только CSV и XLSX."
+
+        df.columns = df.columns.astype(str).str.strip()
+        return df, None
+    except Exception as e:
+        return None, f"Ошибка при чтении файла {uploaded_file.name}: {e}"
+
+
+def validate_two_files(uploaded_files):
+    if uploaded_files is None or len(uploaded_files) != 2:
+        return "Нужно загрузить ровно 2 файла."
+    return None
+
+
+def validate_merge_keys(df_left, df_right):
+    for left_key, right_key in REQUIRED_KEY_OPTIONS:
+        if left_key in df_left.columns and right_key in df_right.columns:
+            return (left_key, right_key), None
+
+    return None, (
+        "Не найдены ключи для объединения. "
+        "В одном файле должна быть колонка 'Ключ', а в другом — 'issue_key'."
+    )
+
+
+def validate_key_matches(df_left, df_right, left_key, right_key):
+    left_values = set(df_left[left_key].dropna().astype(str).str.strip())
+    right_values = set(df_right[right_key].dropna().astype(str).str.strip())
+    matches = left_values & right_values
+
+    if not matches:
+        return False, (
+            f"Колонки для объединения найдены ({left_key} и {right_key}), "
+            f"но совпадающих значений ключей между файлами нет."
+        )
+
+    return True, None
+
+
+def clean_components(val):
+    if pd.isna(val):
+        return None
+
+    comps = [c.strip() for c in str(val).split(",") if c.strip()]
+
+    if len(comps) == 1 and comps[0] == "Запуск скрипта":
+        return None
+
+    if len(comps) >= 2:
+        if "Запуск скрипта" in comps:
+            comps.remove("Запуск скрипта")
+            return comps[0] if len(comps) == 1 else None
+        return None
+
+    return val
+
+
+def preprocess_merged_data(df):
+    df = df.copy()
+    df.columns = df.columns.astype(str).str.strip()
+    df = df.dropna(how="all")
+
+    if "Количество обращений" in df.columns:
+        df["Количество обращений"] = df["Количество обращений"].fillna("1-4")
+
+    if "Пинг-понг обращения" in df.columns:
+        df["Пинг-понг обращения"] = df["Пинг-понг обращения"].fillna(1.0)
+
+    df = df.drop(columns=COLS_TO_DROP, errors="ignore")
+
+    if "Резолюция" in df.columns:
+        df = df[~df["Резолюция"].isin(["Не будет исправлено", "Дубликат"])]
+
+    if "Компоненты" in df.columns:
+        df["Компоненты"] = df["Компоненты"].apply(clean_components)
+        df = df.dropna(subset=["Компоненты"])
+
+    df = df.reset_index(drop=True)
+    return df
+
+
+def merge_two_dataframes(df_left, df_right):
+    merge_keys, error = validate_merge_keys(df_left, df_right)
+    if error:
+        return None, error
+
+    left_key, right_key = merge_keys
+
+    is_valid_match, match_error = validate_key_matches(df_left, df_right, left_key, right_key)
+    if not is_valid_match:
+        return None, match_error
+
+    merged_df = pd.merge(
+        df_left,
+        df_right,
+        left_on=left_key,
+        right_on=right_key,
+        how="left"
+    )
+
+    return merged_df, None
+
+
+def load_and_prepare_two_files(uploaded_files):
+    files_error = validate_two_files(uploaded_files)
+    if files_error:
+        return None, files_error
+
+    df_left, error_left = load_single_file(uploaded_files[0])
+    if error_left:
+        return None, error_left
+
+    df_right, error_right = load_single_file(uploaded_files[1])
+    if error_right:
+        return None, error_right
+
+    merged_df, merge_error = merge_two_dataframes(df_left, df_right)
+    if merge_error:
+        return None, merge_error
+
+    prepared_df = preprocess_merged_data(merged_df)
+
+    if prepared_df.empty:
+        return None, "После объединения и очистки не осталось данных."
+
+    return prepared_df, None
+
+
+def prepare_dashboard_data(df_):
+    df_ = df_.copy()
+
+    if "Дата создания" not in df_.columns:
+        return pd.DataFrame()
+
+    df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
+    df_ = df_.dropna(subset=["Дата создания"])
+
+    for col in set(TTM_STAGES + CYCLE_STAGES):
+        if col not in df_.columns:
+            df_[col] = 0
+        df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
+
+    df_["ttm_days"] = df_[TTM_STAGES].sum(axis=1) / 1440
+    df_["cycle_time"] = df_[CYCLE_STAGES].sum(axis=1) / 1440
+    df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
+
+    df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(0)
+    df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+
+    if "Тип" not in df_.columns:
+        df_["Тип"] = "Не указано"
+    df_["Тип"] = df_["Тип"].fillna("Не указано").astype(str).str.strip()
+
+    return df_
+
+
+# ===================== HELPERS =====================
 
 def kpi_card(title: str, value: str, hint: str = "", subvalue: str = "", color: str = "#6244BB", hint_side: str = "center"):
     hint_html = f'<span class="hint-icon hint-{hint_side}" data-hint="{hint}">?</span>' if hint else ""
@@ -378,37 +595,6 @@ def get_week_bounds(anchor_date):
     return current_week_start, current_week_end, prev_week_start, prev_week_end
 
 
-def prepare_dashboard_data(df_):
-    df_ = df_.copy()
-
-    if "Дата создания" not in df_.columns:
-        return pd.DataFrame()
-
-    df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
-    df_ = df_.dropna(subset=["Дата создания"])
-
-    for col in set(TTM_STAGES + CYCLE_STAGES):
-        if col not in df_.columns:
-            df_[col] = 0
-        df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
-
-    df_["ttm_days"] = df_[TTM_STAGES].sum(axis=1) / 1440
-    df_["cycle_time"] = df_[CYCLE_STAGES].sum(axis=1) / 1440
-    df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
-
-    df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(0)
-    df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-
-    if "Тип" not in df_.columns:
-        df_["Тип"] = "Не указано"
-    df_["Тип"] = df_["Тип"].fillna("Не указано").astype(str).str.strip()
-
-    return df_
-
-
 def calc_metrics(df_):
     if df_.empty:
         return {
@@ -442,15 +628,23 @@ def calc_metrics(df_):
     }
 
 
-st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
+# ===================== TOP BAR =====================
 
-top_left_col, _ = st.columns([1.2, 8])
+if "show_upload_block" not in st.session_state:
+    st.session_state["show_upload_block"] = False
 
-with top_left_col:
-    show_upload = st.toggle("Импорт данных", value=False)
+title_col, action_col = st.columns([8, 2])
 
-if show_upload:
-    with st.expander("Загрузка файлов", expanded=True):
+with title_col:
+    st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
+
+with action_col:
+    st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+    if st.button("Импорт данных", key="toggle_upload_btn", use_container_width=True):
+        st.session_state["show_upload_block"] = not st.session_state["show_upload_block"]
+
+if st.session_state["show_upload_block"]:
+    with st.container():
         st.info("Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, очистятся и дашборд отрисуется.")
 
         uploaded_files = st.file_uploader(
@@ -463,9 +657,7 @@ if show_upload:
         if uploaded_files and len(uploaded_files) != 2:
             st.warning("Пожалуйста, загрузите ровно 2 файла.")
 
-        process_clicked = st.button("Обработать файлы", key="process_files_btn")
-
-        if process_clicked:
+        if st.button("Обработать файлы", key="process_files_btn"):
             if not uploaded_files or len(uploaded_files) != 2:
                 st.error("Нужно загрузить ровно 2 файла.")
             else:
@@ -474,19 +666,20 @@ if show_upload:
                 if error:
                     st.error(error)
                 else:
-                    st.session_state["data"] = df_loaded
+                    st.session_state["data"] = prepare_dashboard_data(df_loaded)
                     st.success("Файлы успешно загружены и обработаны.")
 
 if "data" not in st.session_state:
-    st.info("Для начала анализа откройте «Импорт данных» слева сверху и загрузите 2 файла.")
+    st.info("Для начала анализа нажмите кнопку «Импорт данных» справа вверху и загрузите 2 файла.")
     st.stop()
-    
 
-df = prepare_dashboard_data(st.session_state["data"])
+df = st.session_state["data"]
 
 if df.empty:
-    st.warning("После подготовки данных ничего не осталось.")
+    st.warning("После обработки данные пустые.")
     st.stop()
+
+# ===================== SIDEBAR FILTERS =====================
 
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
@@ -569,6 +762,8 @@ if f_df.empty:
     st.warning("По выбранным фильтрам данных нет.")
     st.stop()
 
+# ===================== WEEKLY COMPARISON =====================
+
 base_week_df = df[
     (df["Компоненты"].isin(sel_teams)) &
     (df["Резолюция"].isin(sel_res)) &
@@ -602,6 +797,8 @@ else:
     current_metrics = calc_metrics(current_week_df)
     previous_metrics = calc_metrics(previous_week_df)
 
+# ===================== UI =====================
+
 tab1, tab2 = st.tabs(["Общий обзор", "Сравнение недель"])
 
 with tab1:
@@ -616,7 +813,7 @@ with tab1:
         kpi_card(
             "TTM (дн)",
             f"{avg:.2f}",
-            "Сколько в среднем времени занимал путь задач по процессу целиком, считается в днях. Так же тут указана медиана, она показывает более “типичное” значение",
+            "Сколько в среднем времени занимал путь задач по процессу целиком, считается в днях. Так же тут указана медиана, она показывает более типичное значение",
             subvalue=f"медиана: {med:.2f}"
         )
 
@@ -626,7 +823,7 @@ with tab1:
         kpi_card(
             "Cycle time (дн)",
             f"{avg:.2f}",
-            "Среднее время активной работы над задачами, считается в днях. Также тут указана медиана, она показывает более “типичное” значение",
+            "Среднее время активной работы над задачами, считается в днях. Также тут указана медиана, она показывает более типичное значение",
             subvalue=f"медиана: {med:.2f}"
         )
 
@@ -636,7 +833,7 @@ with tab1:
         kpi_card(
             "Ожидание (дн)",
             f"{avg:.2f}",
-            "Среднее время, которое задача проводила вне активной работы. (Среднее ожидание = среднее значение разницы между TTM и Cycle time). Медиана показывает более “типичное” значение",
+            "Среднее время, которое задача проводила вне активной работы. Среднее ожидание = среднее значение разницы между TTM и Cycle time",
             subvalue=f"медиана: {med:.2f}"
         )
 
@@ -646,18 +843,33 @@ with tab1:
         kpi_card("Позже", f"{late:.1f}%", "Доля задач, которые решены позже", color=late_color)
 
     with k6:
-        active = ((f_df["cycle_time"].sum() / f_df["ttm_days"].sum()) * 100 if f_df["ttm_days"].sum() > 0 else 0)
+        active = (
+            (f_df["cycle_time"].sum() / f_df["ttm_days"].sum()) * 100
+            if f_df["ttm_days"].sum() > 0 else 0
+        )
         active_color = "#E45757" if active < 50 else "#4CAF7D"
-        kpi_card("Flow Efficiency", f"{active:.0f}%", "Доля активной работы в общем времени работы над задачей, то есть cycle time/ TTM", color=active_color)
+        kpi_card(
+            "Flow Efficiency",
+            f"{active:.0f}%",
+            "Доля активной работы в общем времени работы над задачей, то есть cycle time / TTM",
+            color=active_color
+        )
 
     with k7:
-        pingpong_share = ((f_df["Пинг-понг обращения"] > 1).mean() * 100 if len(f_df) else 0.0)
-        tasks_with_pingpong = ((f_df["Пинг-понг обращения"] > 1).sum() if len(f_df) else 0)
+        pingpong_share = (
+            (f_df["Пинг-понг обращения"] > 1).mean() * 100
+            if len(f_df) else 0.0
+        )
+        tasks_with_pingpong = (
+            (f_df["Пинг-понг обращения"] > 1).sum()
+            if len(f_df) else 0
+        )
         pingpong_color = "#E45757" if pingpong_share > 20 else "#4CAF7D"
+
         kpi_card(
             "Пинг-понг > 1",
             f"{pingpong_share:.1f}%",
-            "Доля задач, которые\nпередавались между командами\nболее одного раза,\nесли была только одна команда,\nто стоит 1",
+            "Доля задач, которые передавались между командами более одного раза, если была только одна команда, то стоит 1",
             subvalue=f"задач: {tasks_with_pingpong}",
             color=pingpong_color,
             hint_side="left"
@@ -678,7 +890,7 @@ with tab1:
     with c1:
         st.markdown(
             f'<div class="card-header">Структура времени задач по командам</div>'
-            f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание (позволяет понять соотношение активной работы и ожидания)  или только этапы ожидания (позволяет понять где и почему задержалось выполнение задачи)">?</span>',
+            f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания">?</span>',
             unsafe_allow_html=True
         )
 
@@ -697,7 +909,10 @@ with tab1:
             value_name="Дни"
         )
 
-        name_map = {"cycle_time": "Cycle time", "wait_time_days": "Ожидание"}
+        name_map = {
+            "cycle_time": "Cycle time",
+            "wait_time_days": "Ожидание"
+        }
         t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
 
         fig_a = px.bar(
@@ -709,7 +924,10 @@ with tab1:
             barmode="stack",
             text_auto=".1f",
             category_orders={"Компоненты": t_order},
-            color_discrete_map={"Cycle time": "#6244BB", "Ожидание": "#A485E0"},
+            color_discrete_map={
+                "Cycle time": "#6244BB",
+                "Ожидание": "#A485E0"
+            },
             template="plotly_white",
         )
 
@@ -761,8 +979,16 @@ with tab1:
                     font=dict(size=9, color="#5D4AA8"),
                     pad=dict(r=0, t=0, l=0, b=0),
                     buttons=[
-                        dict(label="Суммарно", method="update", args=[{"visible": visible_sum}, {"barmode": "stack"}]),
-                        dict(label="Ожидание", method="update", args=[{"visible": visible_wait}, {"barmode": "stack"}]),
+                        dict(
+                            label="Суммарно",
+                            method="update",
+                            args=[{"visible": visible_sum}, {"barmode": "stack"}],
+                        ),
+                        dict(
+                            label="Ожидание",
+                            method="update",
+                            args=[{"visible": visible_wait}, {"barmode": "stack"}],
+                        ),
                     ],
                 )
             ],
@@ -802,13 +1028,31 @@ with tab1:
     with b1:
         st.markdown(
             f'<div class="card-header">Динамика поступления задач</div>'
-            f'<span class="hint-icon" data-hint="Количество новых задач по дням / неделям / месяцам. Так же выходные на графике выделены красным, что помогает понять была ли работа в выходные">?</span>',
+            f'<span class="hint-icon" data-hint="Количество новых задач по дням, неделям или месяцам">?</span>',
             unsafe_allow_html=True
         )
 
-        daily_df = f_df.set_index("Дата создания").resample("D").size().reset_index(name="Задач")
-        weekly_df = f_df.set_index("Дата создания").resample("W").size().reset_index(name="Задач")
-        monthly_df = f_df.set_index("Дата создания").resample("ME").size().reset_index(name="Задач")
+        daily_df = (
+            f_df.set_index("Дата создания")
+            .resample("D")
+            .size()
+            .reset_index(name="Задач")
+        )
+
+        weekly_df = (
+            f_df.set_index("Дата создания")
+            .resample("W")
+            .size()
+            .reset_index(name="Задач")
+        )
+
+        monthly_df = (
+            f_df.set_index("Дата создания")
+            .resample("ME")
+            .size()
+            .reset_index(name="Задач")
+        )
+
         weekend_df = daily_df[daily_df["Дата создания"].dt.weekday.isin([5, 6])].copy()
 
         fig_d = px.line(
@@ -834,7 +1078,11 @@ with tab1:
             mode="markers",
             name="Выходные",
             visible=True,
-            marker=dict(color="#E45757", size=8, line=dict(color="white", width=1)),
+            marker=dict(
+                color="#E45757",
+                size=8,
+                line=dict(color="white", width=1)
+            ),
             hovertemplate="Выходной<br>Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
 
@@ -894,16 +1142,46 @@ with tab1:
     with b2:
         st.markdown(
             f'<div class="card-header">Распределение времени задач</div>'
-            f'<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам, это позволяет более подробно взглянуть на метрики и посмотреть нет ли тяжелых хвостов">?</span>',
+            f'<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам">?</span>',
             unsafe_allow_html=True
         )
 
         dist_df = f_df[["ttm_days", "cycle_time", "wait_time_days"]].dropna().copy()
+
         fig_dist = go.Figure()
 
-        fig_dist.add_trace(go.Histogram(x=dist_df["ttm_days"], name="TTM", marker_color="#6244BB", opacity=0.85, nbinsx=20, visible=True))
-        fig_dist.add_trace(go.Histogram(x=dist_df["cycle_time"], name="Cycle time", marker_color="#6244BB", opacity=0.85, nbinsx=20, visible=False))
-        fig_dist.add_trace(go.Histogram(x=dist_df["wait_time_days"], name="Ожидание", marker_color="#A485E0", opacity=0.85, nbinsx=20, visible=False))
+        fig_dist.add_trace(
+            go.Histogram(
+                x=dist_df["ttm_days"],
+                name="TTM",
+                marker_color="#6244BB",
+                opacity=0.85,
+                nbinsx=20,
+                visible=True
+            )
+        )
+
+        fig_dist.add_trace(
+            go.Histogram(
+                x=dist_df["cycle_time"],
+                name="Cycle time",
+                marker_color="#6244BB",
+                opacity=0.85,
+                nbinsx=20,
+                visible=False
+            )
+        )
+
+        fig_dist.add_trace(
+            go.Histogram(
+                x=dist_df["wait_time_days"],
+                name="Ожидание",
+                marker_color="#A485E0",
+                opacity=0.85,
+                nbinsx=20,
+                visible=False
+            )
+        )
 
         fig_dist.update_layout(
             height=250,
@@ -930,9 +1208,30 @@ with tab1:
                     font=dict(size=10, color="#5D4AA8"),
                     pad=dict(r=0, t=0),
                     buttons=[
-                        dict(label="TTM", method="update", args=[{"visible": [True, False, False]}, {"xaxis": {"title": "TTM, дни"}, "yaxis": {"title": "Количество задач"}}]),
-                        dict(label="Cycle time", method="update", args=[{"visible": [False, True, False]}, {"xaxis": {"title": "Cycle time, дни"}, "yaxis": {"title": "Количество задач"}}]),
-                        dict(label="Ожидание", method="update", args=[{"visible": [False, False, True]}, {"xaxis": {"title": "Ожидание, дни"}, "yaxis": {"title": "Количество задач"}}]),
+                        dict(
+                            label="TTM",
+                            method="update",
+                            args=[
+                                {"visible": [True, False, False]},
+                                {"xaxis": {"title": "TTM, дни"}, "yaxis": {"title": "Количество задач"}}
+                            ],
+                        ),
+                        dict(
+                            label="Cycle time",
+                            method="update",
+                            args=[
+                                {"visible": [False, True, False]},
+                                {"xaxis": {"title": "Cycle time, дни"}, "yaxis": {"title": "Количество задач"}}
+                            ],
+                        ),
+                        dict(
+                            label="Ожидание",
+                            method="update",
+                            args=[
+                                {"visible": [False, False, True]},
+                                {"xaxis": {"title": "Ожидание, дни"}, "yaxis": {"title": "Количество задач"}}
+                            ],
+                        ),
                     ],
                 )
             ],
@@ -943,11 +1242,15 @@ with tab1:
     with b3:
         st.markdown(
             f'<div class="card-header">Структура обращений</div>'
-            f'<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений. Смотрим только в типе запрос на обслуживание">?</span>',
+            f'<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений">?</span>',
             unsafe_allow_html=True
         )
 
-        contacts_dist = f_df["Количество обращений"].value_counts(dropna=False).reset_index()
+        contacts_dist = (
+            f_df["Количество обращений"]
+            .value_counts(dropna=False)
+            .reset_index()
+        )
         contacts_dist.columns = ["Количество обращений", "Кол-во"]
 
         cat_order = ["1-4", "5-10", "11-100", "100+"]
@@ -974,6 +1277,7 @@ with tab1:
         )
 
         fig_contacts.update_traces(textinfo="percent", textfont_size=12)
+
         fig_contacts.update_layout(
             height=250,
             margin=dict(l=20, r=20, t=15, b=15),
@@ -1004,19 +1308,58 @@ with tab2:
         w1, w2, w3, w4, w5, w6, w7 = st.columns(7, gap="small")
 
         with w1:
-            kpi_compare_card("Всего задач", current_metrics["tasks_total"], previous_metrics["tasks_total"], hint="Количество задач за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями", as_int=True)
+            kpi_compare_card(
+                "Всего задач",
+                current_metrics["tasks_total"],
+                previous_metrics["tasks_total"],
+                hint="Количество задач за текущую неделю",
+                as_int=True
+            )
         with w2:
-            kpi_compare_card("TTM (дн)", current_metrics["ttm"], previous_metrics["ttm"], hint="Среднее время от открытия задачи до её закрытия за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями")
+            kpi_compare_card(
+                "TTM (дн)",
+                current_metrics["ttm"],
+                previous_metrics["ttm"],
+                hint="Среднее время от открытия задачи до её закрытия за текущую неделю"
+            )
         with w3:
-            kpi_compare_card("Cycle time (дн)", current_metrics["cycle"], previous_metrics["cycle"], hint="Среднее время активной работы над задачей за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями")
+            kpi_compare_card(
+                "Cycle time (дн)",
+                current_metrics["cycle"],
+                previous_metrics["cycle"],
+                hint="Среднее время активной работы над задачей за текущую неделю"
+            )
         with w4:
-            kpi_compare_card("Ожидание (дн)", current_metrics["wait"], previous_metrics["wait"], hint="Среднее время, которое задачи находились в ожидании за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями")
+            kpi_compare_card(
+                "Ожидание (дн)",
+                current_metrics["wait"],
+                previous_metrics["wait"],
+                hint="Среднее время ожидания за текущую неделю"
+            )
         with w5:
-            kpi_compare_card("Позже", current_metrics["later_pct"], previous_metrics["later_pct"], hint="Доля задач с резолюцией 'Позже' за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями", is_percent=True)
+            kpi_compare_card(
+                "Позже",
+                current_metrics["later_pct"],
+                previous_metrics["later_pct"],
+                hint="Доля задач с резолюцией 'Позже'",
+                is_percent=True
+            )
         with w6:
-            kpi_compare_card("Flow Efficiency", current_metrics["active_pct"], previous_metrics["active_pct"], hint="Доля активной работы в общем времени за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями", is_percent=True)
+            kpi_compare_card(
+                "Flow Efficiency",
+                current_metrics["active_pct"],
+                previous_metrics["active_pct"],
+                hint="Доля активной работы в общем времени",
+                is_percent=True
+            )
         with w7:
-            kpi_compare_card("Пинг-понг > 1", current_metrics["pingpong_share"], previous_metrics["pingpong_share"], hint="Доля задач, которые передавались между командами более одного раза за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями", is_percent=True)
+            kpi_compare_card(
+                "Пинг-понг > 1",
+                current_metrics["pingpong_share"],
+                previous_metrics["pingpong_share"],
+                hint="Доля задач, которые передавались между командами более одного раза",
+                is_percent=True
+            )
 
         st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
@@ -1056,7 +1399,10 @@ with tab2:
                 barmode="group",
                 text_auto=".0f",
                 category_orders={"Компоненты": team_order_week},
-                color_discrete_map={"Текущая неделя": "#6244BB", "Предыдущая неделя": "#D6CCFF"},
+                color_discrete_map={
+                    "Текущая неделя": "#6244BB",
+                    "Предыдущая неделя": "#D6CCFF"
+                },
                 template="plotly_white"
             )
             fig_cnt_compare.update_layout(
@@ -1071,7 +1417,7 @@ with tab2:
         with g2:
             st.markdown(
                 f'<div class="card-header">TTM по командам</div>'
-                f'<span class="hint-icon" data-hint="Можно посмотреть TTM, только Cycle time или только ожидание по командам за текущую и предыдущую недели">?</span>',
+                f'<span class="hint-icon" data-hint="Можно посмотреть TTM, Cycle time или ожидание по командам за две недели">?</span>',
                 unsafe_allow_html=True
             )
 
@@ -1091,12 +1437,83 @@ with tab2:
 
             fig_ttm_compare = go.Figure()
 
-            fig_ttm_compare.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["ttm_days"], name="TTM — текущая", marker_color="#6244BB", text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["ttm_days"]], textposition="outside", cliponaxis=False, visible=True))
-            fig_ttm_compare.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["ttm_days"], name="TTM — предыдущая", marker_color="#D6CCFF", text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["ttm_days"]], textposition="outside", cliponaxis=False, visible=True))
-            fig_ttm_compare.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["cycle_time"], name="Cycle time — текущая", marker_color="#6244BB", text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["cycle_time"]], textposition="outside", cliponaxis=False, visible=False))
-            fig_ttm_compare.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["cycle_time"], name="Cycle time — предыдущая", marker_color="#D6CCFF", text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["cycle_time"]], textposition="outside", cliponaxis=False, visible=False))
-            fig_ttm_compare.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["wait_time_days"], name="Ожидание — текущая", marker_color="#A485E0", text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["wait_time_days"]], textposition="outside", cliponaxis=False, visible=False))
-            fig_ttm_compare.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["wait_time_days"], name="Ожидание — предыдущая", marker_color="#EEE8FF", text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["wait_time_days"]], textposition="outside", cliponaxis=False, visible=False))
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=curr_parts["Компоненты"],
+                    y=curr_parts["ttm_days"],
+                    name="TTM — текущая",
+                    marker_color="#6244BB",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["ttm_days"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=True
+                )
+            )
+
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=prev_parts["Компоненты"],
+                    y=prev_parts["ttm_days"],
+                    name="TTM — предыдущая",
+                    marker_color="#D6CCFF",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["ttm_days"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=True
+                )
+            )
+
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=curr_parts["Компоненты"],
+                    y=curr_parts["cycle_time"],
+                    name="Cycle time — текущая",
+                    marker_color="#6244BB",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["cycle_time"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=False
+                )
+            )
+
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=prev_parts["Компоненты"],
+                    y=prev_parts["cycle_time"],
+                    name="Cycle time — предыдущая",
+                    marker_color="#D6CCFF",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["cycle_time"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=False
+                )
+            )
+
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=curr_parts["Компоненты"],
+                    y=curr_parts["wait_time_days"],
+                    name="Ожидание — текущая",
+                    marker_color="#A485E0",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["wait_time_days"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=False
+                )
+            )
+
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=prev_parts["Компоненты"],
+                    y=prev_parts["wait_time_days"],
+                    name="Ожидание — предыдущая",
+                    marker_color="#EEE8FF",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["wait_time_days"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=False
+                )
+            )
 
             fig_ttm_compare.update_layout(
                 height=260,
@@ -1123,9 +1540,21 @@ with tab2:
                         font=dict(size=10, color="#5D4AA8"),
                         pad=dict(r=0, t=0),
                         buttons=[
-                            dict(label="TTM", method="update", args=[{"visible": [True, True, False, False, False, False]}, {"barmode": "group", "yaxis": {"title": "TTM, дней"}}]),
-                            dict(label="Cycle time", method="update", args=[{"visible": [False, False, True, True, False, False]}, {"barmode": "group", "yaxis": {"title": "Cycle time, дней"}}]),
-                            dict(label="Ожидание", method="update", args=[{"visible": [False, False, False, False, True, True]}, {"barmode": "group", "yaxis": {"title": "Ожидание, дней"}}]),
+                            dict(
+                                label="TTM",
+                                method="update",
+                                args=[{"visible": [True, True, False, False, False, False]}, {"barmode": "group", "yaxis": {"title": "TTM, дней"}}],
+                            ),
+                            dict(
+                                label="Cycle time",
+                                method="update",
+                                args=[{"visible": [False, False, True, True, False, False]}, {"barmode": "group", "yaxis": {"title": "Cycle time, дней"}}],
+                            ),
+                            dict(
+                                label="Ожидание",
+                                method="update",
+                                args=[{"visible": [False, False, False, False, True, True]}, {"barmode": "group", "yaxis": {"title": "Ожидание, дней"}}],
+                            ),
                         ],
                     )
                 ],
@@ -1145,7 +1574,16 @@ with tab2:
             current_dates = pd.date_range(cw_start.normalize(), cw_end.normalize(), freq="D")
             previous_dates = pd.date_range(pw_start.normalize(), pw_end.normalize(), freq="D")
 
-            weekday_map = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
+            weekday_map = {
+                0: "Пн",
+                1: "Вт",
+                2: "Ср",
+                3: "Чт",
+                4: "Пт",
+                5: "Сб",
+                6: "Вс"
+            }
+
             x_labels = [weekday_map[d.weekday()] for d in current_dates]
 
             curr_daily = (
@@ -1179,7 +1617,10 @@ with tab2:
                 color="Период",
                 markers=True,
                 category_orders={"X": x_labels},
-                color_discrete_map={"Текущая неделя": "#6244BB", "Предыдущая неделя": "#D6CCFF"},
+                color_discrete_map={
+                    "Текущая неделя": "#6244BB",
+                    "Предыдущая неделя": "#D6CCFF"
+                },
                 template="plotly_white"
             )
 
@@ -1196,17 +1637,27 @@ with tab2:
         with g4:
             st.markdown(
                 f'<div class="card-header">Количество обращений</div>'
-                f'<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели, смотрим только в типе запрос на обслуживание">?</span>',
+                f'<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели">?</span>',
                 unsafe_allow_html=True
             )
 
             cat_order = ["1-4", "5-10", "11-100", "100+"]
 
-            curr_contacts = current_week_df["Количество обращений"].value_counts().reindex(cat_order, fill_value=0).reset_index()
+            curr_contacts = (
+                current_week_df["Количество обращений"]
+                .value_counts()
+                .reindex(cat_order, fill_value=0)
+                .reset_index()
+            )
             curr_contacts.columns = ["Количество обращений", "Кол-во"]
             curr_contacts["Период"] = "Текущая неделя"
 
-            prev_contacts = previous_week_df["Количество обращений"].value_counts().reindex(cat_order, fill_value=0).reset_index()
+            prev_contacts = (
+                previous_week_df["Количество обращений"]
+                .value_counts()
+                .reindex(cat_order, fill_value=0)
+                .reset_index()
+            )
             prev_contacts.columns = ["Количество обращений", "Кол-во"]
             prev_contacts["Период"] = "Предыдущая неделя"
 
@@ -1220,7 +1671,10 @@ with tab2:
                 barmode="group",
                 text_auto=".0f",
                 category_orders={"Количество обращений": cat_order},
-                color_discrete_map={"Текущая неделя": "#6244BB", "Предыдущая неделя": "#D6CCFF"},
+                color_discrete_map={
+                    "Текущая неделя": "#6244BB",
+                    "Предыдущая неделя": "#D6CCFF"
+                },
                 template="plotly_white"
             )
 
