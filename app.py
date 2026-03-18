@@ -1173,88 +1173,120 @@ with tab2:
         with g2:
             st.markdown(
                 f'<div class="card-header">TTM по командам</div>'
-                f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание, только Cycle time или только ожидание по командам за две недели">?</span>',
+                f'<span class="hint-icon" data-hint="Можно посмотреть TTM, только Cycle time или только ожидание по командам за две недели">?</span>',
                 unsafe_allow_html=True
             )
         
             curr_parts = (
-                current_week_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+                current_week_df.groupby("Компоненты")[["ttm_days", "cycle_time", "wait_time_days"]]
                 .mean()
+                .reindex(team_order_week, fill_value=0)
                 .reset_index()
             )
-            curr_parts["Период"] = "Текущая неделя"
         
             prev_parts = (
-                previous_week_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+                previous_week_df.groupby("Компоненты")[["ttm_days", "cycle_time", "wait_time_days"]]
                 .mean()
+                .reindex(team_order_week, fill_value=0)
                 .reset_index()
             )
-            prev_parts["Период"] = "Предыдущая неделя"
         
-            parts_cmp = pd.concat([curr_parts, prev_parts], ignore_index=True)
+            fig_ttm_compare = go.Figure()
         
-            all_teams = pd.DataFrame({"Компоненты": team_order_week})
-            all_periods = pd.DataFrame({"Период": ["Текущая неделя", "Предыдущая неделя"]})
-            scaffold = all_teams.assign(key=1).merge(all_periods.assign(key=1), on="key").drop("key", axis=1)
-        
-            parts_cmp = scaffold.merge(parts_cmp, on=["Компоненты", "Период"], how="left").fillna(0)
-        
-            fig_ttm_compare = px.bar(
-                parts_cmp,
-                x="Компоненты",
-                y=["cycle_time", "wait_time_days"],
-                color="Период",
-                barmode="group",
-                category_orders={"Компоненты": team_order_week},
-                color_discrete_map={
-                    "Текущая неделя": "#6244BB",
-                    "Предыдущая неделя": "#D6CCFF"
-                },
-                template="plotly_white"
+            # 0 — TTM current
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=curr_parts["Компоненты"],
+                    y=curr_parts["ttm_days"],
+                    name="TTM — текущая",
+                    marker_color="#6244BB",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["ttm_days"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=True
+                )
             )
         
-            # Переименуем трейсы для понятности
-            trace_names_sum = []
-            trace_names_cycle = []
-            trace_names_wait = []
+            # 1 — TTM previous
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=prev_parts["Компоненты"],
+                    y=prev_parts["ttm_days"],
+                    name="TTM — предыдущая",
+                    marker_color="#D6CCFF",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["ttm_days"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=True
+                )
+            )
         
-            for tr in fig_ttm_compare.data:
-                if "cycle_time" in tr.legendgroup:
-                    if tr.name == "Текущая неделя":
-                        tr.name = "Cycle time — текущая"
-                        tr.text = [f"{v:.2f}" if v > 0 else "" for v in tr.y]
-                        tr.textposition = "auto"
-                        tr.visible = True
-                    else:
-                        tr.name = "Cycle time — предыдущая"
-                        tr.text = [f"{v:.2f}" if v > 0 else "" for v in tr.y]
-                        tr.textposition = "auto"
-                        tr.visible = True
-                    trace_names_sum.append(True)
-                    trace_names_cycle.append(True)
-                    trace_names_wait.append(False)
+            # 2 — Cycle current
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=curr_parts["Компоненты"],
+                    y=curr_parts["cycle_time"],
+                    name="Cycle time — текущая",
+                    marker_color="#6244BB",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["cycle_time"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=False
+                )
+            )
         
-                elif "wait_time_days" in tr.legendgroup:
-                    if tr.name == "Текущая неделя":
-                        tr.name = "Ожидание — текущая"
-                        tr.text = [f"{v:.2f}" if v > 0 else "" for v in tr.y]
-                        tr.textposition = "auto"
-                        tr.visible = True
-                    else:
-                        tr.name = "Ожидание — предыдущая"
-                        tr.text = [f"{v:.2f}" if v > 0 else "" for v in tr.y]
-                        tr.textposition = "auto"
-                        tr.visible = True
-                    trace_names_sum.append(True)
-                    trace_names_cycle.append(False)
-                    trace_names_wait.append(True)
+            # 3 — Cycle previous
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=prev_parts["Компоненты"],
+                    y=prev_parts["cycle_time"],
+                    name="Cycle time — предыдущая",
+                    marker_color="#D6CCFF",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["cycle_time"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=False
+                )
+            )
+        
+            # 4 — Wait current
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=curr_parts["Компоненты"],
+                    y=curr_parts["wait_time_days"],
+                    name="Ожидание — текущая",
+                    marker_color="#A485E0",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["wait_time_days"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=False
+                )
+            )
+        
+            # 5 — Wait previous
+            fig_ttm_compare.add_trace(
+                go.Bar(
+                    x=prev_parts["Компоненты"],
+                    y=prev_parts["wait_time_days"],
+                    name="Ожидание — предыдущая",
+                    marker_color="#EEE8FF",
+                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["wait_time_days"]],
+                    textposition="outside",
+                    cliponaxis=False,
+                    visible=False
+                )
+            )
         
             fig_ttm_compare.update_layout(
-                height=250,
+                height=280,
                 xaxis_title=None,
-                yaxis_title="Дни",
+                yaxis_title="TTM, дней",
                 legend_title=None,
                 margin=dict(l=20, r=20, t=15, b=10),
+                barmode="group",
+                template="plotly_white",
+                uniformtext_minsize=9,
+                uniformtext_mode="hide",
                 updatemenus=[
                     dict(
                         type="buttons",
@@ -1271,27 +1303,36 @@ with tab2:
                         pad=dict(r=0, t=0),
                         buttons=[
                             dict(
-                                label="Суммарно",
+                                label="TTM",
                                 method="update",
                                 args=[
-                                    {"visible": trace_names_sum},
-                                    {"barmode": "group", "yaxis": {"title": "Дни"}}
+                                    {"visible": [True, True, False, False, False, False]},
+                                    {
+                                        "barmode": "group",
+                                        "yaxis": {"title": "TTM, дней"}
+                                    }
                                 ],
                             ),
                             dict(
                                 label="Cycle time",
                                 method="update",
                                 args=[
-                                    {"visible": trace_names_cycle},
-                                    {"barmode": "group", "yaxis": {"title": "Cycle time, дни"}}
+                                    {"visible": [False, False, True, True, False, False]},
+                                    {
+                                        "barmode": "group",
+                                        "yaxis": {"title": "Cycle time, дней"}
+                                    }
                                 ],
                             ),
                             dict(
                                 label="Ожидание",
                                 method="update",
                                 args=[
-                                    {"visible": trace_names_wait},
-                                    {"barmode": "group", "yaxis": {"title": "Ожидание, дни"}}
+                                    {"visible": [False, False, False, False, True, True]},
+                                    {
+                                        "barmode": "group",
+                                        "yaxis": {"title": "Ожидание, дней"}
+                                    }
                                 ],
                             ),
                         ],
