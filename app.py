@@ -368,7 +368,7 @@ def calc_metrics(df_):
             "wait": 0.0,
             "later_pct": 0.0,
             "active_pct": 0.0,
-            "pingpong": 0.0
+            "pingpong_share": 0.0
         }
 
     ttm_mean = df_["ttm_days"].mean() if "ttm_days" in df_.columns else 0.0
@@ -376,7 +376,10 @@ def calc_metrics(df_):
     wait_mean = df_["wait_time_days"].mean() if "wait_time_days" in df_.columns else 0.0
     later_pct = (df_["Резолюция"] == "Позже").mean() * 100 if "Резолюция" in df_.columns else 0.0
     active_pct = (cycle_mean / ttm_mean * 100) if ttm_mean > 0 else 0.0
-    pingpong_mean = df_["Пинг-понг обращения"].mean() if "Пинг-понг обращения" in df_.columns else 0.0
+    pingpong_share = (
+        (df_["Пинг-понг обращения"] > 1).mean() * 100
+        if "Пинг-понг обращения" in df_.columns else 0.0
+    )
 
     return {
         "tasks_total": len(df_),
@@ -385,7 +388,7 @@ def calc_metrics(df_):
         "wait": wait_mean,
         "later_pct": later_pct,
         "active_pct": active_pct,
-        "pingpong": pingpong_mean
+        "pingpong_share": pingpong_share
     }
 
 
@@ -622,13 +625,19 @@ with tab1:
         )
 
     with k7:
-        pingpong_avg = f_df["Пинг-понг обращения"].mean() if len(f_df) else 0.0
-        pingpong_med = f_df["Пинг-понг обращения"].median() if len(f_df) else 0.0
+        pingpong_share = (
+            (f_df["Пинг-понг обращения"] > 1).mean() * 100
+            if len(f_df) else 0.0
+        )
+        tasks_with_pingpong = (
+            (f_df["Пинг-понг обращения"] > 1).sum()
+            if len(f_df) else 0
+        )
         kpi_card(
-            "Передачи между командами",
-            f"{pingpong_avg:.2f}",
-            "Среднее число передач задачи между командами",
-            subvalue=f"медиана: {pingpong_med:.2f}"
+            "Пинг-понг > 1, %",
+            f"{pingpong_share:.1f}%",
+            "Доля задач, которые передавались между командами более одного раза",
+            subvalue=f"задач: {tasks_with_pingpong}"
         )
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
@@ -1099,10 +1108,11 @@ with tab2:
             )
         with w7:
             kpi_compare_card(
-                "Пинг-понг",
-                current_metrics["pingpong"],
-                previous_metrics["pingpong"],
-                hint="Среднее число передач между командами"
+                "Пинг-понг > 1",
+                current_metrics["pingpong_share"],
+                previous_metrics["pingpong_share"],
+                hint="Доля задач, которые передавались между командами более одного раза",
+                is_percent=True
             )
 
         st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
