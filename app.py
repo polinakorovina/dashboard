@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
 import plotly.express as px
-import yadisk
-import os
 from datetime import timedelta, date
 import plotly.graph_objects as go
+from data_loader import load_and_prepare_two_files
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
+
 ACCESS_TOKEN = st.secrets["ACCESS_TOKEN"]
 token = st.query_params.get("token")
 
@@ -16,13 +15,10 @@ if token != ACCESS_TOKEN:
     st.error("Эта ссылка недействительна или у вас нет доступа.")
     st.stop()
 
-
 TTM_STAGES = ["Сбор данных", "Открыт", "Заблокирован", "На стороне менеджера", "Бэклог разработки", "В работе"]
 CYCLE_STAGES = ["Бэклог разработки", "В работе"]
 WAIT_STAGES = [stage for stage in TTM_STAGES if stage not in CYCLE_STAGES]
 
-
-# 2) BI-стиль + тултипы + sidebar chips + календарь
 st.markdown(
     """
     <style>
@@ -33,7 +29,6 @@ st.markdown(
         min-height: 1.6rem !important;
     }
 
-    /* Нижний floating launcher / Manage app */
     [data-testid="stStatusWidget"] {
         display: none !important;
         visibility: hidden !important;
@@ -64,10 +59,8 @@ st.markdown(
         visibility: hidden !important;
     }
 
-    /* ===================== BASE THEME ===================== */
     .stApp { background-color: #F7F2FA; }
 
-    /* ===================== SIDEBAR ===================== */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #A485E0 0%, #8E6EDB 100%);
         color: white;
@@ -99,15 +92,14 @@ st.markdown(
         padding: 2px 6px !important;
         font-size: 13px !important;
     }
+
     [data-baseweb="tag"] span { color: white !important; font-weight: 500 !important; }
     [data-baseweb="tag"] svg { fill: white !important; }
-
     [data-baseweb="select"] svg { fill: #6244BB !important; }
 
     [data-baseweb="select"] > div:hover { box-shadow: 0 0 0 1px #6244BB inset !important; }
     [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 2px #6244BB inset !important; }
 
-    /* ===================== DATE INPUT ===================== */
     [data-testid="stDateInput"] p { display: none !important; }
 
     .react-datepicker__day--selected,
@@ -118,6 +110,7 @@ st.markdown(
         color: #ffffff !important;
         border-radius: 999px !important;
     }
+
     .react-datepicker__day--in-range,
     .react-datepicker__day--in-selecting-range {
         background-color: rgba(98, 68, 187, 0.22) !important;
@@ -131,6 +124,7 @@ st.markdown(
         background-color: #6244BB !important;
         color: #ffffff !important;
     }
+
     .rdp-day_range_middle {
         background-color: rgba(98, 68, 187, 0.22) !important;
         color: #1A1C1E !important;
@@ -142,7 +136,6 @@ st.markdown(
         border-radius: 999px !important;
     }
 
-    /* ===================== LAYOUT ===================== */
     .block-container {
         padding-top: 0.45rem !important;
         padding-bottom: 0.25rem !important;
@@ -230,15 +223,13 @@ st.markdown(
         font-weight: normal;
         pointer-events: none;
     }
-    
-    /* Первая колонка — открывать вправо */
+
     [data-testid="column"]:first-child .hint-icon:hover::after {
         left: 0;
         right: auto;
         transform: none;
     }
-    
-    /* Последняя колонка — открывать влево */
+
     [data-testid="column"]:last-child .hint-icon:hover::after {
         right: 0;
         left: auto;
@@ -260,6 +251,7 @@ st.markdown(
         font-weight: 600 !important;
         text-align: left !important;
     }
+
     thead tr th:first-child { display:none; }
     tbody tr th:first-child { display:none; }
 
@@ -385,6 +377,37 @@ def get_week_bounds(anchor_date):
     return current_week_start, current_week_end, prev_week_start, prev_week_end
 
 
+def prepare_dashboard_data(df_):
+    df_ = df_.copy()
+
+    if "Дата создания" not in df_.columns:
+        return pd.DataFrame()
+
+    df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
+    df_ = df_.dropna(subset=["Дата создания"])
+
+    for col in set(TTM_STAGES + CYCLE_STAGES):
+        if col not in df_.columns:
+            df_[col] = 0
+        df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
+
+    df_["ttm_days"] = df_[TTM_STAGES].sum(axis=1) / 1440
+    df_["cycle_time"] = df_[CYCLE_STAGES].sum(axis=1) / 1440
+    df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
+
+    df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(0)
+    df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
+
+    if "Тип" not in df_.columns:
+        df_["Тип"] = "Не указано"
+    df_["Тип"] = df_["Тип"].fillna("Не указано").astype(str).str.strip()
+
+    return df_
+
+
 def calc_metrics(df_):
     if df_.empty:
         return {
@@ -418,56 +441,44 @@ def calc_metrics(df_):
     }
 
 
-# 3) Подключение к Я.Диску + БД
-TOKEN = os.getenv("YANDEX_TOKEN")
-y = yadisk.YaDisk(token=TOKEN)
-DB_PATH = "/Data/my_database.db"
+st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
+st.markdown("### Загрузка данных")
+st.info("Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, очистятся и дашборд отрисуется.")
 
-@st.cache_data(ttl=600)
-def load_data():
-    if not y.exists(DB_PATH):
-        return pd.DataFrame()
+uploaded_files = st.file_uploader(
+    "Загрузите 2 файла",
+    type=["csv", "xlsx"],
+    accept_multiple_files=True
+)
 
-    y.download(DB_PATH, "local_view.db")
-    conn = sqlite3.connect("local_view.db")
-    df_ = pd.read_sql("SELECT * FROM tasks", conn)
-    conn.close()
-
-    if "Дата создания" not in df_.columns:
-        return pd.DataFrame()
-
-    df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
-    df_ = df_.dropna(subset=["Дата создания"])
-
-    for col in set(TTM_STAGES + CYCLE_STAGES):
-        if col not in df_.columns:
-            df_[col] = 0
-        df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
-
-    df_["ttm_days"] = df_[TTM_STAGES].sum(axis=1) / 1440
-    df_["cycle_time"] = df_[CYCLE_STAGES].sum(axis=1) / 1440
-    df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
-
-    df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(0)
-    df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-
-    if "Тип" not in df_.columns:
-        df_["Тип"] = "Не указано"
-    df_["Тип"] = df_["Тип"].fillna("Не указано").astype(str).str.strip()
-
-    return df_
-
-
-df = load_data()
-if df.empty:
-    st.warning("Данные не найдены.")
+if uploaded_files and len(uploaded_files) != 2:
+    st.warning("Пожалуйста, загрузите ровно 2 файла.")
     st.stop()
 
-# ===================== SIDEBAR FILTERS =====================
+if st.button("Обработать файлы"):
+    if not uploaded_files or len(uploaded_files) != 2:
+        st.error("Нужно загрузить ровно 2 файла.")
+        st.stop()
+
+    df_loaded, error = load_and_prepare_two_files(uploaded_files)
+
+    if error:
+        st.error(error)
+        st.stop()
+
+    st.session_state["data"] = df_loaded
+    st.success("Файлы успешно загружены и обработаны.")
+
+if "data" not in st.session_state:
+    st.stop()
+
+df = prepare_dashboard_data(st.session_state["data"])
+
+if df.empty:
+    st.warning("После подготовки данных ничего не осталось.")
+    st.stop()
+
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
 
@@ -549,7 +560,6 @@ if f_df.empty:
     st.warning("По выбранным фильтрам данных нет.")
     st.stop()
 
-# ===================== WEEKLY COMPARISON DATA =====================
 base_week_df = df[
     (df["Компоненты"].isin(sel_teams)) &
     (df["Резолюция"].isin(sel_res)) &
@@ -583,14 +593,8 @@ else:
     current_metrics = calc_metrics(current_week_df)
     previous_metrics = calc_metrics(previous_week_df)
 
-# ===================== UI =====================
-st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
-
 tab1, tab2 = st.tabs(["Общий обзор", "Сравнение недель"])
 
-# =========================================================
-# TAB 1 — ОБЩИЙ ОБЗОР
-# =========================================================
 with tab1:
     k1, k2, k3, k4, k5, k6, k7 = st.columns(7, gap="small")
 
@@ -630,37 +634,17 @@ with tab1:
     with k5:
         late = ((f_df["Резолюция"] == "Позже").mean() * 100) if len(f_df) else 0
         late_color = "#E45757" if late > 50 else "#4CAF7D"
-        kpi_card(
-            "Позже",
-            f"{late:.1f}%",
-            "Доля задач, которые решены позже",
-            color=late_color
-        )
+        kpi_card("Позже", f"{late:.1f}%", "Доля задач, которые решены позже", color=late_color)
 
     with k6:
-        active = (
-            (f_df["cycle_time"].sum() / f_df["ttm_days"].sum()) * 100
-            if f_df["ttm_days"].sum() > 0 else 0
-        )
+        active = ((f_df["cycle_time"].sum() / f_df["ttm_days"].sum()) * 100 if f_df["ttm_days"].sum() > 0 else 0)
         active_color = "#E45757" if active < 50 else "#4CAF7D"
-        kpi_card(
-            "Flow Efficiency",
-            f"{active:.0f}%",
-            "Доля активной работы в общем времени работы над задачей, то есть cycle time/ TTM",
-            color=active_color
-        )
+        kpi_card("Flow Efficiency", f"{active:.0f}%", "Доля активной работы в общем времени работы над задачей, то есть cycle time/ TTM", color=active_color)
 
     with k7:
-        pingpong_share = (
-            (f_df["Пинг-понг обращения"] > 1).mean() * 100
-            if len(f_df) else 0.0
-        )
-        tasks_with_pingpong = (
-            (f_df["Пинг-понг обращения"] > 1).sum()
-            if len(f_df) else 0
-        )
+        pingpong_share = ((f_df["Пинг-понг обращения"] > 1).mean() * 100 if len(f_df) else 0.0)
+        tasks_with_pingpong = ((f_df["Пинг-понг обращения"] > 1).sum() if len(f_df) else 0)
         pingpong_color = "#E45757" if pingpong_share > 20 else "#4CAF7D"
-    
         kpi_card(
             "Пинг-понг > 1",
             f"{pingpong_share:.1f}%",
@@ -704,10 +688,7 @@ with tab1:
             value_name="Дни"
         )
 
-        name_map = {
-            "cycle_time": "Cycle time",
-            "wait_time_days": "Ожидание"
-        }
+        name_map = {"cycle_time": "Cycle time", "wait_time_days": "Ожидание"}
         t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
 
         fig_a = px.bar(
@@ -719,10 +700,7 @@ with tab1:
             barmode="stack",
             text_auto=".1f",
             category_orders={"Компоненты": t_order},
-            color_discrete_map={
-                "Cycle time": "#6244BB",
-                "Ожидание": "#A485E0"
-            },
+            color_discrete_map={"Cycle time": "#6244BB", "Ожидание": "#A485E0"},
             template="plotly_white",
         )
 
@@ -774,22 +752,8 @@ with tab1:
                     font=dict(size=9, color="#5D4AA8"),
                     pad=dict(r=0, t=0, l=0, b=0),
                     buttons=[
-                        dict(
-                            label="Суммарно",
-                            method="update",
-                            args=[
-                                {"visible": visible_sum},
-                                {"barmode": "stack"}
-                            ],
-                        ),
-                        dict(
-                            label="Ожидание",
-                            method="update",
-                            args=[
-                                {"visible": visible_wait},
-                                {"barmode": "stack"}
-                            ],
-                        ),
+                        dict(label="Суммарно", method="update", args=[{"visible": visible_sum}, {"barmode": "stack"}]),
+                        dict(label="Ожидание", method="update", args=[{"visible": visible_wait}, {"barmode": "stack"}]),
                     ],
                 )
             ],
@@ -833,30 +797,9 @@ with tab1:
             unsafe_allow_html=True
         )
 
-        daily_df = (
-            f_df.set_index("Дата создания")
-            .resample("D")
-            .size()
-            .reset_index(name="Задач")
-        )
-        daily_df["Группировка"] = "D"
-
-        weekly_df = (
-            f_df.set_index("Дата создания")
-            .resample("W")
-            .size()
-            .reset_index(name="Задач")
-        )
-        weekly_df["Группировка"] = "W"
-
-        monthly_df = (
-            f_df.set_index("Дата создания")
-            .resample("ME")
-            .size()
-            .reset_index(name="Задач")
-        )
-        monthly_df["Группировка"] = "M"
-
+        daily_df = f_df.set_index("Дата создания").resample("D").size().reset_index(name="Задач")
+        weekly_df = f_df.set_index("Дата создания").resample("W").size().reset_index(name="Задач")
+        monthly_df = f_df.set_index("Дата создания").resample("ME").size().reset_index(name="Задач")
         weekend_df = daily_df[daily_df["Дата создания"].dt.weekday.isin([5, 6])].copy()
 
         fig_d = px.line(
@@ -882,11 +825,7 @@ with tab1:
             mode="markers",
             name="Выходные",
             visible=True,
-            marker=dict(
-                color="#E45757",
-                size=8,
-                line=dict(color="white", width=1)
-            ),
+            marker=dict(color="#E45757", size=8, line=dict(color="white", width=1)),
             hovertemplate="Выходной<br>Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
 
@@ -933,30 +872,9 @@ with tab1:
                     font=dict(size=10, color="#5D4AA8"),
                     pad=dict(r=0, t=0),
                     buttons=[
-                        dict(
-                            label="D",
-                            method="update",
-                            args=[
-                                {"visible": [True, True, False, False]},
-                                {"title": None}
-                            ],
-                        ),
-                        dict(
-                            label="W",
-                            method="update",
-                            args=[
-                                {"visible": [False, False, True, False]},
-                                {"title": None}
-                            ],
-                        ),
-                        dict(
-                            label="M",
-                            method="update",
-                            args=[
-                                {"visible": [False, False, False, True]},
-                                {"title": None}
-                            ],
-                        ),
+                        dict(label="D", method="update", args=[{"visible": [True, True, False, False]}, {"title": None}]),
+                        dict(label="W", method="update", args=[{"visible": [False, False, True, False]}, {"title": None}]),
+                        dict(label="M", method="update", args=[{"visible": [False, False, False, True]}, {"title": None}]),
                     ],
                 )
             ],
@@ -970,47 +888,14 @@ with tab1:
             f'<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам, это позволяет более подробно взглянуть на метрики и посмотреть нет ли тяжелых хвостов">?</span>',
             unsafe_allow_html=True
         )
-    
+
         dist_df = f_df[["ttm_days", "cycle_time", "wait_time_days"]].dropna().copy()
-    
         fig_dist = go.Figure()
-    
-        # 0 — TTM
-        fig_dist.add_trace(
-            go.Histogram(
-                x=dist_df["ttm_days"],
-                name="TTM",
-                marker_color="#6244BB",
-                opacity=0.85,
-                nbinsx=20,
-                visible=True
-            )
-        )
-    
-        # 1 — Cycle time
-        fig_dist.add_trace(
-            go.Histogram(
-                x=dist_df["cycle_time"],
-                name="Cycle time",
-                marker_color="#6244BB",
-                opacity=0.85,
-                nbinsx=20,
-                visible=False
-            )
-        )
-    
-        # 2 — Ожидание
-        fig_dist.add_trace(
-            go.Histogram(
-                x=dist_df["wait_time_days"],
-                name="Ожидание",
-                marker_color="#A485E0",
-                opacity=0.85,
-                nbinsx=20,
-                visible=False
-            )
-        )
-    
+
+        fig_dist.add_trace(go.Histogram(x=dist_df["ttm_days"], name="TTM", marker_color="#6244BB", opacity=0.85, nbinsx=20, visible=True))
+        fig_dist.add_trace(go.Histogram(x=dist_df["cycle_time"], name="Cycle time", marker_color="#6244BB", opacity=0.85, nbinsx=20, visible=False))
+        fig_dist.add_trace(go.Histogram(x=dist_df["wait_time_days"], name="Ожидание", marker_color="#A485E0", opacity=0.85, nbinsx=20, visible=False))
+
         fig_dist.update_layout(
             height=250,
             xaxis_title="Дни",
@@ -1036,49 +921,15 @@ with tab1:
                     font=dict(size=10, color="#5D4AA8"),
                     pad=dict(r=0, t=0),
                     buttons=[
-                        dict(
-                            label="TTM",
-                            method="update",
-                            args=[
-                                {"visible": [True, False, False]},
-                                {
-                                    "xaxis": {"title": "TTM, дни"},
-                                    "yaxis": {"title": "Количество задач"}
-                                }
-                            ],
-                        ),
-                        dict(
-                            label="Cycle time",
-                            method="update",
-                            args=[
-                                {"visible": [False, True, False]},
-                                {
-                                    "xaxis": {"title": "Cycle time, дни"},
-                                    "yaxis": {"title": "Количество задач"}
-                                }
-                            ],
-                        ),
-                        dict(
-                            label="Ожидание",
-                            method="update",
-                            args=[
-                                {"visible": [False, False, True]},
-                                {
-                                    "xaxis": {"title": "Ожидание, дни"},
-                                    "yaxis": {"title": "Количество задач"}
-                                }
-                            ],
-                        ),
+                        dict(label="TTM", method="update", args=[{"visible": [True, False, False]}, {"xaxis": {"title": "TTM, дни"}, "yaxis": {"title": "Количество задач"}}]),
+                        dict(label="Cycle time", method="update", args=[{"visible": [False, True, False]}, {"xaxis": {"title": "Cycle time, дни"}, "yaxis": {"title": "Количество задач"}}]),
+                        dict(label="Ожидание", method="update", args=[{"visible": [False, False, True]}, {"xaxis": {"title": "Ожидание, дни"}, "yaxis": {"title": "Количество задач"}}]),
                     ],
                 )
             ],
         )
-    
-        st.plotly_chart(
-            fig_dist,
-            use_container_width=True,
-            config={"scrollZoom": False}
-        )
+
+        st.plotly_chart(fig_dist, use_container_width=True, config={"scrollZoom": False})
 
     with b3:
         st.markdown(
@@ -1087,11 +938,7 @@ with tab1:
             unsafe_allow_html=True
         )
 
-        contacts_dist = (
-            f_df["Количество обращений"]
-            .value_counts(dropna=False)
-            .reset_index()
-        )
+        contacts_dist = f_df["Количество обращений"].value_counts(dropna=False).reset_index()
         contacts_dist.columns = ["Количество обращений", "Кол-во"]
 
         cat_order = ["1-4", "5-10", "11-100", "100+"]
@@ -1117,11 +964,7 @@ with tab1:
             template="plotly_white"
         )
 
-        fig_contacts.update_traces(
-            textinfo="percent",
-            textfont_size=12
-        )
-
+        fig_contacts.update_traces(textinfo="percent", textfont_size=12)
         fig_contacts.update_layout(
             height=250,
             margin=dict(l=20, r=20, t=15, b=15),
@@ -1132,15 +975,8 @@ with tab1:
             font=dict(size=11)
         )
 
-        st.plotly_chart(
-            fig_contacts,
-            use_container_width=True,
-            config={"scrollZoom": False}
-        )
+        st.plotly_chart(fig_contacts, use_container_width=True, config={"scrollZoom": False})
 
-# =========================================================
-# TAB 2 — СРАВНЕНИЕ НЕДЕЛЬ
-# =========================================================
 with tab2:
     st.markdown(
         f"""
@@ -1157,59 +993,21 @@ with tab2:
         st.warning("Недостаточно данных для сравнения текущей и предыдущей недели.")
     else:
         w1, w2, w3, w4, w5, w6, w7 = st.columns(7, gap="small")
+
         with w1:
-            kpi_compare_card(
-                "Всего задач",
-                current_metrics["tasks_total"],
-                previous_metrics["tasks_total"],
-                hint="Количество задач за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями",
-                as_int=True
-            )
+            kpi_compare_card("Всего задач", current_metrics["tasks_total"], previous_metrics["tasks_total"], hint="Количество задач за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями", as_int=True)
         with w2:
-            kpi_compare_card(
-                "TTM (дн)",
-                current_metrics["ttm"],
-                previous_metrics["ttm"],
-                hint="Среднее время от открытия задачи до её закрытия за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями"
-            )
+            kpi_compare_card("TTM (дн)", current_metrics["ttm"], previous_metrics["ttm"], hint="Среднее время от открытия задачи до её закрытия за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями")
         with w3:
-            kpi_compare_card(
-                "Cycle time (дн)",
-                current_metrics["cycle"],
-                previous_metrics["cycle"],
-                hint="Среднее время активной работы над задачей за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями"
-            )
+            kpi_compare_card("Cycle time (дн)", current_metrics["cycle"], previous_metrics["cycle"], hint="Среднее время активной работы над задачей за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями")
         with w4:
-            kpi_compare_card(
-                "Ожидание (дн)",
-                current_metrics["wait"],
-                previous_metrics["wait"],
-                hint="Среднее время, которое задачи находились в ожидании за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями"
-            )
+            kpi_compare_card("Ожидание (дн)", current_metrics["wait"], previous_metrics["wait"], hint="Среднее время, которое задачи находились в ожидании за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями")
         with w5:
-            kpi_compare_card(
-                "Позже",
-                current_metrics["later_pct"],
-                previous_metrics["later_pct"],
-                hint="Доля задач с резолюцией 'Позже' за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями",
-                is_percent=True
-            )
+            kpi_compare_card("Позже", current_metrics["later_pct"], previous_metrics["later_pct"], hint="Доля задач с резолюцией 'Позже' за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями", is_percent=True)
         with w6:
-            kpi_compare_card(
-                "Flow Efficiency",
-                current_metrics["active_pct"],
-                previous_metrics["active_pct"],
-                hint="Доля активной работы в общем времени за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями",
-                is_percent=True
-            )
+            kpi_compare_card("Flow Efficiency", current_metrics["active_pct"], previous_metrics["active_pct"], hint="Доля активной работы в общем времени за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями", is_percent=True)
         with w7:
-            kpi_compare_card(
-                "Пинг-понг > 1",
-                current_metrics["pingpong_share"],
-                previous_metrics["pingpong_share"],
-                hint="Доля задач, которые передавались между командами более одного раза за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями",
-                is_percent=True
-            )
+            kpi_compare_card("Пинг-понг > 1", current_metrics["pingpong_share"], previous_metrics["pingpong_share"], hint="Доля задач, которые передавались между командами более одного раза за текущую неделю выделено фиолетовым цветом, также есть значение за предыдущую неделю и разница между значениями", is_percent=True)
 
         st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
@@ -1220,6 +1018,7 @@ with tab2:
             .index
             .tolist()
         )
+
         g1, g2 = st.columns(2, gap="small")
 
         with g1:
@@ -1248,10 +1047,7 @@ with tab2:
                 barmode="group",
                 text_auto=".0f",
                 category_orders={"Компоненты": team_order_week},
-                color_discrete_map={
-                    "Текущая неделя": "#6244BB",
-                    "Предыдущая неделя": "#D6CCFF"
-                },
+                color_discrete_map={"Текущая неделя": "#6244BB", "Предыдущая неделя": "#D6CCFF"},
                 template="plotly_white"
             )
             fig_cnt_compare.update_layout(
@@ -1269,107 +1065,30 @@ with tab2:
                 f'<span class="hint-icon" data-hint="Можно посмотреть TTM, только Cycle time или только ожидание по командам за текущую и предыдущую недели">?</span>',
                 unsafe_allow_html=True
             )
-        
+
             curr_parts = (
                 current_week_df.groupby("Компоненты")[["ttm_days", "cycle_time", "wait_time_days"]]
                 .mean()
                 .reindex(team_order_week, fill_value=0)
                 .reset_index()
             )
-        
+
             prev_parts = (
                 previous_week_df.groupby("Компоненты")[["ttm_days", "cycle_time", "wait_time_days"]]
                 .mean()
                 .reindex(team_order_week, fill_value=0)
                 .reset_index()
             )
-        
+
             fig_ttm_compare = go.Figure()
-        
-            # 0 — TTM current
-            fig_ttm_compare.add_trace(
-                go.Bar(
-                    x=curr_parts["Компоненты"],
-                    y=curr_parts["ttm_days"],
-                    name="TTM — текущая",
-                    marker_color="#6244BB",
-                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["ttm_days"]],
-                    textposition="outside",
-                    cliponaxis=False,
-                    visible=True
-                )
-            )
-        
-            # 1 — TTM previous
-            fig_ttm_compare.add_trace(
-                go.Bar(
-                    x=prev_parts["Компоненты"],
-                    y=prev_parts["ttm_days"],
-                    name="TTM — предыдущая",
-                    marker_color="#D6CCFF",
-                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["ttm_days"]],
-                    textposition="outside",
-                    cliponaxis=False,
-                    visible=True
-                )
-            )
-        
-            # 2 — Cycle current
-            fig_ttm_compare.add_trace(
-                go.Bar(
-                    x=curr_parts["Компоненты"],
-                    y=curr_parts["cycle_time"],
-                    name="Cycle time — текущая",
-                    marker_color="#6244BB",
-                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["cycle_time"]],
-                    textposition="outside",
-                    cliponaxis=False,
-                    visible=False
-                )
-            )
-        
-            # 3 — Cycle previous
-            fig_ttm_compare.add_trace(
-                go.Bar(
-                    x=prev_parts["Компоненты"],
-                    y=prev_parts["cycle_time"],
-                    name="Cycle time — предыдущая",
-                    marker_color="#D6CCFF",
-                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["cycle_time"]],
-                    textposition="outside",
-                    cliponaxis=False,
-                    visible=False
-                )
-            )
-        
-            # 4 — Wait current
-            fig_ttm_compare.add_trace(
-                go.Bar(
-                    x=curr_parts["Компоненты"],
-                    y=curr_parts["wait_time_days"],
-                    name="Ожидание — текущая",
-                    marker_color="#A485E0",
-                    text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["wait_time_days"]],
-                    textposition="outside",
-                    cliponaxis=False,
-                    visible=False
-                )
-            )
-        
-            # 5 — Wait previous
-            fig_ttm_compare.add_trace(
-                go.Bar(
-                    x=prev_parts["Компоненты"],
-                    y=prev_parts["wait_time_days"],
-                    name="Ожидание — предыдущая",
-                    marker_color="#EEE8FF",
-                    text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["wait_time_days"]],
-                    textposition="outside",
-                    cliponaxis=False,
-                    visible=False
-                )
-            )
-        
+
+            fig_ttm_compare.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["ttm_days"], name="TTM — текущая", marker_color="#6244BB", text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["ttm_days"]], textposition="outside", cliponaxis=False, visible=True))
+            fig_ttm_compare.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["ttm_days"], name="TTM — предыдущая", marker_color="#D6CCFF", text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["ttm_days"]], textposition="outside", cliponaxis=False, visible=True))
+            fig_ttm_compare.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["cycle_time"], name="Cycle time — текущая", marker_color="#6244BB", text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["cycle_time"]], textposition="outside", cliponaxis=False, visible=False))
+            fig_ttm_compare.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["cycle_time"], name="Cycle time — предыдущая", marker_color="#D6CCFF", text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["cycle_time"]], textposition="outside", cliponaxis=False, visible=False))
+            fig_ttm_compare.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["wait_time_days"], name="Ожидание — текущая", marker_color="#A485E0", text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["wait_time_days"]], textposition="outside", cliponaxis=False, visible=False))
+            fig_ttm_compare.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["wait_time_days"], name="Ожидание — предыдущая", marker_color="#EEE8FF", text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["wait_time_days"]], textposition="outside", cliponaxis=False, visible=False))
+
             fig_ttm_compare.update_layout(
                 height=260,
                 xaxis_title=None,
@@ -1395,44 +1114,14 @@ with tab2:
                         font=dict(size=10, color="#5D4AA8"),
                         pad=dict(r=0, t=0),
                         buttons=[
-                            dict(
-                                label="TTM",
-                                method="update",
-                                args=[
-                                    {"visible": [True, True, False, False, False, False]},
-                                    {
-                                        "barmode": "group",
-                                        "yaxis": {"title": "TTM, дней"}
-                                    }
-                                ],
-                            ),
-                            dict(
-                                label="Cycle time",
-                                method="update",
-                                args=[
-                                    {"visible": [False, False, True, True, False, False]},
-                                    {
-                                        "barmode": "group",
-                                        "yaxis": {"title": "Cycle time, дней"}
-                                    }
-                                ],
-                            ),
-                            dict(
-                                label="Ожидание",
-                                method="update",
-                                args=[
-                                    {"visible": [False, False, False, False, True, True]},
-                                    {
-                                        "barmode": "group",
-                                        "yaxis": {"title": "Ожидание, дней"}
-                                    }
-                                ],
-                            ),
+                            dict(label="TTM", method="update", args=[{"visible": [True, True, False, False, False, False]}, {"barmode": "group", "yaxis": {"title": "TTM, дней"}}]),
+                            dict(label="Cycle time", method="update", args=[{"visible": [False, False, True, True, False, False]}, {"barmode": "group", "yaxis": {"title": "Cycle time, дней"}}]),
+                            dict(label="Ожидание", method="update", args=[{"visible": [False, False, False, False, True, True]}, {"barmode": "group", "yaxis": {"title": "Ожидание, дней"}}]),
                         ],
                     )
                 ],
             )
-        
+
             st.plotly_chart(fig_ttm_compare, use_container_width=True)
 
         g3, g4 = st.columns(2, gap="small")
@@ -1447,16 +1136,7 @@ with tab2:
             current_dates = pd.date_range(cw_start.normalize(), cw_end.normalize(), freq="D")
             previous_dates = pd.date_range(pw_start.normalize(), pw_end.normalize(), freq="D")
 
-            weekday_map = {
-                0: "Пн",
-                1: "Вт",
-                2: "Ср",
-                3: "Чт",
-                4: "Пт",
-                5: "Сб",
-                6: "Вс"
-            }
-
+            weekday_map = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
             x_labels = [weekday_map[d.weekday()] for d in current_dates]
 
             curr_daily = (
@@ -1490,10 +1170,7 @@ with tab2:
                 color="Период",
                 markers=True,
                 category_orders={"X": x_labels},
-                color_discrete_map={
-                    "Текущая неделя": "#6244BB",
-                    "Предыдущая неделя": "#D6CCFF"
-                },
+                color_discrete_map={"Текущая неделя": "#6244BB", "Предыдущая неделя": "#D6CCFF"},
                 template="plotly_white"
             )
 
@@ -1516,21 +1193,11 @@ with tab2:
 
             cat_order = ["1-4", "5-10", "11-100", "100+"]
 
-            curr_contacts = (
-                current_week_df["Количество обращений"]
-                .value_counts()
-                .reindex(cat_order, fill_value=0)
-                .reset_index()
-            )
+            curr_contacts = current_week_df["Количество обращений"].value_counts().reindex(cat_order, fill_value=0).reset_index()
             curr_contacts.columns = ["Количество обращений", "Кол-во"]
             curr_contacts["Период"] = "Текущая неделя"
 
-            prev_contacts = (
-                previous_week_df["Количество обращений"]
-                .value_counts()
-                .reindex(cat_order, fill_value=0)
-                .reset_index()
-            )
+            prev_contacts = previous_week_df["Количество обращений"].value_counts().reindex(cat_order, fill_value=0).reset_index()
             prev_contacts.columns = ["Количество обращений", "Кол-во"]
             prev_contacts["Период"] = "Предыдущая неделя"
 
@@ -1544,10 +1211,7 @@ with tab2:
                 barmode="group",
                 text_auto=".0f",
                 category_orders={"Количество обращений": cat_order},
-                color_discrete_map={
-                    "Текущая неделя": "#6244BB",
-                    "Предыдущая неделя": "#D6CCFF"
-                },
+                color_discrete_map={"Текущая неделя": "#6244BB", "Предыдущая неделя": "#D6CCFF"},
                 template="plotly_white"
             )
 
