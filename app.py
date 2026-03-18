@@ -1173,28 +1173,38 @@ with tab2:
         with g2:
             st.markdown(
                 f'<div class="card-header">TTM по командам</div>'
-                f'<span class="hint-icon" data-hint="Сравнение среднего TTM по командам">?</span>',
+                f'<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание, только Cycle time или только ожидание по командам за две недели">?</span>',
                 unsafe_allow_html=True
             )
-
-            curr_ttm_team = current_week_df.groupby("Компоненты")["ttm_days"].mean().reset_index(name="Текущая неделя")
-            prev_ttm_team = previous_week_df.groupby("Компоненты")["ttm_days"].mean().reset_index(name="Предыдущая неделя")
-            ttm_cmp = pd.merge(curr_ttm_team, prev_ttm_team, on="Компоненты", how="outer").fillna(0)
-
-            ttm_long = ttm_cmp.melt(
-                id_vars="Компоненты",
-                value_vars=["Текущая неделя", "Предыдущая неделя"],
-                var_name="Период",
-                value_name="TTM"
+        
+            curr_parts = (
+                current_week_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+                .mean()
+                .reset_index()
             )
-
+            curr_parts["Период"] = "Текущая неделя"
+        
+            prev_parts = (
+                previous_week_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+                .mean()
+                .reset_index()
+            )
+            prev_parts["Период"] = "Предыдущая неделя"
+        
+            parts_cmp = pd.concat([curr_parts, prev_parts], ignore_index=True)
+        
+            all_teams = pd.DataFrame({"Компоненты": team_order_week})
+            all_periods = pd.DataFrame({"Период": ["Текущая неделя", "Предыдущая неделя"]})
+            scaffold = all_teams.assign(key=1).merge(all_periods.assign(key=1), on="key").drop("key", axis=1)
+        
+            parts_cmp = scaffold.merge(parts_cmp, on=["Компоненты", "Период"], how="left").fillna(0)
+        
             fig_ttm_compare = px.bar(
-                ttm_long,
+                parts_cmp,
                 x="Компоненты",
-                y="TTM",
+                y=["cycle_time", "wait_time_days"],
                 color="Период",
                 barmode="group",
-                text_auto=".2f",
                 category_orders={"Компоненты": team_order_week},
                 color_discrete_map={
                     "Текущая неделя": "#6244BB",
@@ -1202,13 +1212,93 @@ with tab2:
                 },
                 template="plotly_white"
             )
+        
+            # Переименуем трейсы для понятности
+            trace_names_sum = []
+            trace_names_cycle = []
+            trace_names_wait = []
+        
+            for tr in fig_ttm_compare.data:
+                if "cycle_time" in tr.legendgroup:
+                    if tr.name == "Текущая неделя":
+                        tr.name = "Cycle time — текущая"
+                        tr.text = [f"{v:.2f}" if v > 0 else "" for v in tr.y]
+                        tr.textposition = "auto"
+                        tr.visible = True
+                    else:
+                        tr.name = "Cycle time — предыдущая"
+                        tr.text = [f"{v:.2f}" if v > 0 else "" for v in tr.y]
+                        tr.textposition = "auto"
+                        tr.visible = True
+                    trace_names_sum.append(True)
+                    trace_names_cycle.append(True)
+                    trace_names_wait.append(False)
+        
+                elif "wait_time_days" in tr.legendgroup:
+                    if tr.name == "Текущая неделя":
+                        tr.name = "Ожидание — текущая"
+                        tr.text = [f"{v:.2f}" if v > 0 else "" for v in tr.y]
+                        tr.textposition = "auto"
+                        tr.visible = True
+                    else:
+                        tr.name = "Ожидание — предыдущая"
+                        tr.text = [f"{v:.2f}" if v > 0 else "" for v in tr.y]
+                        tr.textposition = "auto"
+                        tr.visible = True
+                    trace_names_sum.append(True)
+                    trace_names_cycle.append(False)
+                    trace_names_wait.append(True)
+        
             fig_ttm_compare.update_layout(
                 height=250,
                 xaxis_title=None,
-                yaxis_title="TTM, дней",
+                yaxis_title="Дни",
                 legend_title=None,
-                margin=dict(l=20, r=20, t=15, b=10)
+                margin=dict(l=20, r=20, t=15, b=10),
+                updatemenus=[
+                    dict(
+                        type="buttons",
+                        direction="right",
+                        x=0.0,
+                        y=1.18,
+                        xanchor="left",
+                        yanchor="top",
+                        showactive=True,
+                        bgcolor="rgba(243,238,252,1)",
+                        bordercolor="#E4DDF7",
+                        borderwidth=1,
+                        font=dict(size=10, color="#5D4AA8"),
+                        pad=dict(r=0, t=0),
+                        buttons=[
+                            dict(
+                                label="Суммарно",
+                                method="update",
+                                args=[
+                                    {"visible": trace_names_sum},
+                                    {"barmode": "group", "yaxis": {"title": "Дни"}}
+                                ],
+                            ),
+                            dict(
+                                label="Cycle time",
+                                method="update",
+                                args=[
+                                    {"visible": trace_names_cycle},
+                                    {"barmode": "group", "yaxis": {"title": "Cycle time, дни"}}
+                                ],
+                            ),
+                            dict(
+                                label="Ожидание",
+                                method="update",
+                                args=[
+                                    {"visible": trace_names_wait},
+                                    {"barmode": "group", "yaxis": {"title": "Ожидание, дни"}}
+                                ],
+                            ),
+                        ],
+                    )
+                ],
             )
+        
             st.plotly_chart(fig_ttm_compare, use_container_width=True)
 
         g3, g4 = st.columns(2, gap="small")
