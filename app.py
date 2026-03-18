@@ -633,11 +633,14 @@ with tab1:
             (f_df["Пинг-понг обращения"] > 1).sum()
             if len(f_df) else 0
         )
+        pingpong_color = "#E45757" if pingpong_share > 20 else "#4CAF7D"
+    
         kpi_card(
             "Пинг-понг > 1, %",
             f"{pingpong_share:.1f}%",
             "Доля задач, которые передавались между командами более одного раза",
-            subvalue=f"задач: {tasks_with_pingpong}"
+            subvalue=f"задач: {tasks_with_pingpong}",
+            color=pingpong_color
         )
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
