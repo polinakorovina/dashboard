@@ -306,12 +306,15 @@ st.markdown(
     }
 
     div.stButton > button {
-        border-radius: 12px !important;
+        border-radius: 9px !important;
         border: 1px solid #D8CDF4 !important;
         background: white !important;
         color: #6244BB !important;
         font-weight: 600 !important;
-        min-height: 42px !important;
+        min-height: 34px !important;
+        padding: 0.2rem 0.8rem !important;
+        font-size: 14px !important;
+        width: auto !important;
     }
 
     </style>
