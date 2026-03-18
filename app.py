@@ -1229,7 +1229,7 @@ with tab2:
                 template="plotly_white"
             )
             fig_cnt_compare.update_layout(
-                height=250,
+                height=260,
                 xaxis_title=None,
                 yaxis_title="Кол-во задач",
                 legend_title=None,
@@ -1345,7 +1345,7 @@ with tab2:
             )
         
             fig_ttm_compare.update_layout(
-                height=280,
+                height=260,
                 xaxis_title=None,
                 yaxis_title="TTM, дней",
                 legend_title=None,
@@ -1472,7 +1472,7 @@ with tab2:
             )
 
             fig_flow.update_layout(
-                height=230,
+                height=220,
                 xaxis_title=None,
                 yaxis_title="Кол-во задач",
                 legend_title=None,
@@ -1526,7 +1526,7 @@ with tab2:
             )
 
             fig_contacts_compare.update_layout(
-                height=230,
+                height=220,
                 xaxis_title=None,
                 yaxis_title="Кол-во задач",
                 legend_title=None,
