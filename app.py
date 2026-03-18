@@ -940,38 +940,51 @@ with tab1:
 
     with b2:
         st.markdown(
-            f'<div class="card-header">Распределение Cycle Time и ожидания</div>'
-            f'<span class="hint-icon" data-hint="Показывает, как распределяются значения активной работы и ожидания по задачам">?</span>',
+            f'<div class="card-header">Распределение времени задач</div>'
+            f'<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам">?</span>',
             unsafe_allow_html=True
         )
-
-        dist_df = f_df[["cycle_time", "wait_time_days"]].dropna().copy()
-
-        dist_long = dist_df.melt(
-            value_vars=["cycle_time", "wait_time_days"],
-            var_name="Метрика",
-            value_name="Дни"
+    
+        dist_df = f_df[["ttm_days", "cycle_time", "wait_time_days"]].dropna().copy()
+    
+        fig_dist = go.Figure()
+    
+        # 0 — TTM
+        fig_dist.add_trace(
+            go.Histogram(
+                x=dist_df["ttm_days"],
+                name="TTM",
+                marker_color="#6244BB",
+                opacity=0.85,
+                nbinsx=20,
+                visible=True
+            )
         )
-
-        dist_long["Метрика"] = dist_long["Метрика"].replace({
-            "cycle_time": "Cycle Time",
-            "wait_time_days": "Ожидание"
-        })
-
-        fig_dist = px.histogram(
-            dist_long,
-            x="Дни",
-            color="Метрика",
-            barmode="overlay",
-            nbins=20,
-            opacity=0.65,
-            color_discrete_map={
-                "Cycle Time": "#6244BB",
-                "Ожидание": "#A485E0"
-            },
-            template="plotly_white"
+    
+        # 1 — Cycle time
+        fig_dist.add_trace(
+            go.Histogram(
+                x=dist_df["cycle_time"],
+                name="Cycle time",
+                marker_color="#6244BB",
+                opacity=0.85,
+                nbinsx=20,
+                visible=False
+            )
         )
-
+    
+        # 2 — Ожидание
+        fig_dist.add_trace(
+            go.Histogram(
+                x=dist_df["wait_time_days"],
+                name="Ожидание",
+                marker_color="#A485E0",
+                opacity=0.85,
+                nbinsx=20,
+                visible=False
+            )
+        )
+    
         fig_dist.update_layout(
             height=250,
             xaxis_title="Дни",
@@ -979,9 +992,62 @@ with tab1:
             legend_title=None,
             margin=dict(l=20, r=20, t=20, b=10),
             paper_bgcolor="white",
-            plot_bgcolor="white"
+            plot_bgcolor="white",
+            bargap=0.08,
+            template="plotly_white",
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    direction="right",
+                    x=0.0,
+                    y=1.18,
+                    xanchor="left",
+                    yanchor="top",
+                    showactive=True,
+                    bgcolor="rgba(243,238,252,1)",
+                    bordercolor="#E4DDF7",
+                    borderwidth=1,
+                    font=dict(size=10, color="#5D4AA8"),
+                    pad=dict(r=0, t=0),
+                    buttons=[
+                        dict(
+                            label="TTM",
+                            method="update",
+                            args=[
+                                {"visible": [True, False, False]},
+                                {
+                                    "xaxis": {"title": "TTM, дни"},
+                                    "yaxis": {"title": "Количество задач"}
+                                }
+                            ],
+                        ),
+                        dict(
+                            label="Cycle time",
+                            method="update",
+                            args=[
+                                {"visible": [False, True, False]},
+                                {
+                                    "xaxis": {"title": "Cycle time, дни"},
+                                    "yaxis": {"title": "Количество задач"}
+                                }
+                            ],
+                        ),
+                        dict(
+                            label="Ожидание",
+                            method="update",
+                            args=[
+                                {"visible": [False, False, True]},
+                                {
+                                    "xaxis": {"title": "Ожидание, дни"},
+                                    "yaxis": {"title": "Количество задач"}
+                                }
+                            ],
+                        ),
+                    ],
+                )
+            ],
         )
-
+    
         st.plotly_chart(
             fig_dist,
             use_container_width=True,
