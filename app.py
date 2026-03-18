@@ -629,7 +629,7 @@ with title_col:
     st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 with action_col:
-    st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
     if st.button("Импорт данных", key="toggle_upload_btn"):
         st.session_state["show_upload_block"] = not st.session_state["show_upload_block"]
 
