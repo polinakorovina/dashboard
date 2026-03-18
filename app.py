@@ -626,7 +626,7 @@ def calc_metrics(df_):
 if "show_upload_block" not in st.session_state:
     st.session_state["show_upload_block"] = False
 
-title_col, action_col = st.columns([5, 1])
+title_col, action_col = st.columns([10, 1])
 
 with title_col:
     st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
