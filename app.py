@@ -214,19 +214,35 @@ st.markdown(
         content: attr(data-hint);
         position: absolute;
         bottom: 125%;
-        right: 0;
-        left: auto;
-        transform: none;
+        left: 50%;
+        transform: translateX(-50%);
         background-color: #1A1C1E;
         color: #fff;
         padding: 8px 12px;
         border-radius: 8px;
         font-size: 12px;
         width: 220px;
+        max-width: min(220px, calc(100vw - 24px));
         white-space: normal;
+        word-break: break-word;
         z-index: 1000;
         box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         font-weight: normal;
+        pointer-events: none;
+    }
+    
+    /* Первая колонка — открывать вправо */
+    [data-testid="column"]:first-child .hint-icon:hover::after {
+        left: 0;
+        right: auto;
+        transform: none;
+    }
+    
+    /* Последняя колонка — открывать влево */
+    [data-testid="column"]:last-child .hint-icon:hover::after {
+        right: 0;
+        left: auto;
+        transform: none;
     }
 
     [data-testid="stPlotlyChart"] {
