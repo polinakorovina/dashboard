@@ -2,18 +2,22 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import timedelta, date
-import os
 import plotly.graph_objects as go
+import sqlalchemy as sa
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
 ACCESS_TOKEN = st.secrets["ACCESS_TOKEN"]
+POSTGRES_URL = st.secrets["POSTGRES_URL"]
+
 token = st.query_params.get("token")
 
 if token != ACCESS_TOKEN:
     st.markdown("## Доступ ограничен")
     st.error("Эта ссылка недействительна или у вас нет доступа.")
     st.stop()
+
+engine = sa.create_engine(POSTGRES_URL)
 
 TTM_STAGES = [
     "Сбор данных",
@@ -322,6 +326,19 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ===================== POSTGRES =====================
+
+def load_df_from_postgres():
+    try:
+        return pd.read_sql("SELECT * FROM dashboard_tasks", engine)
+    except Exception:
+        return pd.DataFrame()
+
+
+def save_df_to_postgres(df):
+    df.to_sql("dashboard_tasks", engine, if_exists="replace", index=False)
+
+
 # ===================== DATA LOADER INSIDE APP =====================
 
 REQUIRED_KEY_OPTIONS = [
@@ -626,6 +643,11 @@ def calc_metrics(df_):
 if "show_upload_block" not in st.session_state:
     st.session_state["show_upload_block"] = False
 
+if "data" not in st.session_state:
+    db_df = load_df_from_postgres()
+    if not db_df.empty:
+        st.session_state["data"] = prepare_dashboard_data(db_df)
+
 title_col, action_col = st.columns([10, 1])
 
 with title_col:
@@ -638,7 +660,7 @@ with action_col:
 
 if st.session_state["show_upload_block"]:
     with st.container():
-        st.info("Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, очистятся и дашборд отрисуется.")
+        st.info("Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, очистятся, сохранятся в базу и дашборд обновится.")
 
         uploaded_files = st.file_uploader(
             "Загрузите 2 файла",
@@ -659,11 +681,13 @@ if st.session_state["show_upload_block"]:
                 if error:
                     st.error(error)
                 else:
-                    st.session_state["data"] = prepare_dashboard_data(df_loaded)
-                    st.success("Файлы успешно загружены и обработаны.")
+                    prepared_df = prepare_dashboard_data(df_loaded)
+                    save_df_to_postgres(prepared_df)
+                    st.session_state["data"] = prepared_df
+                    st.success("Файлы успешно загружены, обработаны и сохранены в базу.")
 
 if "data" not in st.session_state:
-    st.info("Для начала анализа нажмите кнопку «Импорт данных» справа вверху и загрузите 2 файла.")
+    st.info("Для начала анализа нажмите кнопку «Импорт» справа вверху и загрузите 2 файла.")
     st.stop()
 
 df = st.session_state["data"]
@@ -1062,7 +1086,7 @@ with tab1:
             name="D",
             line=dict(color="#6244BB"),
             marker=dict(color="#6244BB", size=7),
-            hovertemplate="Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
+            hovertemplate="Дата: %{x|%d.%м.%Y}<br>Задач: %{y}<extra></extra>"
         )
 
         fig_d.add_scatter(
