@@ -310,8 +310,8 @@ st.markdown(
 )
 
 
-def kpi_card(title: str, value: str, hint: str = "", subvalue: str = "", color: str = "#6244BB"):
-    hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
+def kpi_card(title: str, value: str, hint: str = "", subvalue: str = "", color: str = "#6244BB", hint_side: str = "center"):
+    hint_html = f'<span class="hint-icon hint-{hint_side}" data-hint="{hint}">?</span>' if hint else ""
     sub_html = (
         f'<div style="font-size:13px; color:#7E8694; line-height:1.2;">{subvalue}</div>'
         if subvalue else ""
@@ -349,11 +349,11 @@ def format_value(val, is_percent=False, digits=2, as_int=False):
     return f"{val:.{digits}f}"
 
 
-def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int=False, digits=2):
+def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int=False, digits=2, hint_side="center"):
     current_str = format_value(current, is_percent=is_percent, digits=digits, as_int=as_int)
     previous_str = format_value(previous, is_percent=is_percent, digits=digits, as_int=as_int)
     diff_str = delta_text(current, previous, is_percent=is_percent, digits=digits)
-    hint_html = f'<span class="hint-icon" data-hint="{hint}">?</span>' if hint else ""
+    hint_html = f'<span class="hint-icon hint-{hint_side}" data-hint="{hint}">?</span>' if hint else ""
 
     st.markdown(
         f"""
@@ -666,7 +666,8 @@ with tab1:
             f"{pingpong_share:.1f}%",
             "Доля задач, которые\nпередавались между командами\nболее одного раза,\nесли была только одна команда,\nто стоит 1",
             subvalue=f"задач: {tasks_with_pingpong}",
-            color=pingpong_color
+            color=pingpong_color,
+            hint_side="left"
         )
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
