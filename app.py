@@ -1,12 +1,13 @@
-import streamlit as st
-import streamlit.components.v2 as components
-import pandas as pd
-import plotly.express as px
-from datetime import timedelta, date
-import plotly.graph_objects as go
-import sqlalchemy as sa
 import os
 from io import BytesIO
+from datetime import timedelta, date
+
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import sqlalchemy as sa
+import streamlit as st
+import streamlit.components.v2 as components
 
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
@@ -14,6 +15,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.lib.colors import HexColor
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
@@ -56,6 +58,7 @@ DEFAULT_CHART_MODES = {
     "overview_arrivals_mode": "D",
     "overview_dist_mode": "TTM",
     "weekly_ttm_mode": "TTM",
+    "active_view": "Общий обзор",
 }
 
 for _k, _v in DEFAULT_CHART_MODES.items():
@@ -65,7 +68,6 @@ for _k, _v in DEFAULT_CHART_MODES.items():
 st.markdown(
     """
     <style>
-
     header[data-testid="stHeader"] {
         background: #F7F2FA !important;
         height: 1.6rem !important;
@@ -300,35 +302,6 @@ st.markdown(
     thead tr th:first-child { display:none; }
     tbody tr th:first-child { display:none; }
 
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
-        margin-bottom: 4px;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        min-height: 28px !important;
-        height: 28px !important;
-        min-width: 90px !important;
-        padding: 0px 10px !important;
-        background: #F3EEFC;
-        border-radius: 5px;
-        color: #5D4AA8;
-        border: 1px solid #E4DDF7;
-        font-size: 12px;
-        font-weight: 600;
-    }
-
-    .stTabs [aria-selected="true"] {
-        background: white !important;
-        color: #6244BB !important;
-        border: 1px solid #D8CDF4 !important;
-        box-shadow: 0 1px 4px rgba(98, 68, 187, 0.06);
-    }
-
-    .stTabs [data-baseweb="tab-highlight"] {
-        display: none !important;
-    }
-
     div[role="radiogroup"] {
         gap: 8px;
     }
@@ -349,11 +322,54 @@ st.markdown(
         color: #6244BB !important;
         font-weight: 600 !important;
         min-height: 34px !important;
-        padding: 0.2rem 0.8rem !important;
+        padding: 0.25rem 0.8rem !important;
         font-size: 11px !important;
         width: auto !important;
+        white-space: nowrap !important;
     }
 
+    .compare-card {
+        background: #ffffff;
+        border: 1px solid #E6E9EF;
+        border-radius: 16px;
+        padding: 8px 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        height: 112px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .compare-title {
+        font-size: 14px;
+        font-weight: 650;
+        color: #1A1C1E;
+        line-height: 1.1;
+        margin: 0;
+    }
+
+    .compare-value {
+        font-size: 22px;
+        font-weight: 700;
+        color: #6244BB;
+        line-height: 1;
+        margin: 0;
+    }
+
+    .compare-sub {
+        font-size: 12px;
+        color: #7E8694;
+        line-height: 1.1;
+        margin: 0;
+    }
+
+    .compare-delta {
+        font-size: 12px;
+        font-weight: 700;
+        color: #4F46E5;
+        line-height: 1.1;
+        margin: 0;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -374,7 +390,7 @@ def save_df_to_postgres(df):
     load_df_from_postgres.clear()
 
 
-# ===================== DATA LOADER INSIDE APP =====================
+# ===================== DATA LOADER =====================
 
 REQUIRED_KEY_OPTIONS = [
     ("Ключ", "issue_key"),
@@ -612,19 +628,11 @@ def kpi_compare_card(title, current, previous, hint="", is_percent=False, as_int
 
     st.markdown(
         f"""
-        <div class="kpi-card" style="height: 120px; padding: 6px 10px;">
-            <div class="kpi-title" style="font-size:14px; min-height:22px;">
-                {title} {hint_html}
-            </div>
-            <div class="kpi-value" style="font-size:22px; line-height:1;">
-                {current_str}
-            </div>
-            <div style="font-size:15px; color:#7E8694; margin-top:2px; line-height:1;">
-                Пред. неделя: {previous_str}
-            </div>
-            <div style="font-size:15px; font-weight:700; color:#4F46E5; margin-top:3px; line-height:1;">
-                Изменение: {diff_str}
-            </div>
+        <div class="compare-card">
+            <div class="compare-title">{title} {hint_html}</div>
+            <div class="compare-value">{current_str}</div>
+            <div class="compare-sub">Пред. неделя: {previous_str}</div>
+            <div class="compare-delta">Изменение: {diff_str}</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -769,6 +777,7 @@ _plotly_mode_sync_component = components.component(
     isolate_styles=False,
 )
 
+
 def sync_plotly_mode(key: str, labels: list[str], default_label: str):
     result = _plotly_mode_sync_component(
         key=key,
@@ -795,8 +804,7 @@ MUTED = HexColor("#7E8694")
 
 
 def _fig_to_png_bytes(fig, width=1200, height=700, scale=2):
-    fig_dict = fig.to_dict()
-    fig_for_export = go.Figure(fig_dict)
+    fig_for_export = go.Figure(fig.to_dict())
     fig_for_export.update_layout(
         width=width,
         height=height,
@@ -1412,17 +1420,32 @@ if "data" not in st.session_state:
     if not db_df.empty:
         st.session_state["data"] = prepare_dashboard_data(db_df)
 
+# Если данных пока нет — показываем только верхнюю панель и импорт
 @st.fragment
-def top_bar_fragment():
-    title_col, action_col = st.columns([10, 1])
+def top_bar_fragment(export_data=None, export_filename="report.pdf", export_disabled=False):
+    title_col, import_col, export_col = st.columns([9, 1, 1])
 
     with title_col:
         st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-    with action_col:
+    with import_col:
         st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
         if st.button("Импорт", key="toggle_upload_btn"):
             st.session_state["show_upload_block"] = not st.session_state["show_upload_block"]
+
+    with export_col:
+        st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+        if export_data is not None and not export_disabled:
+            st.download_button(
+                "Экспорт",
+                data=export_data,
+                file_name=export_filename,
+                mime="application/pdf",
+                key="top_export_btn",
+                on_click="ignore"
+            )
+        else:
+            st.button("Экспорт", key="disabled_export_btn", disabled=True)
 
     if st.session_state["show_upload_block"]:
         st.info(
@@ -1455,15 +1478,16 @@ def top_bar_fragment():
                     st.success("Файлы успешно загружены, обработаны и сохранены в базу.")
                     st.rerun()
 
-top_bar_fragment()
 
 if "data" not in st.session_state:
+    top_bar_fragment(export_data=None, export_disabled=True)
     st.info("Для начала анализа нажмите кнопку «Импорт» справа от заголовка и загрузите 2 файла.")
     st.stop()
 
 df = st.session_state["data"]
 
 if df.empty:
+    top_bar_fragment(export_data=None, export_disabled=True)
     st.warning("После обработки данные пустые.")
     st.stop()
 
@@ -1504,6 +1528,7 @@ end_d = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1
 
 df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
 if df_in_range.empty:
+    top_bar_fragment(export_data=None, export_disabled=True)
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
@@ -1547,6 +1572,7 @@ f_df = df_in_range[
 ].copy()
 
 if f_df.empty:
+    top_bar_fragment(export_data=None, export_disabled=True)
     st.warning("По выбранным фильтрам данных нет.")
     st.stop()
 
@@ -1585,30 +1611,58 @@ else:
     current_metrics = calc_metrics(current_week_df)
     previous_metrics = calc_metrics(previous_week_df)
 
+# ===================== EXPORT DATA =====================
+
+overview_pdf = generate_overview_pdf(
+    f_df,
+    start_date,
+    end_date,
+    sel_teams,
+    sel_res,
+    sel_types,
+    st.session_state["overview_time_mode"],
+    st.session_state["overview_arrivals_mode"],
+    st.session_state["overview_dist_mode"],
+)
+
+weekly_pdf = None
+if weekly_ready:
+    weekly_pdf = generate_weekly_pdf(
+        current_week_df,
+        previous_week_df,
+        current_metrics,
+        previous_metrics,
+        cw_start,
+        cw_end,
+        pw_start,
+        pw_end,
+        st.session_state["weekly_ttm_mode"]
+    )
+
+current_export_data = overview_pdf if st.session_state["active_view"] == "Общий обзор" else weekly_pdf
+current_export_filename = "overview_report.pdf" if st.session_state["active_view"] == "Общий обзор" else "weekly_comparison_report.pdf"
+current_export_disabled = current_export_data is None
+
+# Верхняя панель рисуется после подготовки экспорта, чтобы кнопка работала без rerun
+top_bar_fragment(
+    export_data=current_export_data,
+    export_filename=current_export_filename,
+    export_disabled=current_export_disabled
+)
+
+# ===================== VIEW SWITCHER =====================
+
+st.radio(
+    "Раздел",
+    ["Общий обзор", "Сравнение недель"],
+    horizontal=True,
+    key="active_view",
+    label_visibility="collapsed"
+)
+
 # ===================== UI =====================
 
-tab1, tab2 = st.tabs(["Общий обзор", "Сравнение недель"])
-
-with tab1:
-    pdf_overview = generate_overview_pdf(
-        f_df,
-        start_date,
-        end_date,
-        sel_teams,
-        sel_res,
-        sel_types,
-        st.session_state["overview_time_mode"],
-        st.session_state["overview_arrivals_mode"],
-        st.session_state["overview_dist_mode"],
-    )
-    st.download_button(
-        "Экспорт PDF",
-        data=pdf_overview,
-        file_name="overview_report.pdf",
-        mime="application/pdf",
-        key="download_overview_pdf"
-    )
-
+if st.session_state["active_view"] == "Общий обзор":
     k1, k2, k3, k4, k5, k6, k7 = st.columns(7, gap="small")
 
     with k1:
@@ -1628,7 +1682,7 @@ with tab1:
         med = f_df["cycle_time"].median() if len(f_df) else 0.0
         avg = f_df["cycle_time"].mean() if len(f_df) else 0.0
         kpi_card(
-            "Cycle time (дн)",
+            "Cycle time",
             f"{avg:.2f}",
             "Среднее время активной работы над задачами, считается в днях. Также тут указана медиана, она показывает более типичное значение",
             subvalue=f"медиана: {med:.2f}"
@@ -1638,7 +1692,7 @@ with tab1:
         avg = f_df["wait_time_days"].mean() if len(f_df) else 0.0
         med = f_df["wait_time_days"].median() if len(f_df) else 0.0
         kpi_card(
-            "Ожидание (дн)",
+            "Ожидание",
             f"{avg:.2f}",
             "Среднее время, которое задача проводила вне активной работы. Среднее ожидание = среднее значение разницы между TTM и Cycle time",
             subvalue=f"медиана: {med:.2f}"
@@ -1656,7 +1710,7 @@ with tab1:
         )
         active_color = "#E45757" if active < 50 else "#4CAF7D"
         kpi_card(
-            "Flow Efficiency",
+            "Flow Eff.",
             f"{active:.0f}%",
             "Доля активной работы в общем времени работы над задачей, то есть cycle time / TTM",
             color=active_color
@@ -2112,27 +2166,7 @@ with tab1:
 
         st.plotly_chart(fig_contacts, use_container_width=True, config={"scrollZoom": False})
 
-with tab2:
-    if weekly_ready:
-        pdf_weekly = generate_weekly_pdf(
-            current_week_df,
-            previous_week_df,
-            current_metrics,
-            previous_metrics,
-            cw_start,
-            cw_end,
-            pw_start,
-            pw_end,
-            st.session_state["weekly_ttm_mode"]
-        )
-        st.download_button(
-            "Экспорт PDF",
-            data=pdf_weekly,
-            file_name="weekly_comparison_report.pdf",
-            mime="application/pdf",
-            key="download_weekly_pdf"
-        )
-
+else:
     st.markdown(
         f"""
         <div style="font-size:16px; font-weight:600; margin-bottom:8px;">
@@ -2166,14 +2200,14 @@ with tab2:
             )
         with w3:
             kpi_compare_card(
-                "Cycle time (дн)",
+                "Cycle time",
                 current_metrics["cycle"],
                 previous_metrics["cycle"],
                 hint="Среднее время активной работы над задачей за текущую неделю"
             )
         with w4:
             kpi_compare_card(
-                "Ожидание (дн)",
+                "Ожидание",
                 current_metrics["wait"],
                 previous_metrics["wait"],
                 hint="Среднее время ожидания за текущую неделю"
@@ -2188,7 +2222,7 @@ with tab2:
             )
         with w6:
             kpi_compare_card(
-                "Flow Efficiency",
+                "Flow Eff.",
                 current_metrics["active_pct"],
                 previous_metrics["active_pct"],
                 hint="Доля активной работы в общем времени",
