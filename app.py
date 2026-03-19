@@ -4,7 +4,11 @@ import plotly.express as px
 from datetime import timedelta, date
 import plotly.graph_objects as go
 import sqlalchemy as sa
-import os
+from io import BytesIO
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.colors import HexColor
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
@@ -641,6 +645,498 @@ def calc_metrics(df_):
     }
 
 
+# ===================== PDF EXPORT =====================
+
+PDF_PAGE = landscape(A4)
+PDF_W, PDF_H = PDF_PAGE
+
+EXPORT_BG = HexColor("#F7F2FA")
+CARD_BG = HexColor("#FFFFFF")
+CARD_BORDER = HexColor("#E6E9EF")
+TITLE_COLOR = HexColor("#1A1C1E")
+ACCENT = HexColor("#6244BB")
+MUTED = HexColor("#7E8694")
+
+
+def _fig_to_png_bytes(fig, width=1200, height=700, scale=2):
+    fig_dict = fig.to_dict()
+    fig_for_export = go.Figure(fig_dict)
+    fig_for_export.update_layout(
+        width=width,
+        height=height,
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        margin=dict(l=40, r=30, t=50, b=40)
+    )
+    return fig_for_export.to_image(format="png", width=width, height=height, scale=scale)
+
+
+def _draw_title(c, title, subtitle="", filters_text=""):
+    c.setFillColor(EXPORT_BG)
+    c.rect(0, 0, PDF_W, PDF_H, fill=1, stroke=0)
+
+    c.setFillColor(TITLE_COLOR)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(24, PDF_H - 28, title)
+
+    c.setFont("Helvetica", 10)
+    c.setFillColor(MUTED)
+    if subtitle:
+        c.drawString(24, PDF_H - 44, subtitle)
+    if filters_text:
+        c.drawString(24, PDF_H - 58, filters_text)
+
+
+def _draw_card(c, x, y, w, h, title, value, subvalue=""):
+    c.setFillColor(CARD_BG)
+    c.setStrokeColor(CARD_BORDER)
+    c.roundRect(x, y, w, h, 10, fill=1, stroke=1)
+
+    c.setFillColor(TITLE_COLOR)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(x + 8, y + h - 16, title)
+
+    c.setFillColor(ACCENT)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(x + 8, y + h - 38, value)
+
+    if subvalue:
+        c.setFillColor(MUTED)
+        c.setFont("Helvetica", 8)
+        c.drawString(x + 8, y + 8, subvalue)
+
+
+def _draw_image(c, img_bytes, x, y, w, h):
+    img = ImageReader(BytesIO(img_bytes))
+    c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=False, mask='auto')
+
+
+def _filters_text(start_date, end_date, sel_teams, sel_res, sel_types):
+    teams_txt = ", ".join(sel_teams[:3]) + (" ..." if len(sel_teams) > 3 else "")
+    res_txt = ", ".join(sel_res[:3]) + (" ..." if len(sel_res) > 3 else "")
+    types_txt = ", ".join(sel_types[:3]) + (" ..." if len(sel_types) > 3 else "")
+    return (
+        f"Период: {pd.to_datetime(start_date).strftime('%d.%m.%Y')} — {pd.to_datetime(end_date).strftime('%d.%m.%Y')}    "
+        f"Команды: {teams_txt or 'Все'}    "
+        f"Резолюции: {res_txt or 'Все'}    "
+        f"Тип: {types_txt or 'Все'}"
+    )
+
+
+def build_overview_figures(f_df, t_order):
+    team_stage_avg = f_df.groupby("Компоненты").mean(numeric_only=True).reset_index()
+
+    t_parts = (
+        f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+        .mean()
+        .reset_index()
+    )
+    t_parts_long = t_parts.melt(
+        id_vars="Компоненты",
+        value_vars=["cycle_time", "wait_time_days"],
+        var_name="Метрика",
+        value_name="Дни"
+    )
+    t_parts_long["Метрика"] = t_parts_long["Метрика"].map({
+        "cycle_time": "Cycle time",
+        "wait_time_days": "Ожидание"
+    })
+
+    fig_a = px.bar(
+        t_parts_long,
+        x="Дни",
+        y="Компоненты",
+        color="Метрика",
+        orientation="h",
+        barmode="stack",
+        text_auto=".1f",
+        category_orders={"Компоненты": t_order},
+        color_discrete_map={
+            "Cycle time": "#6244BB",
+            "Ожидание": "#A485E0"
+        },
+        template="plotly_white",
+    )
+    fig_a.update_layout(
+        title="Структура времени задач по командам",
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title=None,
+    )
+
+    t_counts = f_df.groupby("Компоненты").size().reset_index(name="Кол-во")
+    fig_l = px.bar(
+        t_counts,
+        x="Кол-во",
+        y="Компоненты",
+        orientation="h",
+        text="Кол-во",
+        category_orders={"Компоненты": t_order},
+        color_discrete_sequence=["#6244BB"],
+        template="plotly_white"
+    )
+    fig_l.update_layout(
+        title="Нагрузка по командам",
+        xaxis_title=None,
+        yaxis_title=None,
+        showlegend=False,
+    )
+
+    daily_df = (
+        f_df.set_index("Дата создания")
+        .resample("D")
+        .size()
+        .reset_index(name="Задач")
+    )
+    fig_d = px.line(
+        daily_df,
+        x="Дата создания",
+        y="Задач",
+        markers=True,
+        color_discrete_sequence=["#6244BB"],
+        template="plotly_white"
+    )
+    fig_d.update_layout(
+        title="Динамика поступления задач",
+        xaxis_title=None,
+        yaxis_title=None,
+        showlegend=False,
+    )
+
+    dist_df = f_df[["ttm_days", "cycle_time", "wait_time_days"]].dropna().copy()
+    fig_dist = go.Figure()
+    fig_dist.add_trace(
+        go.Histogram(
+            x=dist_df["ttm_days"],
+            name="TTM",
+            marker_color="#6244BB",
+            opacity=0.85,
+            nbinsx=20
+        )
+    )
+    fig_dist.update_layout(
+        title="Распределение времени задач (TTM)",
+        xaxis_title="Дни",
+        yaxis_title="Количество задач",
+        template="plotly_white",
+        showlegend=False,
+    )
+
+    contacts_dist = (
+        f_df["Количество обращений"]
+        .value_counts(dropna=False)
+        .reset_index()
+    )
+    contacts_dist.columns = ["Количество обращений", "Кол-во"]
+
+    cat_order = ["1-4", "5-10", "11-100", "100+"]
+    contacts_dist["Количество обращений"] = pd.Categorical(
+        contacts_dist["Количество обращений"],
+        categories=cat_order,
+        ordered=True
+    )
+    contacts_dist = contacts_dist.sort_values("Количество обращений")
+
+    fig_contacts = px.pie(
+        contacts_dist,
+        names="Количество обращений",
+        values="Кол-во",
+        hole=0.6,
+        color="Количество обращений",
+        color_discrete_map={
+            "1-4": "#5B3FC4",
+            "5-10": "#8C6FF0",
+            "11-100": "#B9A3FA",
+            "100+": "#E1D8FF"
+        },
+        template="plotly_white"
+    )
+    fig_contacts.update_traces(textinfo="percent")
+    fig_contacts.update_layout(
+        title="Структура обращений",
+        legend_title=None,
+        template="plotly_white"
+    )
+
+    return fig_a, fig_l, fig_d, fig_dist, fig_contacts
+
+
+def build_weekly_figures(current_week_df, previous_week_df, team_order_week, cw_start, cw_end, pw_start, pw_end):
+    curr_cnt_team = current_week_df.groupby("Компоненты").size().reset_index(name="Текущая неделя")
+    prev_cnt_team = previous_week_df.groupby("Компоненты").size().reset_index(name="Предыдущая неделя")
+    cnt_cmp = pd.merge(curr_cnt_team, prev_cnt_team, on="Компоненты", how="outer").fillna(0)
+
+    cnt_long = cnt_cmp.melt(
+        id_vars="Компоненты",
+        value_vars=["Текущая неделя", "Предыдущая неделя"],
+        var_name="Период",
+        value_name="Кол-во задач"
+    )
+
+    fig_cnt = px.bar(
+        cnt_long,
+        x="Компоненты",
+        y="Кол-во задач",
+        color="Период",
+        barmode="group",
+        text_auto=".0f",
+        category_orders={"Компоненты": team_order_week},
+        color_discrete_map={
+            "Текущая неделя": "#6244BB",
+            "Предыдущая неделя": "#D6CCFF"
+        },
+        template="plotly_white"
+    )
+    fig_cnt.update_layout(
+        title="Количество задач",
+        xaxis_title=None,
+        yaxis_title="Кол-во задач",
+        legend_title=None
+    )
+
+    curr_parts = (
+        current_week_df.groupby("Компоненты")[["ttm_days"]]
+        .mean()
+        .reindex(team_order_week, fill_value=0)
+        .reset_index()
+    )
+    prev_parts = (
+        previous_week_df.groupby("Компоненты")[["ttm_days"]]
+        .mean()
+        .reindex(team_order_week, fill_value=0)
+        .reset_index()
+    )
+
+    fig_ttm = go.Figure()
+    fig_ttm.add_trace(go.Bar(
+        x=curr_parts["Компоненты"],
+        y=curr_parts["ttm_days"],
+        name="Текущая",
+        marker_color="#6244BB"
+    ))
+    fig_ttm.add_trace(go.Bar(
+        x=prev_parts["Компоненты"],
+        y=prev_parts["ttm_days"],
+        name="Предыдущая",
+        marker_color="#D6CCFF"
+    ))
+    fig_ttm.update_layout(
+        title="TTM по командам",
+        xaxis_title=None,
+        yaxis_title="TTM, дней",
+        barmode="group",
+        template="plotly_white",
+        legend_title=None
+    )
+
+    current_dates = pd.date_range(cw_start.normalize(), cw_end.normalize(), freq="D")
+    previous_dates = pd.date_range(pw_start.normalize(), pw_end.normalize(), freq="D")
+    weekday_map = {0: "Пн", 1: "Вт", 2: "Ср", 3: "Чт", 4: "Пт", 5: "Сб", 6: "Вс"}
+    x_labels = [weekday_map[d.weekday()] for d in current_dates]
+
+    curr_daily = (
+        current_week_df.assign(Дата=current_week_df["Дата создания"].dt.normalize())
+        .groupby("Дата")
+        .size()
+        .reindex(current_dates, fill_value=0)
+        .reset_index(name="Задач")
+    )
+    curr_daily.columns = ["Дата", "Задач"]
+    curr_daily["X"] = x_labels
+    curr_daily["Период"] = "Текущая неделя"
+
+    prev_daily = (
+        previous_week_df.assign(Дата=previous_week_df["Дата создания"].dt.normalize())
+        .groupby("Дата")
+        .size()
+        .reindex(previous_dates, fill_value=0)
+        .reset_index(name="Задач")
+    )
+    prev_daily.columns = ["Дата", "Задач"]
+    prev_daily["X"] = x_labels
+    prev_daily["Период"] = "Предыдущая неделя"
+
+    weekly_flow = pd.concat([curr_daily, prev_daily], ignore_index=True)
+
+    fig_flow = px.line(
+        weekly_flow,
+        x="X",
+        y="Задач",
+        color="Период",
+        markers=True,
+        category_orders={"X": x_labels},
+        color_discrete_map={
+            "Текущая неделя": "#6244BB",
+            "Предыдущая неделя": "#D6CCFF"
+        },
+        template="plotly_white"
+    )
+    fig_flow.update_layout(
+        title="Поступление задач",
+        xaxis_title=None,
+        yaxis_title="Кол-во задач",
+        legend_title=None
+    )
+
+    cat_order = ["1-4", "5-10", "11-100", "100+"]
+
+    curr_contacts = (
+        current_week_df["Количество обращений"]
+        .value_counts()
+        .reindex(cat_order, fill_value=0)
+        .reset_index()
+    )
+    curr_contacts.columns = ["Количество обращений", "Кол-во"]
+    curr_contacts["Период"] = "Текущая неделя"
+
+    prev_contacts = (
+        previous_week_df["Количество обращений"]
+        .value_counts()
+        .reindex(cat_order, fill_value=0)
+        .reset_index()
+    )
+    prev_contacts.columns = ["Количество обращений", "Кол-во"]
+    prev_contacts["Период"] = "Предыдущая неделя"
+
+    contacts_compare = pd.concat([curr_contacts, prev_contacts], ignore_index=True)
+
+    fig_contacts_compare = px.bar(
+        contacts_compare,
+        x="Количество обращений",
+        y="Кол-во",
+        color="Период",
+        barmode="group",
+        text_auto=".0f",
+        category_orders={"Количество обращений": cat_order},
+        color_discrete_map={
+            "Текущая неделя": "#6244BB",
+            "Предыдущая неделя": "#D6CCFF"
+        },
+        template="plotly_white"
+    )
+    fig_contacts_compare.update_layout(
+        title="Количество обращений",
+        xaxis_title=None,
+        yaxis_title="Кол-во задач",
+        legend_title=None
+    )
+
+    return fig_cnt, fig_ttm, fig_flow, fig_contacts_compare
+
+
+def generate_overview_pdf(f_df, start_date, end_date, sel_teams, sel_res, sel_types):
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=PDF_PAGE)
+
+    filters_text = _filters_text(start_date, end_date, sel_teams, sel_res, sel_types)
+    _draw_title(c, "Аналитика дежурств — Общий обзор", "", filters_text)
+
+    metrics = {
+        "Всего задач": f"{len(f_df)}",
+        "TTM (дн)": f"{f_df['ttm_days'].mean():.2f}" if len(f_df) else "0.00",
+        "Cycle time (дн)": f"{f_df['cycle_time'].mean():.2f}" if len(f_df) else "0.00",
+        "Ожидание (дн)": f"{f_df['wait_time_days'].mean():.2f}" if len(f_df) else "0.00",
+        "Позже": f"{((f_df['Резолюция'] == 'Позже').mean() * 100):.1f}%" if len(f_df) else "0.0%",
+        "Flow Efficiency": f"{((f_df['cycle_time'].sum() / f_df['ttm_days'].sum()) * 100):.0f}%" if f_df['ttm_days'].sum() > 0 else "0%",
+        "Пинг-понг > 1": f"{((f_df['Пинг-понг обращения'] > 1).mean() * 100):.1f}%" if len(f_df) else "0.0%",
+    }
+
+    card_y = PDF_H - 115
+    margin_x = 24
+    gap = 8
+    card_w = (PDF_W - margin_x * 2 - gap * 6) / 7
+    card_h = 48
+
+    for i, (title, value) in enumerate(metrics.items()):
+        x = margin_x + i * (card_w + gap)
+        _draw_card(c, x, card_y, card_w, card_h, title, value)
+
+    time_order_df = (
+        f_df.groupby("Компоненты")["ttm_days"]
+        .mean()
+        .sort_values(ascending=False)
+        .reset_index()
+    )
+    t_order = time_order_df["Компоненты"].tolist()
+
+    fig_a, fig_l, fig_d, fig_dist, fig_contacts = build_overview_figures(f_df, t_order)
+
+    row1_y = 255
+    chart_h1 = 155
+    chart_w_half = (PDF_W - 24 * 2 - 10) / 2
+    _draw_image(c, _fig_to_png_bytes(fig_a, 1200, 650), 24, row1_y, chart_w_half, chart_h1)
+    _draw_image(c, _fig_to_png_bytes(fig_l, 1200, 650), 24 + chart_w_half + 10, row1_y, chart_w_half, chart_h1)
+
+    row2_y = 36
+    chart_h2 = 185
+    chart_w_third = (PDF_W - 24 * 2 - 20) / 3
+    _draw_image(c, _fig_to_png_bytes(fig_d, 1000, 700), 24, row2_y, chart_w_third, chart_h2)
+    _draw_image(c, _fig_to_png_bytes(fig_dist, 1000, 700), 24 + chart_w_third + 10, row2_y, chart_w_third, chart_h2)
+    _draw_image(c, _fig_to_png_bytes(fig_contacts, 1000, 700), 24 + 2 * (chart_w_third + 10), row2_y, chart_w_third, chart_h2)
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+
+def generate_weekly_pdf(current_week_df, previous_week_df, current_metrics, previous_metrics, cw_start, cw_end, pw_start, pw_end):
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=PDF_PAGE)
+
+    subtitle = (
+        f"Текущая неделя: {cw_start.strftime('%d.%m.%Y')} — {cw_end.strftime('%d.%m.%Y')}    "
+        f"Предыдущая неделя: {pw_start.strftime('%d.%m.%Y')} — {pw_end.strftime('%d.%m.%Y')}"
+    )
+    _draw_title(c, "Аналитика дежурств — Сравнение недель", subtitle, "")
+
+    kpis = [
+        ("Всего задач", f"{current_metrics['tasks_total']}", f"пред.: {previous_metrics['tasks_total']}"),
+        ("TTM (дн)", f"{current_metrics['ttm']:.2f}", f"пред.: {previous_metrics['ttm']:.2f}"),
+        ("Cycle time", f"{current_metrics['cycle']:.2f}", f"пред.: {previous_metrics['cycle']:.2f}"),
+        ("Ожидание", f"{current_metrics['wait']:.2f}", f"пред.: {previous_metrics['wait']:.2f}"),
+        ("Позже", f"{current_metrics['later_pct']:.1f}%", f"пред.: {previous_metrics['later_pct']:.1f}%"),
+        ("Flow Eff.", f"{current_metrics['active_pct']:.1f}%", f"пред.: {previous_metrics['active_pct']:.1f}%"),
+        ("Пинг-понг > 1", f"{current_metrics['pingpong_share']:.1f}%", f"пред.: {previous_metrics['pingpong_share']:.1f}%"),
+    ]
+
+    card_y = PDF_H - 115
+    margin_x = 24
+    gap = 8
+    card_w = (PDF_W - margin_x * 2 - gap * 6) / 7
+    card_h = 48
+
+    for i, (title, value, sub) in enumerate(kpis):
+        x = margin_x + i * (card_w + gap)
+        _draw_card(c, x, card_y, card_w, card_h, title, value, sub)
+
+    team_order_week = (
+        pd.concat([current_week_df["Компоненты"], previous_week_df["Компоненты"]])
+        .dropna()
+        .value_counts()
+        .index
+        .tolist()
+    )
+
+    fig_cnt, fig_ttm, fig_flow, fig_contacts_compare = build_weekly_figures(
+        current_week_df, previous_week_df, team_order_week, cw_start, cw_end, pw_start, pw_end
+    )
+
+    row1_y = 255
+    chart_h1 = 155
+    chart_w_half = (PDF_W - 24 * 2 - 10) / 2
+    _draw_image(c, _fig_to_png_bytes(fig_cnt, 1200, 650), 24, row1_y, chart_w_half, chart_h1)
+    _draw_image(c, _fig_to_png_bytes(fig_ttm, 1200, 650), 24 + chart_w_half + 10, row1_y, chart_w_half, chart_h1)
+
+    row2_y = 36
+    chart_h2 = 185
+    _draw_image(c, _fig_to_png_bytes(fig_flow, 1200, 700), 24, row2_y, chart_w_half, chart_h2)
+    _draw_image(c, _fig_to_png_bytes(fig_contacts_compare, 1200, 700), 24 + chart_w_half + 10, row2_y, chart_w_half, chart_h2)
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+
 # ===================== TOP BAR =====================
 
 if "show_upload_block" not in st.session_state:
@@ -699,7 +1195,6 @@ top_bar_fragment()
 if "data" not in st.session_state:
     st.info("Для начала анализа нажмите кнопку «Импорт» справа от заголовка и загрузите 2 файла.")
     st.stop()
-
 
 df = st.session_state["data"]
 
@@ -830,6 +1325,15 @@ else:
 tab1, tab2 = st.tabs(["Общий обзор", "Сравнение недель"])
 
 with tab1:
+    pdf_overview = generate_overview_pdf(f_df, start_date, end_date, sel_teams, sel_res, sel_types)
+    st.download_button(
+        "Экспорт PDF",
+        data=pdf_overview,
+        file_name="overview_report.pdf",
+        mime="application/pdf",
+        key="download_overview_pdf"
+    )
+
     k1, k2, k3, k4, k5, k6, k7 = st.columns(7, gap="small")
 
     with k1:
@@ -1319,6 +1823,25 @@ with tab1:
         st.plotly_chart(fig_contacts, use_container_width=True, config={"scrollZoom": False})
 
 with tab2:
+    if weekly_ready:
+        pdf_weekly = generate_weekly_pdf(
+            current_week_df,
+            previous_week_df,
+            current_metrics,
+            previous_metrics,
+            cw_start,
+            cw_end,
+            pw_start,
+            pw_end
+        )
+        st.download_button(
+            "Экспорт PDF",
+            data=pdf_weekly,
+            file_name="weekly_comparison_report.pdf",
+            mime="application/pdf",
+            key="download_weekly_pdf"
+        )
+
     st.markdown(
         f"""
         <div style="font-size:16px; font-weight:600; margin-bottom:8px;">
