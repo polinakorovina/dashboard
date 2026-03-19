@@ -4,6 +4,7 @@ import plotly.express as px
 from datetime import timedelta, date
 import plotly.graph_objects as go
 import sqlalchemy as sa
+import os
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
@@ -328,6 +329,7 @@ st.markdown(
 
 # ===================== POSTGRES =====================
 
+@st.cache_data(ttl=300)
 def load_df_from_postgres():
     try:
         return pd.read_sql("SELECT * FROM dashboard_tasks", engine)
@@ -337,6 +339,7 @@ def load_df_from_postgres():
 
 def save_df_to_postgres(df):
     df.to_sql("dashboard_tasks", engine, if_exists="replace", index=False)
+    load_df_from_postgres.clear()
 
 
 # ===================== DATA LOADER INSIDE APP =====================
@@ -640,47 +643,62 @@ def calc_metrics(df_):
 
 # ===================== TOP BAR =====================
 
+if "show_upload_block" not in st.session_state:
+    st.session_state["show_upload_block"] = False
+
 if "data" not in st.session_state:
     db_df = load_df_from_postgres()
     if not db_df.empty:
         st.session_state["data"] = prepare_dashboard_data(db_df)
 
-st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
+title_col, action_col = st.columns([10, 1])
 
-with st.expander("Импорт данных", expanded=False):
-    st.info(
-        "Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, "
-        "очистятся, сохранятся в базу и дашборд обновится."
-    )
+with title_col:
+    st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
-    uploaded_files = st.file_uploader(
-        "Загрузите 2 файла",
-        type=["csv", "xlsx"],
-        accept_multiple_files=True,
-        key="uploaded_files_main"
-    )
+@st.fragment
+def import_fragment():
+    with action_col:
+        st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+        if st.button("Импорт", key="toggle_upload_btn"):
+            st.session_state["show_upload_block"] = not st.session_state["show_upload_block"]
 
-    if uploaded_files and len(uploaded_files) != 2:
-        st.warning("Пожалуйста, загрузите ровно 2 файла.")
+    if st.session_state["show_upload_block"]:
+        st.info(
+            "Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, "
+            "очистятся, сохранятся в базу и дашборд обновится."
+        )
 
-    if st.button("Обработать файлы", key="process_files_btn"):
-        if not uploaded_files or len(uploaded_files) != 2:
-            st.error("Нужно загрузить ровно 2 файла.")
-        else:
-            df_loaded, error = load_and_prepare_two_files(uploaded_files)
+        uploaded_files = st.file_uploader(
+            "Загрузите 2 файла",
+            type=["csv", "xlsx"],
+            accept_multiple_files=True,
+            key="uploaded_files_main"
+        )
 
-            if error:
-                st.error(error)
+        if uploaded_files and len(uploaded_files) != 2:
+            st.warning("Пожалуйста, загрузите ровно 2 файла.")
+
+        if st.button("Обработать файлы", key="process_files_btn"):
+            if not uploaded_files or len(uploaded_files) != 2:
+                st.error("Нужно загрузить ровно 2 файла.")
             else:
-                prepared_df = prepare_dashboard_data(df_loaded)
-                save_df_to_postgres(prepared_df)
-                st.session_state["data"] = prepared_df
-                st.success("Файлы успешно загружены, обработаны и сохранены в базу.")
+                df_loaded, error = load_and_prepare_two_files(uploaded_files)
+
+                if error:
+                    st.error(error)
+                else:
+                    prepared_df = prepare_dashboard_data(df_loaded)
+                    save_df_to_postgres(prepared_df)
+                    st.session_state["data"] = prepared_df
+                    st.success("Файлы успешно загружены, обработаны и сохранены в базу.")
+                    st.rerun()
+
+import_fragment()
 
 if "data" not in st.session_state:
-    st.info("Для начала анализа откройте блок «Импорт данных» и загрузите 2 файла.")
+    st.info("Для начала анализа нажмите кнопку «Импорт» справа от заголовка и загрузите 2 файла.")
     st.stop()
-
 
 df = st.session_state["data"]
 
@@ -1078,7 +1096,7 @@ with tab1:
             name="D",
             line=dict(color="#6244BB"),
             marker=dict(color="#6244BB", size=7),
-            hovertemplate="Дата: %{x|%d.%м.%Y}<br>Задач: %{y}<extra></extra>"
+            hovertemplate="Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
         )
 
         fig_d.add_scatter(
