@@ -651,14 +651,13 @@ if "data" not in st.session_state:
     if not db_df.empty:
         st.session_state["data"] = prepare_dashboard_data(db_df)
 
-title_col, action_col = st.columns([10, 1])
-
-with title_col:
-    st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
 
 @st.fragment
 def import_fragment():
-    with action_col:
+    top_left, top_right = st.columns([10, 1])
+
+    with top_right:
         st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
         if st.button("Импорт", key="toggle_upload_btn"):
             st.session_state["show_upload_block"] = not st.session_state["show_upload_block"]
@@ -697,8 +696,9 @@ def import_fragment():
 import_fragment()
 
 if "data" not in st.session_state:
-    st.info("Для начала анализа нажмите кнопку «Импорт» справа от заголовка и загрузите 2 файла.")
+    st.info("Для начала анализа нажмите кнопку «Импорт» и загрузите 2 файла.")
     st.stop()
+
 
 df = st.session_state["data"]
 
