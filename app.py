@@ -1,15 +1,19 @@
 import streamlit as st
+import streamlit.components.v2 as components
 import pandas as pd
 import plotly.express as px
 from datetime import timedelta, date
 import plotly.graph_objects as go
 import sqlalchemy as sa
+import os
 from io import BytesIO
+
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.lib.colors import HexColor
-import os
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
@@ -25,6 +29,17 @@ if token != ACCESS_TOKEN:
 
 engine = sa.create_engine(POSTGRES_URL)
 
+FONT_REGULAR_PATH = "fonts/DejaVuSans.ttf"
+FONT_BOLD_PATH = "fonts/DejaVuSans-Bold.ttf"
+
+if not os.path.exists(FONT_REGULAR_PATH):
+    raise FileNotFoundError(f"Не найден файл шрифта: {FONT_REGULAR_PATH}")
+if not os.path.exists(FONT_BOLD_PATH):
+    raise FileNotFoundError(f"Не найден файл шрифта: {FONT_BOLD_PATH}")
+
+pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_REGULAR_PATH))
+pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", FONT_BOLD_PATH))
+
 TTM_STAGES = [
     "Сбор данных",
     "Открыт",
@@ -35,6 +50,17 @@ TTM_STAGES = [
 ]
 CYCLE_STAGES = ["Бэклог разработки", "В работе"]
 WAIT_STAGES = [stage for stage in TTM_STAGES if stage not in CYCLE_STAGES]
+
+DEFAULT_CHART_MODES = {
+    "overview_time_mode": "Суммарно",
+    "overview_arrivals_mode": "D",
+    "overview_dist_mode": "TTM",
+    "weekly_ttm_mode": "TTM",
+}
+
+for _k, _v in DEFAULT_CHART_MODES.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
 
 st.markdown(
     """
@@ -315,7 +341,8 @@ st.markdown(
         margin-right: 6px !important;
     }
 
-    div.stButton > button {
+    div.stButton > button,
+    div[data-testid="stDownloadButton"] > button {
         border-radius: 9px !important;
         border: 1px solid #D8CDF4 !important;
         background: white !important;
@@ -323,7 +350,7 @@ st.markdown(
         font-weight: 600 !important;
         min-height: 34px !important;
         padding: 0.2rem 0.8rem !important;
-        font-size: 9px !important;
+        font-size: 11px !important;
         width: auto !important;
     }
 
@@ -646,6 +673,114 @@ def calc_metrics(df_):
     }
 
 
+def metric_delta_text(curr, prev, is_percent=False, digits=2):
+    if pd.isna(curr) or pd.isna(prev):
+        return "н/д"
+    diff = curr - prev
+    sign = "+" if diff > 0 else ""
+    if is_percent:
+        return f"{sign}{diff:.1f} п.п."
+    return f"{sign}{diff:.{digits}f}"
+
+
+# ===================== PLOTLY MODE SYNC =====================
+
+PLOTLY_MODE_SYNC_JS = r"""
+export default function(component) {
+    const { data, setStateValue, parentElement } = component;
+    const labels = data?.labels || [];
+    const defaultLabel = data?.default_label || null;
+
+    function getRootElement() {
+        if (parentElement instanceof ShadowRoot) {
+            return parentElement.host;
+        }
+        return parentElement;
+    }
+
+    function findNearestPlotlyChart() {
+        const root = getRootElement();
+        let current = root?.parentElement;
+
+        while (current) {
+            let prev = current.previousElementSibling;
+            while (prev) {
+                const directPlot = prev.matches?.(".js-plotly-plot") ? prev : null;
+                const nestedPlot = prev.querySelector?.(".js-plotly-plot") || null;
+                if (directPlot) return directPlot;
+                if (nestedPlot) return nestedPlot;
+                prev = prev.previousElementSibling;
+            }
+            current = current.parentElement;
+        }
+
+        const allPlots = document.querySelectorAll(".js-plotly-plot");
+        if (allPlots.length > 0) {
+            return allPlots[allPlots.length - 1];
+        }
+        return null;
+    }
+
+    function normalizeText(txt) {
+        return (txt || "").replace(/\s+/g, " ").trim();
+    }
+
+    function extractClickedLabel(target) {
+        const btn = target?.closest?.("g.updatemenu-button");
+        if (!btn) return null;
+        const txt = normalizeText(btn.textContent);
+        if (labels.includes(txt)) {
+            return txt;
+        }
+        return null;
+    }
+
+    const plot = findNearestPlotlyChart();
+
+    if (!plot) {
+        if (defaultLabel) {
+            setStateValue("active", defaultLabel);
+        }
+        return;
+    }
+
+    if (defaultLabel) {
+        setStateValue("active", defaultLabel);
+    }
+
+    const clickHandler = (evt) => {
+        const label = extractClickedLabel(evt.target);
+        if (label) {
+            setStateValue("active", label);
+        }
+    };
+
+    plot.addEventListener("click", clickHandler, true);
+
+    return () => {
+        plot.removeEventListener("click", clickHandler, true);
+    };
+}
+"""
+
+_plotly_mode_sync_component = components.component(
+    "plotly_mode_sync_component",
+    js=PLOTLY_MODE_SYNC_JS,
+    isolate_styles=False,
+)
+
+def sync_plotly_mode(key: str, labels: list[str], default_label: str):
+    result = _plotly_mode_sync_component(
+        key=key,
+        data={"labels": labels, "default_label": default_label},
+        on_active_change=lambda: None,
+    )
+    active = getattr(result, "active", None)
+    if active in labels:
+        return active
+    return default_label
+
+
 # ===================== PDF EXPORT =====================
 
 PDF_PAGE = landscape(A4)
@@ -677,10 +812,10 @@ def _draw_title(c, title, subtitle="", filters_text=""):
     c.rect(0, 0, PDF_W, PDF_H, fill=1, stroke=0)
 
     c.setFillColor(TITLE_COLOR)
-    c.setFont("Helvetica-Bold", 18)
+    c.setFont("DejaVuSans-Bold", 18)
     c.drawString(24, PDF_H - 28, title)
 
-    c.setFont("Helvetica", 10)
+    c.setFont("DejaVuSans", 10)
     c.setFillColor(MUTED)
     if subtitle:
         c.drawString(24, PDF_H - 44, subtitle)
@@ -694,22 +829,22 @@ def _draw_card(c, x, y, w, h, title, value, subvalue=""):
     c.roundRect(x, y, w, h, 10, fill=1, stroke=1)
 
     c.setFillColor(TITLE_COLOR)
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("DejaVuSans-Bold", 9)
     c.drawString(x + 8, y + h - 16, title)
 
     c.setFillColor(ACCENT)
-    c.setFont("Helvetica-Bold", 16)
+    c.setFont("DejaVuSans-Bold", 16)
     c.drawString(x + 8, y + h - 38, value)
 
     if subvalue:
         c.setFillColor(MUTED)
-        c.setFont("Helvetica", 8)
+        c.setFont("DejaVuSans", 8)
         c.drawString(x + 8, y + 8, subvalue)
 
 
 def _draw_image(c, img_bytes, x, y, w, h):
     img = ImageReader(BytesIO(img_bytes))
-    c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=False, mask='auto')
+    c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=False, mask="auto")
 
 
 def _filters_text(start_date, end_date, sel_teams, sel_res, sel_types):
@@ -724,46 +859,82 @@ def _filters_text(start_date, end_date, sel_teams, sel_res, sel_types):
     )
 
 
-def build_overview_figures(f_df, t_order):
+def build_overview_figures(f_df, t_order, time_mode="Суммарно", arrivals_mode="D", dist_mode="TTM"):
     team_stage_avg = f_df.groupby("Компоненты").mean(numeric_only=True).reset_index()
 
-    t_parts = (
-        f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
-        .mean()
-        .reset_index()
-    )
-    t_parts_long = t_parts.melt(
-        id_vars="Компоненты",
-        value_vars=["cycle_time", "wait_time_days"],
-        var_name="Метрика",
-        value_name="Дни"
-    )
-    t_parts_long["Метрика"] = t_parts_long["Метрика"].map({
-        "cycle_time": "Cycle time",
-        "wait_time_days": "Ожидание"
-    })
+    if time_mode == "Суммарно":
+        t_parts = (
+            f_df.groupby("Компоненты")[["cycle_time", "wait_time_days"]]
+            .mean()
+            .reset_index()
+        )
+        t_parts_long = t_parts.melt(
+            id_vars="Компоненты",
+            value_vars=["cycle_time", "wait_time_days"],
+            var_name="Метрика",
+            value_name="Дни"
+        )
+        t_parts_long["Метрика"] = t_parts_long["Метрика"].map({
+            "cycle_time": "Cycle time",
+            "wait_time_days": "Ожидание"
+        })
 
-    fig_a = px.bar(
-        t_parts_long,
-        x="Дни",
-        y="Компоненты",
-        color="Метрика",
-        orientation="h",
-        barmode="stack",
-        text_auto=".1f",
-        category_orders={"Компоненты": t_order},
-        color_discrete_map={
-            "Cycle time": "#6244BB",
-            "Ожидание": "#A485E0"
-        },
-        template="plotly_white",
-    )
-    fig_a.update_layout(
-        title="Структура времени задач по командам",
-        xaxis_title=None,
-        yaxis_title=None,
-        legend_title=None,
-    )
+        fig_a = px.bar(
+            t_parts_long,
+            x="Дни",
+            y="Компоненты",
+            color="Метрика",
+            orientation="h",
+            barmode="stack",
+            text_auto=".1f",
+            category_orders={"Компоненты": t_order},
+            color_discrete_map={
+                "Cycle time": "#6244BB",
+                "Ожидание": "#A485E0"
+            },
+            template="plotly_white",
+        )
+        fig_a.update_layout(
+            title="Структура времени задач по командам",
+            xaxis_title=None,
+            yaxis_title=None,
+            legend_title=None,
+        )
+    else:
+        wait_colors = {
+            "Сбор данных": "#5B3FC4",
+            "Открыт": "#8A6BE8",
+            "Заблокирован": "#B59AF5",
+            "На стороне менеджера": "#E3D9FF"
+        }
+
+        fig_a = go.Figure()
+        for stage in WAIT_STAGES:
+            stage_df = pd.DataFrame({
+                "Компоненты": team_stage_avg["Компоненты"],
+                "Дни": team_stage_avg[stage] / 1440
+            })
+            fig_a.add_trace(
+                go.Bar(
+                    x=stage_df["Дни"],
+                    y=stage_df["Компоненты"],
+                    name=stage,
+                    orientation="h",
+                    marker_color=wait_colors.get(stage, "#A485E0"),
+                    text=[f"{x:.1f}" if x > 0 else "" for x in stage_df["Дни"]],
+                    textposition="auto"
+                )
+            )
+
+        fig_a.update_layout(
+            title="Структура времени задач по командам",
+            xaxis_title=None,
+            yaxis_title=None,
+            legend_title=None,
+            barmode="stack",
+            template="plotly_white",
+            yaxis=dict(categoryorder="array", categoryarray=t_order)
+        )
 
     t_counts = f_df.groupby("Компоненты").size().reset_index(name="Кол-во")
     fig_l = px.bar(
@@ -783,22 +954,56 @@ def build_overview_figures(f_df, t_order):
         showlegend=False,
     )
 
-    daily_df = (
-        f_df.set_index("Дата создания")
-        .resample("D")
-        .size()
-        .reset_index(name="Задач")
-    )
-    fig_d = px.line(
-        daily_df,
-        x="Дата создания",
-        y="Задач",
-        markers=True,
-        color_discrete_sequence=["#6244BB"],
-        template="plotly_white"
-    )
+    if arrivals_mode == "D":
+        arrivals_df = (
+            f_df.set_index("Дата создания")
+            .resample("D")
+            .size()
+            .reset_index(name="Задач")
+        )
+        fig_d = px.line(
+            arrivals_df,
+            x="Дата создания",
+            y="Задач",
+            markers=True,
+            color_discrete_sequence=["#6244BB"],
+            template="plotly_white"
+        )
+        fig_d.update_layout(title="Динамика поступления задач (D)")
+    elif arrivals_mode == "W":
+        arrivals_df = (
+            f_df.set_index("Дата создания")
+            .resample("W")
+            .size()
+            .reset_index(name="Задач")
+        )
+        fig_d = px.line(
+            arrivals_df,
+            x="Дата создания",
+            y="Задач",
+            markers=True,
+            color_discrete_sequence=["#6244BB"],
+            template="plotly_white"
+        )
+        fig_d.update_layout(title="Динамика поступления задач (W)")
+    else:
+        arrivals_df = (
+            f_df.set_index("Дата создания")
+            .resample("ME")
+            .size()
+            .reset_index(name="Задач")
+        )
+        fig_d = px.line(
+            arrivals_df,
+            x="Дата создания",
+            y="Задач",
+            markers=True,
+            color_discrete_sequence=["#6244BB"],
+            template="plotly_white"
+        )
+        fig_d.update_layout(title="Динамика поступления задач (M)")
+
     fig_d.update_layout(
-        title="Динамика поступления задач",
         xaxis_title=None,
         yaxis_title=None,
         showlegend=False,
@@ -806,17 +1011,36 @@ def build_overview_figures(f_df, t_order):
 
     dist_df = f_df[["ttm_days", "cycle_time", "wait_time_days"]].dropna().copy()
     fig_dist = go.Figure()
-    fig_dist.add_trace(
-        go.Histogram(
+
+    if dist_mode == "TTM":
+        fig_dist.add_trace(go.Histogram(
             x=dist_df["ttm_days"],
             name="TTM",
             marker_color="#6244BB",
             opacity=0.85,
             nbinsx=20
-        )
-    )
+        ))
+        fig_dist.update_layout(title="Распределение времени задач (TTM)")
+    elif dist_mode == "Cycle time":
+        fig_dist.add_trace(go.Histogram(
+            x=dist_df["cycle_time"],
+            name="Cycle time",
+            marker_color="#6244BB",
+            opacity=0.85,
+            nbinsx=20
+        ))
+        fig_dist.update_layout(title="Распределение времени задач (Cycle time)")
+    else:
+        fig_dist.add_trace(go.Histogram(
+            x=dist_df["wait_time_days"],
+            name="Ожидание",
+            marker_color="#A485E0",
+            opacity=0.85,
+            nbinsx=20
+        ))
+        fig_dist.update_layout(title="Распределение времени задач (Ожидание)")
+
     fig_dist.update_layout(
-        title="Распределение времени задач (TTM)",
         xaxis_title="Дни",
         yaxis_title="Количество задач",
         template="plotly_white",
@@ -862,7 +1086,7 @@ def build_overview_figures(f_df, t_order):
     return fig_a, fig_l, fig_d, fig_dist, fig_contacts
 
 
-def build_weekly_figures(current_week_df, previous_week_df, team_order_week, cw_start, cw_end, pw_start, pw_end):
+def build_weekly_figures(current_week_df, previous_week_df, team_order_week, cw_start, cw_end, pw_start, pw_end, ttm_mode="TTM"):
     curr_cnt_team = current_week_df.groupby("Компоненты").size().reset_index(name="Текущая неделя")
     prev_cnt_team = previous_week_df.groupby("Компоненты").size().reset_index(name="Предыдущая неделя")
     cnt_cmp = pd.merge(curr_cnt_team, prev_cnt_team, on="Компоненты", how="outer").fillna(0)
@@ -895,14 +1119,20 @@ def build_weekly_figures(current_week_df, previous_week_df, team_order_week, cw_
         legend_title=None
     )
 
+    metric_col = {
+        "TTM": "ttm_days",
+        "Cycle time": "cycle_time",
+        "Ожидание": "wait_time_days"
+    }[ttm_mode]
+
     curr_parts = (
-        current_week_df.groupby("Компоненты")[["ttm_days"]]
+        current_week_df.groupby("Компоненты")[[metric_col]]
         .mean()
         .reindex(team_order_week, fill_value=0)
         .reset_index()
     )
     prev_parts = (
-        previous_week_df.groupby("Компоненты")[["ttm_days"]]
+        previous_week_df.groupby("Компоненты")[[metric_col]]
         .mean()
         .reindex(team_order_week, fill_value=0)
         .reset_index()
@@ -911,23 +1141,32 @@ def build_weekly_figures(current_week_df, previous_week_df, team_order_week, cw_
     fig_ttm = go.Figure()
     fig_ttm.add_trace(go.Bar(
         x=curr_parts["Компоненты"],
-        y=curr_parts["ttm_days"],
+        y=curr_parts[metric_col],
         name="Текущая",
-        marker_color="#6244BB"
+        marker_color="#6244BB",
+        text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts[metric_col]],
+        textposition="outside",
+        texttemplate="%{text}",
+        cliponaxis=False
     ))
     fig_ttm.add_trace(go.Bar(
         x=prev_parts["Компоненты"],
-        y=prev_parts["ttm_days"],
+        y=prev_parts[metric_col],
         name="Предыдущая",
-        marker_color="#D6CCFF"
+        marker_color="#D6CCFF",
+        text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts[metric_col]],
+        textposition="outside",
+        texttemplate="%{text}",
+        cliponaxis=False
     ))
     fig_ttm.update_layout(
-        title="TTM по командам",
+        title=f"{ttm_mode} по командам",
         xaxis_title=None,
-        yaxis_title="TTM, дней",
+        yaxis_title=f"{ttm_mode}, дней" if ttm_mode != "TTM" else "TTM, дней",
         barmode="group",
         template="plotly_white",
-        legend_title=None
+        legend_title=None,
+        margin=dict(l=40, r=20, t=40, b=30)
     )
 
     current_dates = pd.date_range(cw_start.normalize(), cw_end.normalize(), freq="D")
@@ -1025,12 +1264,13 @@ def build_weekly_figures(current_week_df, previous_week_df, team_order_week, cw_
     return fig_cnt, fig_ttm, fig_flow, fig_contacts_compare
 
 
-def generate_overview_pdf(f_df, start_date, end_date, sel_teams, sel_res, sel_types):
+def generate_overview_pdf(f_df, start_date, end_date, sel_teams, sel_res, sel_types, time_mode, arrivals_mode, dist_mode):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=PDF_PAGE)
 
     filters_text = _filters_text(start_date, end_date, sel_teams, sel_res, sel_types)
-    _draw_title(c, "Аналитика дежурств — Общий обзор", "", filters_text)
+    subtitle = f"Режимы: структура времени = {time_mode}; динамика = {arrivals_mode}; распределение = {dist_mode}"
+    _draw_title(c, "Аналитика дежурств — Общий обзор", subtitle, filters_text)
 
     metrics = {
         "Всего задач": f"{len(f_df)}",
@@ -1060,7 +1300,13 @@ def generate_overview_pdf(f_df, start_date, end_date, sel_teams, sel_res, sel_ty
     )
     t_order = time_order_df["Компоненты"].tolist()
 
-    fig_a, fig_l, fig_d, fig_dist, fig_contacts = build_overview_figures(f_df, t_order)
+    fig_a, fig_l, fig_d, fig_dist, fig_contacts = build_overview_figures(
+        f_df,
+        t_order,
+        time_mode=time_mode,
+        arrivals_mode=arrivals_mode,
+        dist_mode=dist_mode
+    )
 
     row1_y = 255
     chart_h1 = 155
@@ -1080,24 +1326,35 @@ def generate_overview_pdf(f_df, start_date, end_date, sel_teams, sel_res, sel_ty
     return buffer
 
 
-def generate_weekly_pdf(current_week_df, previous_week_df, current_metrics, previous_metrics, cw_start, cw_end, pw_start, pw_end):
+def generate_weekly_pdf(
+    current_week_df,
+    previous_week_df,
+    current_metrics,
+    previous_metrics,
+    cw_start,
+    cw_end,
+    pw_start,
+    pw_end,
+    weekly_ttm_mode
+):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=PDF_PAGE)
 
     subtitle = (
         f"Текущая неделя: {cw_start.strftime('%d.%m.%Y')} — {cw_end.strftime('%d.%m.%Y')}    "
-        f"Предыдущая неделя: {pw_start.strftime('%d.%m.%Y')} — {pw_end.strftime('%d.%m.%Y')}"
+        f"Предыдущая неделя: {pw_start.strftime('%d.%m.%Y')} — {pw_end.strftime('%d.%m.%Y')}    "
+        f"Режим графика: {weekly_ttm_mode}"
     )
     _draw_title(c, "Аналитика дежурств — Сравнение недель", subtitle, "")
 
     kpis = [
-        ("Всего задач", f"{current_metrics['tasks_total']}", f"пред.: {previous_metrics['tasks_total']}"),
-        ("TTM (дн)", f"{current_metrics['ttm']:.2f}", f"пред.: {previous_metrics['ttm']:.2f}"),
-        ("Cycle time", f"{current_metrics['cycle']:.2f}", f"пред.: {previous_metrics['cycle']:.2f}"),
-        ("Ожидание", f"{current_metrics['wait']:.2f}", f"пред.: {previous_metrics['wait']:.2f}"),
-        ("Позже", f"{current_metrics['later_pct']:.1f}%", f"пред.: {previous_metrics['later_pct']:.1f}%"),
-        ("Flow Eff.", f"{current_metrics['active_pct']:.1f}%", f"пред.: {previous_metrics['active_pct']:.1f}%"),
-        ("Пинг-понг > 1", f"{current_metrics['pingpong_share']:.1f}%", f"пред.: {previous_metrics['pingpong_share']:.1f}%"),
+        ("Всего задач", f"{current_metrics['tasks_total']}", f"Изменение: {metric_delta_text(current_metrics['tasks_total'], previous_metrics['tasks_total'], digits=0)}"),
+        ("TTM (дн)", f"{current_metrics['ttm']:.2f}", f"Изменение: {metric_delta_text(current_metrics['ttm'], previous_metrics['ttm'])}"),
+        ("Cycle time", f"{current_metrics['cycle']:.2f}", f"Изменение: {metric_delta_text(current_metrics['cycle'], previous_metrics['cycle'])}"),
+        ("Ожидание", f"{current_metrics['wait']:.2f}", f"Изменение: {metric_delta_text(current_metrics['wait'], previous_metrics['wait'])}"),
+        ("Позже", f"{current_metrics['later_pct']:.1f}%", f"Изменение: {metric_delta_text(current_metrics['later_pct'], previous_metrics['later_pct'], is_percent=True)}"),
+        ("Flow Eff.", f"{current_metrics['active_pct']:.1f}%", f"Изменение: {metric_delta_text(current_metrics['active_pct'], previous_metrics['active_pct'], is_percent=True)}"),
+        ("Пинг-понг > 1", f"{current_metrics['pingpong_share']:.1f}%", f"Изменение: {metric_delta_text(current_metrics['pingpong_share'], previous_metrics['pingpong_share'], is_percent=True)}"),
     ]
 
     card_y = PDF_H - 115
@@ -1119,7 +1376,14 @@ def generate_weekly_pdf(current_week_df, previous_week_df, current_metrics, prev
     )
 
     fig_cnt, fig_ttm, fig_flow, fig_contacts_compare = build_weekly_figures(
-        current_week_df, previous_week_df, team_order_week, cw_start, cw_end, pw_start, pw_end
+        current_week_df,
+        previous_week_df,
+        team_order_week,
+        cw_start,
+        cw_end,
+        pw_start,
+        pw_end,
+        ttm_mode=weekly_ttm_mode
     )
 
     row1_y = 255
@@ -1326,7 +1590,17 @@ else:
 tab1, tab2 = st.tabs(["Общий обзор", "Сравнение недель"])
 
 with tab1:
-    pdf_overview = generate_overview_pdf(f_df, start_date, end_date, sel_teams, sel_res, sel_types)
+    pdf_overview = generate_overview_pdf(
+        f_df,
+        start_date,
+        end_date,
+        sel_teams,
+        sel_res,
+        sel_types,
+        st.session_state["overview_time_mode"],
+        st.session_state["overview_arrivals_mode"],
+        st.session_state["overview_dist_mode"],
+    )
     st.download_button(
         "Экспорт PDF",
         data=pdf_overview,
@@ -1528,6 +1802,11 @@ with tab1:
         )
 
         st.plotly_chart(fig_a, use_container_width=True)
+        st.session_state["overview_time_mode"] = sync_plotly_mode(
+            "overview_time_mode_sync",
+            ["Суммарно", "Ожидание"],
+            st.session_state["overview_time_mode"]
+        )
 
     with c2:
         st.markdown(
@@ -1671,6 +1950,11 @@ with tab1:
         )
 
         st.plotly_chart(fig_d, use_container_width=True)
+        st.session_state["overview_arrivals_mode"] = sync_plotly_mode(
+            "overview_arrivals_mode_sync",
+            ["D", "W", "M"],
+            st.session_state["overview_arrivals_mode"]
+        )
 
     with b2:
         st.markdown(
@@ -1771,6 +2055,11 @@ with tab1:
         )
 
         st.plotly_chart(fig_dist, use_container_width=True, config={"scrollZoom": False})
+        st.session_state["overview_dist_mode"] = sync_plotly_mode(
+            "overview_dist_mode_sync",
+            ["TTM", "Cycle time", "Ожидание"],
+            st.session_state["overview_dist_mode"]
+        )
 
     with b3:
         st.markdown(
@@ -1833,7 +2122,8 @@ with tab2:
             cw_start,
             cw_end,
             pw_start,
-            pw_end
+            pw_end,
+            st.session_state["weekly_ttm_mode"]
         )
         st.download_button(
             "Экспорт PDF",
@@ -1997,6 +2287,7 @@ with tab2:
                     marker_color="#6244BB",
                     text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["ttm_days"]],
                     textposition="outside",
+                    texttemplate="%{text}",
                     cliponaxis=False,
                     visible=True
                 )
@@ -2010,6 +2301,7 @@ with tab2:
                     marker_color="#D6CCFF",
                     text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["ttm_days"]],
                     textposition="outside",
+                    texttemplate="%{text}",
                     cliponaxis=False,
                     visible=True
                 )
@@ -2023,6 +2315,7 @@ with tab2:
                     marker_color="#6244BB",
                     text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["cycle_time"]],
                     textposition="outside",
+                    texttemplate="%{text}",
                     cliponaxis=False,
                     visible=False
                 )
@@ -2036,6 +2329,7 @@ with tab2:
                     marker_color="#D6CCFF",
                     text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["cycle_time"]],
                     textposition="outside",
+                    texttemplate="%{text}",
                     cliponaxis=False,
                     visible=False
                 )
@@ -2049,6 +2343,7 @@ with tab2:
                     marker_color="#A485E0",
                     text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["wait_time_days"]],
                     textposition="outside",
+                    texttemplate="%{text}",
                     cliponaxis=False,
                     visible=False
                 )
@@ -2062,6 +2357,7 @@ with tab2:
                     marker_color="#EEE8FF",
                     text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["wait_time_days"]],
                     textposition="outside",
+                    texttemplate="%{text}",
                     cliponaxis=False,
                     visible=False
                 )
@@ -2113,6 +2409,11 @@ with tab2:
             )
 
             st.plotly_chart(fig_ttm_compare, use_container_width=True)
+            st.session_state["weekly_ttm_mode"] = sync_plotly_mode(
+                "weekly_ttm_mode_sync",
+                ["TTM", "Cycle time", "Ожидание"],
+                st.session_state["weekly_ttm_mode"]
+            )
 
         g3, g4 = st.columns(2, gap="small")
 
