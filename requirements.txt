@@ -7,3 +7,4 @@ plotly
 kaleido
 Pillow
 reportlab
+playwright
