@@ -767,7 +767,7 @@ def make_dashboard_pdf(url: str) -> bytes:
         page.wait_for_timeout(2500)
 
         pdf_bytes = page.pdf(
-            format="A4",
+            format="A3",
             landscape=True,
             print_background=True,
             margin={
