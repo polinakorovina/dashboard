@@ -7,8 +7,16 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import sqlalchemy as sa
 from playwright.sync_api import sync_playwright
+
+from data_pipeline import (
+    load_single_file,
+    load_and_prepare_two_dataframes,
+    prepare_dashboard_data,
+    read_dashboard_from_postgres,
+    read_meta_from_postgres,
+    write_dashboard_to_postgres_append,
+)
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
@@ -25,8 +33,6 @@ if token != ACCESS_TOKEN:
 
 export_mode = st.query_params.get("export") == "1"
 export_view = st.query_params.get("view", "overview")
-
-engine = sa.create_engine(POSTGRES_URL)
 
 TTM_STAGES = [
     "Сбор данных",
@@ -390,210 +396,6 @@ if export_mode:
         unsafe_allow_html=True
     )
 
-# ===================== POSTGRES =====================
-
-@st.cache_data(ttl=300)
-def load_df_from_postgres():
-    try:
-        return pd.read_sql("SELECT * FROM dashboard_tasks", engine)
-    except Exception:
-        return pd.DataFrame()
-
-
-def save_df_to_postgres(df):
-    df.to_sql("dashboard_tasks", engine, if_exists="replace", index=False)
-    load_df_from_postgres.clear()
-
-
-# ===================== DATA LOADER =====================
-
-REQUIRED_KEY_OPTIONS = [
-    ("Ключ", "issue_key"),
-    ("issue_key", "Ключ"),
-]
-
-COLS_TO_DROP = [
-    "Статус",
-    "Дата завершения",
-    "DutyGPT prediction result",
-    "Резолюция по ролям",
-    "Причина блокировки",
-    "Закрыт",
-    "issue_key",
-]
-
-
-def load_single_file(uploaded_file):
-    if uploaded_file is None:
-        return None, "Файл не загружен."
-
-    try:
-        file_name = uploaded_file.name.lower()
-
-        if file_name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        elif file_name.endswith(".xlsx"):
-            df = pd.read_excel(uploaded_file)
-        else:
-            return None, f"Файл {uploaded_file.name}: поддерживаются только CSV и XLSX."
-
-        df.columns = df.columns.astype(str).str.strip()
-        return df, None
-    except Exception as e:
-        return None, f"Ошибка при чтении файла {uploaded_file.name}: {e}"
-
-
-def validate_two_files(uploaded_files):
-    if uploaded_files is None or len(uploaded_files) != 2:
-        return "Нужно загрузить ровно 2 файла."
-    return None
-
-
-def validate_merge_keys(df_left, df_right):
-    for left_key, right_key in REQUIRED_KEY_OPTIONS:
-        if left_key in df_left.columns and right_key in df_right.columns:
-            return (left_key, right_key), None
-
-    return None, (
-        "Не найдены ключи для объединения. "
-        "В одном файле должна быть колонка 'Ключ', а в другом — 'issue_key'."
-    )
-
-
-def validate_key_matches(df_left, df_right, left_key, right_key):
-    left_values = set(df_left[left_key].dropna().astype(str).str.strip())
-    right_values = set(df_right[right_key].dropna().astype(str).str.strip())
-    matches = left_values & right_values
-
-    if not matches:
-        return False, (
-            f"Колонки для объединения найдены ({left_key} и {right_key}), "
-            f"но совпадающих значений ключей между файлами нет."
-        )
-
-    return True, None
-
-
-def clean_components(val):
-    if pd.isna(val):
-        return None
-
-    comps = [c.strip() for c in str(val).split(",") if c.strip()]
-
-    if len(comps) == 1 and comps[0] == "Запуск скрипта":
-        return None
-
-    if len(comps) >= 2:
-        if "Запуск скрипта" in comps:
-            comps.remove("Запуск скрипта")
-            return comps[0] if len(comps) == 1 else None
-        return None
-
-    return val
-
-
-def preprocess_merged_data(df):
-    df = df.copy()
-    df.columns = df.columns.astype(str).str.strip()
-    df = df.dropna(how="all")
-
-    if "Количество обращений" in df.columns:
-        df["Количество обращений"] = df["Количество обращений"].fillna("1-4")
-
-    if "Пинг-понг обращения" in df.columns:
-        df["Пинг-понг обращения"] = df["Пинг-понг обращения"].fillna(1.0)
-
-    df = df.drop(columns=COLS_TO_DROP, errors="ignore")
-
-    if "Резолюция" in df.columns:
-        df = df[~df["Резолюция"].isin(["Не будет исправлено", "Дубликат"])]
-
-    if "Компоненты" in df.columns:
-        df["Компоненты"] = df["Компоненты"].apply(clean_components)
-        df = df.dropna(subset=["Компоненты"])
-
-    df = df.reset_index(drop=True)
-    return df
-
-
-def merge_two_dataframes(df_left, df_right):
-    merge_keys, error = validate_merge_keys(df_left, df_right)
-    if error:
-        return None, error
-
-    left_key, right_key = merge_keys
-
-    is_valid_match, match_error = validate_key_matches(df_left, df_right, left_key, right_key)
-    if not is_valid_match:
-        return None, match_error
-
-    merged_df = pd.merge(
-        df_left,
-        df_right,
-        left_on=left_key,
-        right_on=right_key,
-        how="left"
-    )
-
-    return merged_df, None
-
-
-def load_and_prepare_two_files(uploaded_files):
-    files_error = validate_two_files(uploaded_files)
-    if files_error:
-        return None, files_error
-
-    df_left, error_left = load_single_file(uploaded_files[0])
-    if error_left:
-        return None, error_left
-
-    df_right, error_right = load_single_file(uploaded_files[1])
-    if error_right:
-        return None, error_right
-
-    merged_df, merge_error = merge_two_dataframes(df_left, df_right)
-    if merge_error:
-        return None, merge_error
-
-    prepared_df = preprocess_merged_data(merged_df)
-
-    if prepared_df.empty:
-        return None, "После объединения и очистки не осталось данных."
-
-    return prepared_df, None
-
-
-def prepare_dashboard_data(df_):
-    df_ = df_.copy()
-
-    if "Дата создания" not in df_.columns:
-        return pd.DataFrame()
-
-    df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
-    df_ = df_.dropna(subset=["Дата создания"])
-
-    for col in set(TTM_STAGES + CYCLE_STAGES):
-        if col not in df_.columns:
-            df_[col] = 0
-        df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
-
-    df_["ttm_days"] = df_[TTM_STAGES].sum(axis=1) / 1440
-    df_["cycle_time"] = df_[CYCLE_STAGES].sum(axis=1) / 1440
-    df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
-
-    df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(0)
-    df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-
-    if "Тип" not in df_.columns:
-        df_["Тип"] = "Не указано"
-    df_["Тип"] = df_["Тип"].fillna("Не указано").astype(str).str.strip()
-
-    return df_
-
-
 # ===================== HELPERS =====================
 
 def kpi_card(title: str, value: str, hint: str = "", subvalue: str = "", color: str = "#6244BB", hint_side: str = "center"):
@@ -788,9 +590,9 @@ if "show_upload_block" not in st.session_state:
     st.session_state["show_upload_block"] = False
 
 if "data" not in st.session_state:
-    db_df = load_df_from_postgres()
+    db_df = read_dashboard_from_postgres(POSTGRES_URL)
     if not db_df.empty:
-        st.session_state["data"] = prepare_dashboard_data(db_df)
+        st.session_state["data"] = db_df
 
 if "active_view" not in st.session_state:
     st.session_state["active_view"] = "Общий обзор"
@@ -843,16 +645,28 @@ def top_bar_fragment(export_url=None):
             if not uploaded_files or len(uploaded_files) != 2:
                 st.error("Нужно загрузить ровно 2 файла.")
             else:
-                df_loaded, error = load_and_prepare_two_files(uploaded_files)
+                try:
+                    df_left = load_single_file(uploaded_files[0], uploaded_files[0].name)
+                    df_right = load_single_file(uploaded_files[1], uploaded_files[1].name)
 
-                if error:
-                    st.error(error)
-                else:
-                    prepared_df = prepare_dashboard_data(df_loaded)
-                    save_df_to_postgres(prepared_df)
-                    st.session_state["data"] = prepared_df
-                    st.success("Файлы успешно загружены, обработаны и сохранены в базу.")
+                    prepared_merge = load_and_prepare_two_dataframes(df_left, df_right)
+                    prepared_df = prepare_dashboard_data(prepared_merge)
+
+                    inserted_rows = write_dashboard_to_postgres_append(
+                        prepared_df,
+                        postgres_url=POSTGRES_URL,
+                        source="manual_upload",
+                        file_names=f"{uploaded_files[0].name} | {uploaded_files[1].name}",
+                    )
+
+                    db_df = read_dashboard_from_postgres(POSTGRES_URL)
+                    st.session_state["data"] = db_df if not db_df.empty else prepared_df
+
+                    st.success(f"Файлы успешно загружены. В базу добавлено новых строк: {inserted_rows}")
                     st.rerun()
+
+                except Exception as e:
+                    st.error(str(e))
 
 
 if "data" not in st.session_state:
@@ -1015,6 +829,16 @@ export_url = build_export_url(
 )
 
 top_bar_fragment(export_url=export_url)
+
+meta_df = read_meta_from_postgres(POSTGRES_URL)
+if not meta_df.empty:
+    last_meta = meta_df.iloc[0]
+    st.caption(
+        f"Последнее обновление: {last_meta['updated_at']} | "
+        f"Источник: {last_meta['source']} | "
+        f"Строк в пакете: {last_meta['rows_count_in_batch']} | "
+        f"Добавлено новых: {last_meta['inserted_rows']}"
+    )
 
 # ===================== VIEW SWITCHER =====================
 
