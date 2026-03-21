@@ -11,8 +11,7 @@ from data_pipeline import (
 
 POSTGRES_URL = os.environ["POSTGRES_URL"]
 YANDEX_TOKEN = os.environ["YANDEX_TOKEN"]
-YANDEX_FILE_1 = os.environ["YANDEX_FILE_1"]
-YANDEX_FILE_2 = os.environ["YANDEX_FILE_2"]
+YANDEX_FOLDER_PATH = os.environ["YANDEX_FOLDER_PATH"]
 
 
 def download_file_to_memory(y, remote_path: str):
@@ -22,17 +21,37 @@ def download_file_to_memory(y, remote_path: str):
     return buffer
 
 
+def get_files_from_folder(y, folder_path: str):
+    items = list(y.listdir(folder_path))
+    files = [item for item in items if not item.is_dir()]
+    return files
+
+
 def main():
     y = yadisk.YaDisk(token=YANDEX_TOKEN)
 
     if not y.check_token():
         raise RuntimeError("Токен Яндекс Диска невалидный.")
 
-    file1_obj = download_file_to_memory(y, YANDEX_FILE_1)
-    file2_obj = download_file_to_memory(y, YANDEX_FILE_2)
+    files = get_files_from_folder(y, YANDEX_FOLDER_PATH)
 
-    df_left = load_single_file(file1_obj, YANDEX_FILE_1)
-    df_right = load_single_file(file2_obj, YANDEX_FILE_2)
+    if len(files) == 0:
+        print("В папке нет файлов. Обновление не требуется.")
+        return
+
+    if len(files) != 2:
+        raise RuntimeError(
+            f"В папке должно быть ровно 2 файла. Сейчас найдено: {len(files)}"
+        )
+
+    file1 = files[0]
+    file2 = files[1]
+
+    file1_obj = download_file_to_memory(y, file1.path)
+    file2_obj = download_file_to_memory(y, file2.path)
+
+    df_left = load_single_file(file1_obj, file1.name)
+    df_right = load_single_file(file2_obj, file2.name)
 
     prepared_merge = load_and_prepare_two_dataframes(df_left, df_right)
     dashboard_df = prepare_dashboard_data(prepared_merge)
@@ -41,10 +60,14 @@ def main():
         dashboard_df,
         postgres_url=POSTGRES_URL,
         source="yadisk",
-        file_names=f"{YANDEX_FILE_1} | {YANDEX_FILE_2}",
+        file_names=f"{file1.name} | {file2.name}",
     )
 
-    print(f"Данные успешно обновлены из Яндекс Диска. Добавлено новых строк: {inserted_rows}")
+    # Удаляем файлы только после успешной загрузки в базу
+    y.remove(file1.path, permanently=True)
+    y.remove(file2.path, permanently=True)
+
+    print(f"Готово. Добавлено новых строк: {inserted_rows}. Файлы удалены из папки.")
 
 
 if __name__ == "__main__":
