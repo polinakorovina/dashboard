@@ -8,3 +8,4 @@ kaleido
 Pillow
 reportlab
 playwright
+requests
