@@ -26,7 +26,6 @@ jobs:
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
           YANDEX_TOKEN: ${{ secrets.YANDEX_TOKEN }}
-          YANDEX_FILE_1: ${{ secrets.YANDEX_FILE_1 }}
-          YANDEX_FILE_2: ${{ secrets.YANDEX_FILE_2 }}
+          YANDEX_FOLDER_PATH: ${{ secrets.YANDEX_FOLDER_PATH }}
         run: |
           python etl_update.py
