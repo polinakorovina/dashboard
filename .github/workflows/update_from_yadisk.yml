@@ -1,0 +1,32 @@
+name: Update dashboard data from Yandex Disk
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run ETL
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          YANDEX_TOKEN: ${{ secrets.YANDEX_TOKEN }}
+          YANDEX_FILE_1: ${{ secrets.YANDEX_FILE_1 }}
+          YANDEX_FILE_2: ${{ secrets.YANDEX_FILE_2 }}
+        run: |
+          python etl_update.py
