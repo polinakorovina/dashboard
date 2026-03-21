@@ -63,7 +63,6 @@ def main():
         file_names=f"{file1.name} | {file2.name}",
     )
 
-    # Удаляем файлы только после успешной загрузки в базу
     y.remove(file1.path, permanently=True)
     y.remove(file2.path, permanently=True)
 
