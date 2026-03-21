@@ -12,6 +12,7 @@ TTM_STAGES = [
     "Бэклог разработки",
     "В работе",
 ]
+
 CYCLE_STAGES = ["Бэклог разработки", "В работе"]
 
 REQUIRED_KEY_OPTIONS = [
@@ -143,6 +144,14 @@ def prepare_dashboard_data(df_):
     if "Дата создания" not in df_.columns:
         raise ValueError("В данных нет колонки 'Дата создания'.")
 
+    if "Ключ" not in df_.columns:
+        raise ValueError("В данных нет колонки 'Ключ'.")
+
+    df_["Ключ"] = df_["Ключ"].astype(str).str.strip()
+    df_ = df_[df_["Ключ"] != ""]
+    df_ = df_.dropna(subset=["Ключ"])
+    df_ = df_.drop_duplicates(subset=["Ключ"], keep="last")
+
     df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
     df_ = df_.dropna(subset=["Дата создания"])
 
@@ -219,6 +228,19 @@ def ensure_unique_constraint(engine):
         """))
 
 
+def ensure_meta_table_exists(engine):
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS dashboard_meta (
+                updated_at TIMESTAMP,
+                source TEXT,
+                file_names TEXT,
+                rows_count_in_batch INTEGER,
+                inserted_rows INTEGER
+            )
+        """))
+
+
 def write_dashboard_to_postgres_append(df, postgres_url: str, source: str, file_names: str = ""):
     engine = get_engine(postgres_url)
 
@@ -226,6 +248,7 @@ def write_dashboard_to_postgres_append(df, postgres_url: str, source: str, file_
     ensure_dashboard_table_exists(engine, df)
     cleanup_existing_duplicates(engine)
     ensure_unique_constraint(engine)
+    ensure_meta_table_exists(engine)
 
     metadata = MetaData()
     dashboard_table = Table("dashboard_tasks", metadata, autoload_with=engine)
