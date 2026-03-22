@@ -20,22 +20,28 @@ if token != ACCESS_TOKEN:
     st.error("Эта ссылка недействительна или у вас нет доступа.")
     st.stop()
 
-# ===================== SESSION INIT =====================
 
-if "show_upload_block" not in st.session_state:
-    st.session_state["show_upload_block"] = False
+def init_session_state():
+    if "show_upload_block" not in st.session_state:
+        st.session_state["show_upload_block"] = False
 
-if "active_view" not in st.session_state:
-    st.session_state["active_view"] = "Общий обзор"
+    if "active_view" not in st.session_state:
+        st.session_state["active_view"] = "Общий обзор"
 
-if "data_version" not in st.session_state:
-    st.session_state["data_version"] = 0
+    if "data_version" not in st.session_state:
+        st.session_state["data_version"] = 0
 
-if "overview_bundle_cache" not in st.session_state:
-    st.session_state["overview_bundle_cache"] = {}
+    if "overview_bundle_cache" not in st.session_state:
+        st.session_state["overview_bundle_cache"] = {}
 
-if "weekly_bundle_cache" not in st.session_state:
-    st.session_state["weekly_bundle_cache"] = {}
+    if "weekly_bundle_cache" not in st.session_state:
+        st.session_state["weekly_bundle_cache"] = {}
+
+    if "data" not in st.session_state:
+        st.session_state["data"] = pd.DataFrame()
+
+
+init_session_state()
 
 TTM_STAGES = [
     "Сбор данных",
@@ -392,7 +398,7 @@ def read_meta_cached(postgres_url: str) -> pd.DataFrame:
     return read_meta_from_postgres(postgres_url)
 
 
-if "data" not in st.session_state:
+if st.session_state["data"].empty:
     db_df = read_dashboard_cached(POSTGRES_URL)
     st.session_state["data"] = db_df if not db_df.empty else pd.DataFrame()
 
@@ -509,8 +515,6 @@ def get_default_granularity(period_days: int):
     return "D"
 
 
-# ===== figure builders =====
-
 def build_structure_interactive_fig(f_df, t_order):
     team_stage_avg = f_df.groupby("Компоненты").mean(numeric_only=True).reset_index()
 
@@ -527,10 +531,7 @@ def build_structure_interactive_fig(f_df, t_order):
         value_name="Дни",
     )
 
-    name_map = {
-        "cycle_time": "Cycle time",
-        "wait_time_days": "Ожидание",
-    }
+    name_map = {"cycle_time": "Cycle time", "wait_time_days": "Ожидание"}
     t_parts_long["Метрика"] = t_parts_long["Метрика"].map(name_map)
 
     fig = px.bar(
@@ -542,10 +543,7 @@ def build_structure_interactive_fig(f_df, t_order):
         barmode="stack",
         text_auto=".1f",
         category_orders={"Компоненты": t_order},
-        color_discrete_map={
-            "Cycle time": "#6244BB",
-            "Ожидание": "#A485E0",
-        },
+        color_discrete_map={"Cycle time": "#6244BB", "Ожидание": "#A485E0"},
         template="plotly_white",
     )
 
@@ -1261,8 +1259,10 @@ def get_weekly_sig():
 
 
 def get_overview_bundle():
+    init_session_state()
+
     sig = get_overview_sig()
-    cache = st.session_state["overview_bundle_cache"]
+    cache = st.session_state.get("overview_bundle_cache", {})
 
     if cache.get("sig") == sig:
         return cache["bundle"]
@@ -1295,8 +1295,10 @@ def get_overview_bundle():
 
 
 def get_weekly_bundle():
+    init_session_state()
+
     sig = get_weekly_sig()
-    cache = st.session_state["weekly_bundle_cache"]
+    cache = st.session_state.get("weekly_bundle_cache", {})
 
     if cache.get("sig") == sig:
         return cache["bundle"]
@@ -1360,6 +1362,8 @@ def top_bar_fragment(export_filename="dashboard_export.pdf"):
         st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
         def _build_pdf_on_click():
+            init_session_state()
+
             active_view_name = st.session_state.get("active_view", "Общий обзор")
 
             if active_view_name == "Общий обзор":
