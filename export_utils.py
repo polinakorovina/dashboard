@@ -103,6 +103,7 @@ def delta_text(curr, prev, is_percent=False, digits=2):
 
 def prepare_fig_for_pdf(fig):
     fig2 = go.Figure(fig)
+
     fig2.update_layout(
         updatemenus=[],
         sliders=[],
@@ -110,31 +111,49 @@ def prepare_fig_for_pdf(fig):
         plot_bgcolor="white",
         font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=11,
+            size=14,
             color="#1A1C1E",
         ),
         title_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=13,
+            size=17,
             color="#1A1C1E",
         ),
         legend_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=10,
+            size=13,
             color="#1A1C1E",
         ),
-        margin=dict(l=55, r=30, t=35, b=45),
+        margin=dict(l=70, r=35, t=45, b=55),
     )
 
     fig2.update_xaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=10),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=11),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=13),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=14),
     )
     fig2.update_yaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=10),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=11),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=13),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=14),
+    )
+
+    fig2.update_traces(
+        textfont=dict(
+            family=PLOTLY_EXPORT_FONT,
+            size=13,
+            color="#1A1C1E",
+        ),
+        selector=dict(type="bar"),
+    )
+
+    fig2.update_traces(
+        textfont=dict(
+            family=PLOTLY_EXPORT_FONT,
+            size=13,
+            color="#1A1C1E",
+        ),
+        selector=dict(type="pie"),
     )
 
     return fig2
@@ -184,10 +203,22 @@ def draw_page_header(c, page_w, page_h, title, subtitle_lines, page_num, total_p
 
     c.setFillColor(PDF_TEXT)
     c.setFont(PDF_FONT_BOLD, 20)
-    c.drawString(margin, y_top - 8, title)
+    c.drawString(margin, y_top - 14, title)
+
+    badge_w = 78
+    badge_h = 24
+    badge_x = page_w - margin - badge_w
+    badge_y = y_top - 26
+
+    c.setFillColor(PDF_ACCENT)
+    c.roundRect(badge_x, badge_y, badge_w, badge_h, 12, fill=1, stroke=0)
+
+    c.setFillColor(white)
+    c.setFont(PDF_FONT_BOLD, 10)
+    c.drawCentredString(badge_x + badge_w / 2, badge_y + 7, f"{page_num}/{total_pages}")
 
     c.setFillColor(PDF_SUB)
-    y = y_top - 24
+    y = y_top - 38
     for line in subtitle_lines:
         y = draw_wrapped_text(
             c,
@@ -201,12 +232,6 @@ def draw_page_header(c, page_w, page_h, title, subtitle_lines, page_num, total_p
             color=PDF_SUB,
         )
         y -= 2
-
-    c.setFillColor(PDF_ACCENT)
-    c.roundRect(page_w - margin - 64, y_top - 22, 64, 18, 8, fill=1, stroke=0)
-    c.setFillColor(white)
-    c.setFont(PDF_FONT_BOLD, 9)
-    c.drawCentredString(page_w - margin - 32, y_top - 9, f"{page_num}/{total_pages}")
 
     c.setStrokeColor(HexColor("#D8CDF4"))
     c.setLineWidth(1)
@@ -259,10 +284,10 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
     draw_round_rect(c, x, y, w, h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=14)
 
     c.setFillColor(PDF_TEXT)
-    c.setFont(PDF_FONT_BOLD, 10)
-    c.drawString(x + 12, y + h - 16, truncate_text(title, 70))
+    c.setFont(PDF_FONT_BOLD, 12)
+    c.drawString(x + 12, y + h - 18, truncate_text(title, 70))
 
-    header_h = 28
+    header_h = 30
     img_pad_x = 10
     img_pad_bottom = 10
 
@@ -273,8 +298,8 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
 
     png = fig_to_png_bytes(
         fig,
-        width_px=max(1400, int(inner_w * 2.6)),
-        height_px=max(850, int(inner_h * 2.6)),
+        width_px=max(1600, int(inner_w * 2.8)),
+        height_px=max(950, int(inner_h * 2.8)),
         scale=2,
     )
 
