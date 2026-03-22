@@ -1108,520 +1108,192 @@ def build_weekly_contacts_compare_fig(current_week_df, previous_week_df):
     return fig
 
 
-df = st.session_state.get("data", pd.DataFrame())
-if df.empty:
-    st.warning("После обработки данные пустые.")
-    st.stop()
-
-db_min = df["Дата создания"].min().date()
-db_max = df["Дата создания"].max().date()
-
-default_start = max(db_min, db_max - timedelta(days=6))
-default_range = (default_start, db_max)
-
-st.sidebar.markdown(
-    "<div style='font-size:20px; font-weight:600; margin-bottom:-35px;'>Выбор даты</div>",
-    unsafe_allow_html=True,
-)
-
-date_range = st.sidebar.date_input(
-    "Период анализа",
-    value=st.session_state.get("date_range", default_range),
-    min_value=db_min,
-    max_value=db_max,
-    key="date_range",
-    format="DD.MM.YYYY",
-)
-
-if isinstance(date_range, tuple) and len(date_range) == 2:
-    start_date, end_date = date_range
-elif isinstance(date_range, date):
-    start_date, end_date = date_range, date_range
-else:
-    st.stop()
-
-if start_date > end_date:
-    start_date, end_date = end_date, start_date
-
-period_days = get_period_days(start_date, end_date)
-default_granularity = get_default_granularity(period_days)
-
-start_d = pd.to_datetime(start_date)
-end_d = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-
-df_in_range = df[(df["Дата создания"] >= start_d) & (df["Дата создания"] <= end_d)].copy()
-if df_in_range.empty:
-    st.sidebar.warning("За выбранный период данных нет.")
-    st.stop()
-
-teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
-res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
-types_in_range = sorted(df_in_range["Тип"].dropna().unique().tolist())
-
-period_sig = (start_date, end_date)
-if st.session_state.get("_period_sig") != period_sig:
-    st.session_state["_period_sig"] = period_sig
-    st.session_state["sel_teams"] = teams_in_range
-    st.session_state["sel_res"] = res_in_range
-    st.session_state["sel_types"] = types_in_range
-
-sel_teams = st.sidebar.multiselect(
-    "Команды",
-    teams_in_range,
-    default=st.session_state.get("sel_teams", teams_in_range),
-    key="sel_teams",
-)
-
-sel_res = st.sidebar.multiselect(
-    "Резолюции",
-    res_in_range,
-    default=st.session_state.get("sel_res", res_in_range),
-    key="sel_res",
-)
-
-sel_types = st.sidebar.multiselect(
-    "Тип",
-    types_in_range,
-    default=st.session_state.get("sel_types", types_in_range),
-    key="sel_types",
-)
-
-f_df = df_in_range[
-    (df_in_range["Компоненты"].isin(sel_teams)) &
-    (df_in_range["Резолюция"].isin(sel_res)) &
-    (df_in_range["Тип"].isin(sel_types))
-].copy()
-
-if f_df.empty:
-    st.warning("По выбранным фильтрам данных нет.")
-    st.stop()
-
-base_week_df = df[
-    (df["Компоненты"].isin(sel_teams)) &
-    (df["Резолюция"].isin(sel_res)) &
-    (df["Тип"].isin(sel_types))
-].copy()
-
-weekly_ready = False
-
-if not base_week_df.empty:
-    anchor_date = base_week_df["Дата создания"].max()
-    cw_start, cw_end, pw_start, pw_end = get_week_bounds(anchor_date)
-
-    current_week_df = base_week_df[
-        (base_week_df["Дата создания"] >= cw_start) &
-        (base_week_df["Дата создания"] <= cw_end)
-    ].copy()
-
-    previous_week_df = base_week_df[
-        (base_week_df["Дата создания"] >= pw_start) &
-        (base_week_df["Дата создания"] <= pw_end)
-    ].copy()
-
-    current_metrics = calc_metrics(current_week_df)
-    previous_metrics = calc_metrics(previous_week_df)
-
-    weekly_ready = (len(current_week_df) > 0) and (len(previous_week_df) > 0)
-else:
-    cw_start = cw_end = pw_start = pw_end = pd.Timestamp.today()
-    current_week_df = pd.DataFrame()
-    previous_week_df = pd.DataFrame()
-    current_metrics = calc_metrics(current_week_df)
-    previous_metrics = calc_metrics(previous_week_df)
-
-
-def get_overview_sig():
-    return (
-        st.session_state.get("data_version", 0),
-        str(start_date),
-        str(end_date),
-        tuple(sel_teams),
-        tuple(sel_res),
-        tuple(sel_types),
-        default_granularity,
-        len(f_df),
-    )
-
-
-def get_weekly_sig():
-    return (
-        st.session_state.get("data_version", 0),
-        str(cw_start),
-        str(cw_end),
-        str(pw_start),
-        str(pw_end),
-        tuple(sel_teams),
-        tuple(sel_res),
-        tuple(sel_types),
-        len(current_week_df),
-        len(previous_week_df),
-    )
-
-
-def get_overview_bundle():
-    init_session_state()
-
-    sig = get_overview_sig()
-    cache = st.session_state.get("overview_bundle_cache", {})
-
-    if cache.get("sig") == sig:
-        return cache["bundle"]
-
-    time_order_df = (
-        f_df.groupby("Компоненты")["ttm_days"]
-        .mean()
-        .sort_values(ascending=False)
-        .reset_index()
-    )
-    t_order = time_order_df["Компоненты"].tolist()
-
-    bundle = {
-        "f_df": f_df.copy(),
-        "t_order": t_order,
-        "fig_structure_interactive": build_structure_interactive_fig(f_df, t_order),
-        "fig_structure_sum": build_structure_sum_fig(f_df, t_order),
-        "fig_structure_wait": build_structure_wait_fig(f_df, t_order),
-        "fig_load": build_load_fig(f_df, t_order),
-        "fig_dynamics": build_dynamics_fig(f_df, default_granularity=default_granularity),
-        "fig_dist_interactive": build_distribution_interactive_fig(f_df),
-        "fig_dist_ttm": build_distribution_single_fig(f_df, "ttm_days", "TTM", "#6244BB"),
-        "fig_dist_cycle": build_distribution_single_fig(f_df, "cycle_time", "Cycle time", "#6244BB"),
-        "fig_dist_wait": build_distribution_single_fig(f_df, "wait_time_days", "Ожидание", "#A485E0"),
-        "fig_contacts": build_contacts_fig(f_df),
-    }
-
-    st.session_state["overview_bundle_cache"] = {"sig": sig, "bundle": bundle}
-    return bundle
-
-
-def get_weekly_bundle():
-    init_session_state()
-
-    sig = get_weekly_sig()
-    cache = st.session_state.get("weekly_bundle_cache", {})
-
-    if cache.get("sig") == sig:
-        return cache["bundle"]
-
-    team_order_week = (
-        pd.concat([current_week_df["Компоненты"], previous_week_df["Компоненты"]])
-        .dropna()
-        .value_counts()
-        .index
-        .tolist()
-    )
-
-    curr_parts = (
-        current_week_df.groupby("Компоненты")[["ttm_days", "cycle_time", "wait_time_days"]]
-        .mean()
-        .reindex(team_order_week, fill_value=0)
-        .reset_index()
-    )
-
-    prev_parts = (
-        previous_week_df.groupby("Компоненты")[["ttm_days", "cycle_time", "wait_time_days"]]
-        .mean()
-        .reindex(team_order_week, fill_value=0)
-        .reset_index()
-    )
-
-    bundle = {
-        "current_week_df": current_week_df.copy(),
-        "previous_week_df": previous_week_df.copy(),
-        "current_metrics": current_metrics,
-        "previous_metrics": previous_metrics,
-        "cw_start": cw_start,
-        "cw_end": cw_end,
-        "pw_start": pw_start,
-        "pw_end": pw_end,
-        "fig_cnt_compare": build_weekly_count_fig(current_week_df, previous_week_df, team_order_week),
-        "fig_ttm_interactive": build_weekly_ttm_interactive_fig(curr_parts, prev_parts),
-        "fig_ttm_only": build_weekly_metric_compare_fig(curr_parts, prev_parts, "ttm_days", "TTM — текущая", "TTM — предыдущая", "#6244BB", "#D6CCFF", "TTM, дней"),
-        "fig_cycle_only": build_weekly_metric_compare_fig(curr_parts, prev_parts, "cycle_time", "Cycle time — текущая", "Cycle time — предыдущая", "#6244BB", "#D6CCFF", "Cycle time, дней"),
-        "fig_wait_only": build_weekly_metric_compare_fig(curr_parts, prev_parts, "wait_time_days", "Ожидание — текущая", "Ожидание — предыдущая", "#A485E0", "#EEE8FF", "Ожидание, дней"),
-        "fig_flow": build_weekly_flow_fig(current_week_df, previous_week_df, cw_start, cw_end, pw_start, pw_end),
-        "fig_contacts_compare": build_weekly_contacts_compare_fig(current_week_df, previous_week_df),
-    }
-
-    st.session_state["weekly_bundle_cache"] = {"sig": sig, "bundle": bundle}
-    return bundle
-
-
-def top_bar_fragment(export_filename="dashboard_export.pdf"):
-    title_col, import_col, export_col = st.columns([8, 1, 1])
-
-    with title_col:
-        st.markdown('<div class="main-header">Аналитика дежурств</div>', unsafe_allow_html=True)
-
-    with import_col:
-        st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-        if st.button("Импорт", key="toggle_upload_btn"):
-            st.session_state["show_upload_block"] = not st.session_state["show_upload_block"]
-
-    with export_col:
-        st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
-
-        def _build_pdf_on_click():
-            init_session_state()
-
-            active_view_name = st.session_state.get("active_view", "Общий обзор")
-
-            if active_view_name == "Общий обзор":
-                bundle = get_overview_bundle()
-                return build_overview_export_pdf(
-                    bundle=bundle,
-                    start_date=start_date,
-                    end_date=end_date,
-                    sel_teams=sel_teams,
-                    sel_res=sel_res,
-                    sel_types=sel_types,
-                )
-
-            bundle = get_weekly_bundle()
-            return build_weekly_export_pdf(
-                bundle=bundle,
-                sel_teams=sel_teams,
-                sel_res=sel_res,
-                sel_types=sel_types,
-            )
-
-        st.download_button(
-            "Скачать PDF",
-            data=_build_pdf_on_click,
-            file_name=export_filename,
-            mime="application/pdf",
-            key="download_export_pdf_btn",
-            on_click="ignore",
-        )
-
-    if st.session_state["show_upload_block"]:
-        st.info(
-            "Загрузите 2 файла CSV или XLSX. После загрузки данные автоматически объединятся, "
-            "очистятся, сохранятся в базу и дашборд обновится."
-        )
-
-        uploaded_files = st.file_uploader(
-            "Загрузите 2 файла",
-            type=["csv", "xlsx"],
-            accept_multiple_files=True,
-            key="uploaded_files_main",
-        )
-
-        if uploaded_files and len(uploaded_files) != 2:
-            st.warning("Пожалуйста, загрузите ровно 2 файла.")
-
-        if st.button("Обработать файлы", key="process_files_btn"):
-            try:
-                final_df, inserted_rows = process_uploaded_files(uploaded_files, POSTGRES_URL)
-
-                read_dashboard_cached.clear()
-                read_meta_cached.clear()
-
-                st.session_state["data"] = final_df
-                st.session_state["data_version"] = st.session_state.get("data_version", 0) + 1
-                st.session_state["overview_bundle_cache"] = {}
-                st.session_state["weekly_bundle_cache"] = {}
-
-                st.success(f"Файлы успешно загружены. В базу добавлено новых строк: {inserted_rows}")
-                st.rerun()
-            except Exception as e:
-                st.error(str(e))
-
-
-if not weekly_ready and st.session_state["active_view"] == "Сравнение недель":
-    export_filename = f"dashboard_weekly_{pd.to_datetime(start_date).strftime('%Y%m%d')}_{pd.to_datetime(end_date).strftime('%Y%m%d')}.pdf"
-else:
-    export_filename = f"dashboard_{pd.to_datetime(start_date).strftime('%Y%m%d')}_{pd.to_datetime(end_date).strftime('%Y%m%d')}.pdf"
-
-top_bar_fragment(export_filename=export_filename)
-
-meta_df = read_meta_cached(POSTGRES_URL)
-if not meta_df.empty:
-    last_meta = meta_df.iloc[0]
-    st.caption(
-        f"Последнее обновление: {last_meta['updated_at']} | "
-        f"Источник: {last_meta['source']} | "
-        f"Строк в данных: {last_meta['rows_count_in_batch']} | "
-        f"Добавлено новых строк: {last_meta['inserted_rows']}"
-    )
-
-st.radio(
-    "Раздел",
-    ["Общий обзор", "Сравнение недель"],
-    horizontal=True,
-    key="active_view",
-    label_visibility="collapsed",
-)
-
-
-def render_overview(bundle):
-    f_df_local = bundle["f_df"]
-
-    k1, k2, k3, k4, k5, k6, k7 = st.columns(7, gap="small")
-
-    with k1:
-        kpi_card("Всего задач", f"{len(f_df_local)}", "Общее число задач за выбранный период, которые поступили в работу")
-
-    with k2:
-        med = f_df_local["ttm_days"].median() if len(f_df_local) else 0.0
-        avg = f_df_local["ttm_days"].mean() if len(f_df_local) else 0.0
-        kpi_card("TTM (дн)", f"{avg:.2f}", "Сколько в среднем времени занимал путь задач по процессу целиком", subvalue=f"медиана: {med:.2f}")
-
-    with k3:
-        med = f_df_local["cycle_time"].median() if len(f_df_local) else 0.0
-        avg = f_df_local["cycle_time"].mean() if len(f_df_local) else 0.0
-        kpi_card("Cycle time (дн)", f"{avg:.2f}", "Среднее время активной работы над задачами", subvalue=f"медиана: {med:.2f}")
-
-    with k4:
-        avg = f_df_local["wait_time_days"].mean() if len(f_df_local) else 0.0
-        med = f_df_local["wait_time_days"].median() if len(f_df_local) else 0.0
-        kpi_card("Ожидание (дн)", f"{avg:.2f}", "Среднее время вне активной работы", subvalue=f"медиана: {med:.2f}")
-
-    with k5:
-        late = ((f_df_local["Резолюция"] == "Позже").mean() * 100) if len(f_df_local) else 0
-        kpi_card("Позже", f"{late:.1f}%", "Доля задач, которые решены позже", color="#E45757" if late > 50 else "#4CAF7D")
-
-    with k6:
-        active = (f_df_local["cycle_time"].sum() / f_df_local["ttm_days"].sum()) * 100 if f_df_local["ttm_days"].sum() > 0 else 0
-        kpi_card("Flow Efficiency", f"{active:.0f}%", "Cycle time / TTM", color="#E45757" if active < 50 else "#4CAF7D")
-
-    with k7:
-        pingpong_share = ((f_df_local["Пинг-понг обращения"] > 1).mean() * 100) if len(f_df_local) else 0.0
-        tasks_with_pingpong = (f_df_local["Пинг-понг обращения"] > 1).sum() if len(f_df_local) else 0
-        kpi_card(
-            "Пинг-понг > 1",
-            f"{pingpong_share:.1f}%",
-            "Доля задач, которые передавались между командами более одного раза",
-            subvalue=f"задач: {tasks_with_pingpong}",
-            color="#E45757" if pingpong_share > 20 else "#4CAF7D",
-            hint_side="left",
-        )
-
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-    c1, c2 = st.columns(2, gap="small")
-
-    with c1:
-        st.markdown(
-            '<div class="card-header">Структура времени задач по командам</div>'
-            '<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_structure_interactive"], use_container_width=True, config={"displayModeBar": False})
-
-    with c2:
-        st.markdown(
-            '<div class="card-header">Нагрузка по командам</div>'
-            '<span class="hint-icon" data-hint="Количество задач, которые были взяты в работу по командам">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_load"], use_container_width=True, config={"displayModeBar": False})
-
-    b1, b2, b3 = st.columns(3, gap="small")
-
-    with b1:
-        st.markdown(
-            '<div class="card-header">Динамика поступления задач</div>'
-            '<span class="hint-icon" data-hint="Количество новых задач по дням, неделям или месяцам">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_dynamics"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
-
-    with b2:
-        st.markdown(
-            '<div class="card-header">Распределение времени задач</div>'
-            '<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_dist_interactive"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
-
-    with b3:
-        st.markdown(
-            '<div class="card-header">Структура обращений</div>'
-            '<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_contacts"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
-
-
-def render_weekly(bundle):
-    st.markdown(
-        f"""
-        <div style="font-size:16px; font-weight:600; margin-bottom:8px;">
-            Текущая неделя: {bundle['cw_start'].strftime('%d.%m.%Y')} — {bundle['cw_end'].strftime('%d.%m.%Y')}
-            <span style="color:#7E8694; font-weight:400;">&nbsp;&nbsp;vs&nbsp;&nbsp;</span>
-            Предыдущая неделя: {bundle['pw_start'].strftime('%d.%m.%Y')} — {bundle['pw_end'].strftime('%d.%m.%Y')}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if not weekly_ready:
-        st.warning("Недостаточно данных для сравнения текущей и предыдущей недели.")
-        return
-
-    current_metrics_local = bundle["current_metrics"]
-    previous_metrics_local = bundle["previous_metrics"]
-
-    w1, w2, w3, w4, w5, w6, w7 = st.columns(7, gap="small")
-
-    with w1:
-        kpi_compare_card("Всего задач", current_metrics_local["tasks_total"], previous_metrics_local["tasks_total"], hint="Количество задач за текущую неделю", as_int=True)
-    with w2:
-        kpi_compare_card("TTM (дн)", current_metrics_local["ttm"], previous_metrics_local["ttm"], hint="Среднее время от открытия задачи до её закрытия")
-    with w3:
-        kpi_compare_card("Cycle time (дн)", current_metrics_local["cycle"], previous_metrics_local["cycle"], hint="Среднее время активной работы")
-    with w4:
-        kpi_compare_card("Ожидание (дн)", current_metrics_local["wait"], previous_metrics_local["wait"], hint="Среднее время ожидания")
-    with w5:
-        kpi_compare_card("Позже", current_metrics_local["later_pct"], previous_metrics_local["later_pct"], hint="Доля задач с резолюцией 'Позже'", is_percent=True)
-    with w6:
-        kpi_compare_card("Flow Efficiency", current_metrics_local["active_pct"], previous_metrics_local["active_pct"], hint="Доля активной работы в общем времени", is_percent=True)
-    with w7:
-        kpi_compare_card("Пинг-понг > 1", current_metrics_local["pingpong_share"], previous_metrics_local["pingpong_share"], hint="Доля задач, которые передавались между командами более одного раза", is_percent=True)
-
-    st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
-
-    g1, g2 = st.columns(2, gap="small")
-
-    with g1:
-        st.markdown(
-            '<div class="card-header">Количество задач</div>'
-            '<span class="hint-icon" data-hint="Сравнение объёма задач по командам за две недели">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_cnt_compare"], use_container_width=True, config={"displayModeBar": False})
-
-    with g2:
-        st.markdown(
-            '<div class="card-header">TTM по командам</div>'
-            '<span class="hint-icon" data-hint="Можно посмотреть TTM, Cycle time или ожидание по командам за две недели">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_ttm_interactive"], use_container_width=True, config={"displayModeBar": False})
-
-    g3, g4 = st.columns(2, gap="small")
-
-    with g3:
-        st.markdown(
-            '<div class="card-header">Поступление задач</div>'
-            '<span class="hint-icon" data-hint="Сравнение количества новых задач по дням для текущей недели и предыдущей">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_flow"], use_container_width=True, config={"displayModeBar": False})
-
-    with g4:
-        st.markdown(
-            '<div class="card-header">Количество обращений</div>'
-            '<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели">?</span>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(bundle["fig_contacts_compare"], use_container_width=True, config={"displayModeBar": False})
-
-
-if st.session_state["active_view"] == "Общий обзор":
-    overview_bundle = get_overview_bundle()
-    render_overview(overview_bundle)
-else:
-    weekly_bundle = get_weekly_bundle()
-    render_weekly(weekly_bundle)
+def build_overview_export_pdf(bundle, start_date, end_date, sel_teams, sel_res, sel_types):
+    f_df = bundle["f_df"]
+    fig_structure_sum = bundle["fig_structure_sum"]
+    fig_structure_wait = bundle["fig_structure_wait"]
+    fig_load = bundle["fig_load"]
+    fig_dynamics = bundle["fig_dynamics"]
+    fig_dist_ttm = bundle["fig_dist_ttm"]
+    fig_dist_cycle = bundle["fig_dist_cycle"]
+    fig_dist_wait = bundle["fig_dist_wait"]
+    fig_contacts = bundle["fig_contacts"]
+
+    buffer = io.BytesIO()
+    page_w, page_h = landscape(A3)
+    c = canvas.Canvas(buffer, pagesize=(page_w, page_h))
+    margin = 24
+    gap = 12
+    content_w = page_w - 2 * margin
+
+    avg_ttm = f_df["ttm_days"].mean() if len(f_df) else 0.0
+    med_ttm = f_df["ttm_days"].median() if len(f_df) else 0.0
+    avg_cycle = f_df["cycle_time"].mean() if len(f_df) else 0.0
+    med_cycle = f_df["cycle_time"].median() if len(f_df) else 0.0
+    avg_wait = f_df["wait_time_days"].mean() if len(f_df) else 0.0
+    med_wait = f_df["wait_time_days"].median() if len(f_df) else 0.0
+    late = ((f_df["Резолюция"] == "Позже").mean() * 100) if len(f_df) else 0.0
+    active = (f_df["cycle_time"].sum() / f_df["ttm_days"].sum() * 100) if f_df["ttm_days"].sum() > 0 else 0.0
+    pingpong_share = ((f_df["Пинг-понг обращения"] > 1).mean() * 100) if len(f_df) else 0.0
+    tasks_with_pingpong = (f_df["Пинг-понг обращения"] > 1).sum() if len(f_df) else 0
+
+    subtitle_lines = [
+        f"Период анализа: {pd.to_datetime(start_date).strftime('%d.%m.%Y')} - {pd.to_datetime(end_date).strftime('%d.%m.%Y')}",
+        format_filter_line("Команды", sel_teams),
+        format_filter_line("Резолюции", sel_res),
+        format_filter_line("Тип", sel_types),
+    ]
+
+    cards = [
+        {"title": "Всего задач", "value": f"{len(f_df)}", "subvalue": "", "color": "#6244BB"},
+        {"title": "TTM (дн)", "value": f"{avg_ttm:.2f}", "subvalue": f"медиана: {med_ttm:.2f}", "color": "#6244BB"},
+        {"title": "Cycle time (дн)", "value": f"{avg_cycle:.2f}", "subvalue": f"медиана: {med_cycle:.2f}", "color": "#6244BB"},
+        {"title": "Ожидание (дн)", "value": f"{avg_wait:.2f}", "subvalue": f"медиана: {med_wait:.2f}", "color": "#6244BB"},
+        {"title": "Позже", "value": f"{late:.1f}%", "subvalue": "", "color": "#E45757" if late > 50 else "#4CAF7D"},
+        {"title": "Flow Efficiency", "value": f"{active:.0f}%", "subvalue": "", "color": "#E45757" if active < 50 else "#4CAF7D"},
+        {"title": "Пинг-понг > 1", "value": f"{pingpong_share:.1f}%", "subvalue": f"задач: {tasks_with_pingpong}", "color": "#E45757" if pingpong_share > 20 else "#4CAF7D"},
+    ]
+
+    y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Общий обзор", subtitle_lines, 1, 2)
+    y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
+
+    col_w = (content_w - gap) / 2
+    page_bottom_y = margin
+    row_h = get_two_row_chart_height(page_bottom_y, y_cursor, gap, min_height=180, max_height=270)
+
+    draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Структура времени задач по командам - суммарно", fig_structure_sum)
+    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "Нагрузка по командам", fig_load)
+
+    y_cursor = y_cursor - row_h - gap
+    draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Структура времени задач по командам - ожидание", fig_structure_wait)
+    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "Динамика поступления задач", fig_dynamics)
+
+    c.showPage()
+
+    y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Общий обзор (продолжение)", subtitle_lines, 2, 2)
+
+    row_h2 = get_two_row_chart_height(margin, y_cursor, gap, min_height=190, max_height=300)
+    draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - TTM", fig_dist_ttm)
+    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - Cycle time", fig_dist_cycle)
+
+    y_cursor = y_cursor - row_h2 - gap
+    draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - ожидание", fig_dist_wait)
+    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Структура обращений", fig_contacts)
+
+    c.save()
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
+    current_week_df = bundle["current_week_df"]
+    previous_week_df = bundle["previous_week_df"]
+    current_metrics = bundle["current_metrics"]
+    previous_metrics = bundle["previous_metrics"]
+    cw_start = bundle["cw_start"]
+    cw_end = bundle["cw_end"]
+    pw_start = bundle["pw_start"]
+    pw_end = bundle["pw_end"]
+
+    buffer = io.BytesIO()
+    page_w, page_h = landscape(A3)
+    c = canvas.Canvas(buffer, pagesize=(page_w, page_h))
+    margin = 24
+    gap = 12
+    content_w = page_w - 2 * margin
+
+    subtitle_lines = [
+        f"Текущая неделя: {cw_start.strftime('%d.%m.%Y')} - {cw_end.strftime('%d.%m.%Y')}",
+        f"Предыдущая неделя: {pw_start.strftime('%d.%m.%Y')} - {pw_end.strftime('%d.%m.%Y')}",
+        format_filter_line("Команды", sel_teams),
+        format_filter_line("Резолюции", sel_res),
+        format_filter_line("Тип", sel_types),
+    ]
+
+    cards = [
+        {
+            "title": "Всего задач",
+            "value": format_value(current_metrics["tasks_total"], as_int=True),
+            "subvalue": f"пред.: {format_value(previous_metrics['tasks_total'], as_int=True)}",
+            "color": "#6244BB",
+        },
+        {
+            "title": "TTM (дн)",
+            "value": format_value(current_metrics["ttm"]),
+            "subvalue": f"∆ {delta_text(current_metrics['ttm'], previous_metrics['ttm'])}",
+            "color": "#6244BB",
+        },
+        {
+            "title": "Cycle time (дн)",
+            "value": format_value(current_metrics["cycle"]),
+            "subvalue": f"∆ {delta_text(current_metrics['cycle'], previous_metrics['cycle'])}",
+            "color": "#6244BB",
+        },
+        {
+            "title": "Ожидание (дн)",
+            "value": format_value(current_metrics["wait"]),
+            "subvalue": f"∆ {delta_text(current_metrics['wait'], previous_metrics['wait'])}",
+            "color": "#6244BB",
+        },
+        {
+            "title": "Позже",
+            "value": format_value(current_metrics["later_pct"], is_percent=True),
+            "subvalue": f"∆ {delta_text(current_metrics['later_pct'], previous_metrics['later_pct'], is_percent=True)}",
+            "color": "#6244BB",
+        },
+        {
+            "title": "Flow Efficiency",
+            "value": format_value(current_metrics["active_pct"], is_percent=True),
+            "subvalue": f"∆ {delta_text(current_metrics['active_pct'], previous_metrics['active_pct'], is_percent=True)}",
+            "color": "#6244BB",
+        },
+        {
+            "title": "Пинг-понг > 1",
+            "value": format_value(current_metrics["pingpong_share"], is_percent=True),
+            "subvalue": f"∆ {delta_text(current_metrics['pingpong_share'], previous_metrics['pingpong_share'], is_percent=True)}",
+            "color": "#6244BB",
+        },
+    ]
+
+    if current_week_df.empty or previous_week_df.empty:
+        y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель", subtitle_lines, 1, 1)
+        draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
+        c.setFillColor(PDF_TEXT)
+        c.setFont(PDF_FONT_BOLD, 14)
+        c.drawString(margin, page_h / 2, "Недостаточно данных для сравнения текущей и предыдущей недели.")
+        c.save()
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    fig_cnt_compare = bundle["fig_cnt_compare"]
+    fig_ttm_only = bundle["fig_ttm_only"]
+    fig_cycle_only = bundle["fig_cycle_only"]
+    fig_wait_only = bundle["fig_wait_only"]
+    fig_flow = bundle["fig_flow"]
+    fig_contacts_compare = bundle["fig_contacts_compare"]
+
+    y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель", subtitle_lines, 1, 2)
+    y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
+
+    col_w = (content_w - gap) / 2
+    page_bottom_y = margin
+    row_h = get_two_row_chart_height(page_bottom_y, y_cursor, gap, min_height=180, max_height=270)
+
+    draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Количество задач", fig_cnt_compare)
+    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "TTM по командам", fig_ttm_only)
+
+    y_cursor = y_cursor - row_h - gap
+    draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Cycle time по командам", fig_cycle_only)
+    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "Ожидание по командам", fig_wait_only)
+
+    c.showPage()
+
+    y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель (продолжение)", subtitle_lines, 2, 2)
+    row_h2 = max(220, min(320, y_cursor - margin))
+
+    draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Поступление задач", fig_flow)
+    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Количество обращений", fig_contacts_compare)
+
+    c.save()
+    buffer.seek(0)
+    return buffer.getvalue()
