@@ -1,30 +1,13 @@
-import os
-import io
-from textwrap import wrap
-from datetime import timedelta, date
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from datetime import timedelta, date
 
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A3, landscape
-from reportlab.lib.colors import HexColor, white
-from reportlab.lib.utils import ImageReader
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+from data_pipeline import read_dashboard_from_postgres, read_meta_from_postgres
+from import_utils import process_uploaded_files
+from export_utils import build_overview_export_pdf, build_weekly_export_pdf
 
-from data_pipeline import (
-    load_single_file,
-    load_and_prepare_two_dataframes,
-    prepare_dashboard_data,
-    read_dashboard_from_postgres,
-    read_meta_from_postgres,
-    write_dashboard_to_postgres_append,
-)
-
-# ===================== CONFIG =====================
 
 st.set_page_config(page_title="Аналитика дежурств", layout="wide")
 
@@ -54,8 +37,6 @@ WAIT_COLORS = {
     "Заблокирован": "#B59AF5",
     "На стороне менеджера": "#E3D9FF",
 }
-
-# ===================== STYLE =====================
 
 st.markdown(
     """
@@ -383,7 +364,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ===================== CACHED LOADERS =====================
 
 @st.cache_data(ttl=300, show_spinner=False)
 def read_dashboard_cached(postgres_url: str) -> pd.DataFrame:
@@ -394,8 +374,6 @@ def read_dashboard_cached(postgres_url: str) -> pd.DataFrame:
 def read_meta_cached(postgres_url: str) -> pd.DataFrame:
     return read_meta_from_postgres(postgres_url)
 
-
-# ===================== SESSION =====================
 
 if "show_upload_block" not in st.session_state:
     st.session_state["show_upload_block"] = False
@@ -408,10 +386,7 @@ if "data_version" not in st.session_state:
 
 if "data" not in st.session_state:
     db_df = read_dashboard_cached(POSTGRES_URL)
-    if not db_df.empty:
-        st.session_state["data"] = db_df
-    else:
-        st.session_state["data"] = pd.DataFrame()
+    st.session_state["data"] = db_df if not db_df.empty else pd.DataFrame()
 
 if "overview_bundle_cache" not in st.session_state:
     st.session_state["overview_bundle_cache"] = {}
@@ -419,7 +394,6 @@ if "overview_bundle_cache" not in st.session_state:
 if "weekly_bundle_cache" not in st.session_state:
     st.session_state["weekly_bundle_cache"] = {}
 
-# ===================== HELPERS =====================
 
 def kpi_card(title: str, value: str, hint: str = "", subvalue: str = "", color: str = "#6244BB", hint_side: str = "center"):
     hint_html = f'<span class="hint-icon hint-{hint_side}" data-hint="{hint}">?</span>' if hint else ""
@@ -532,20 +506,6 @@ def get_default_granularity(period_days: int):
         return "W"
     return "D"
 
-
-def truncate_text(text, max_len=140):
-    text = str(text)
-    return text if len(text) <= max_len else text[: max_len - 1] + "…"
-
-
-def format_filter_line(label, values, max_len=180):
-    if not values:
-        return f"{label}: все"
-    txt = ", ".join(map(str, values))
-    return truncate_text(f"{label}: {txt}", max_len=max_len)
-
-
-# ===================== FIGURE BUILDERS =====================
 
 def build_structure_interactive_fig(f_df, t_order):
     team_stage_avg = f_df.groupby("Компоненты").mean(numeric_only=True).reset_index()
@@ -862,21 +822,9 @@ def build_dynamics_fig(f_df, default_granularity="D"):
                 font=dict(size=10, color="#5D4AA8"),
                 pad=dict(r=0, t=0),
                 buttons=[
-                    dict(
-                        label="D",
-                        method="update",
-                        args=[{"visible": [True, True, False, False]}, {"title": None}],
-                    ),
-                    dict(
-                        label="W",
-                        method="update",
-                        args=[{"visible": [False, False, True, False]}, {"title": None}],
-                    ),
-                    dict(
-                        label="M",
-                        method="update",
-                        args=[{"visible": [False, False, False, True]}, {"title": None}],
-                    ),
+                    dict(label="D", method="update", args=[{"visible": [True, True, False, False]}, {"title": None}]),
+                    dict(label="W", method="update", args=[{"visible": [False, False, True, False]}, {"title": None}]),
+                    dict(label="M", method="update", args=[{"visible": [False, False, False, True]}, {"title": None}]),
                 ],
             )
         ],
@@ -1369,459 +1317,11 @@ def build_weekly_contacts_compare_fig(current_week_df, previous_week_df):
     )
     return fig
 
-# ===================== PDF EXPORT =====================
-
-PDF_BG = HexColor("#F7F2FA")
-PDF_CARD = HexColor("#FFFFFF")
-PDF_BORDER = HexColor("#E6E9EF")
-PDF_ACCENT = HexColor("#6244BB")
-PDF_TEXT = HexColor("#1A1C1E")
-PDF_SUB = HexColor("#7E8694")
-
-PDF_FONT_REGULAR = "Helvetica"
-PDF_FONT_BOLD = "Helvetica-Bold"
-PLOTLY_EXPORT_FONT = "Arial"
-
-
-def setup_export_fonts():
-    global PDF_FONT_REGULAR, PDF_FONT_BOLD, PLOTLY_EXPORT_FONT
-
-    candidates = [
-        (
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "DejaVu Sans",
-        ),
-        (
-            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
-            "Noto Sans",
-        ),
-        (
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-            "Liberation Sans",
-        ),
-        (
-            "/Library/Fonts/Arial Unicode.ttf",
-            "/Library/Fonts/Arial Bold.ttf",
-            "Arial Unicode MS",
-        ),
-        (
-            "C:/Windows/Fonts/arial.ttf",
-            "C:/Windows/Fonts/arialbd.ttf",
-            "Arial",
-        ),
-    ]
-
-    for regular_path, bold_path, plotly_family in candidates:
-        if os.path.exists(regular_path) and os.path.exists(bold_path):
-            pdfmetrics.registerFont(TTFont("ExportFont", regular_path))
-            pdfmetrics.registerFont(TTFont("ExportFont-Bold", bold_path))
-            PDF_FONT_REGULAR = "ExportFont"
-            PDF_FONT_BOLD = "ExportFont-Bold"
-            PLOTLY_EXPORT_FONT = plotly_family
-            return
-
-
-setup_export_fonts()
-
-
-def prepare_fig_for_pdf(fig):
-    fig2 = go.Figure(fig)
-    fig2.update_layout(
-        updatemenus=[],
-        sliders=[],
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        font=dict(
-            family=PLOTLY_EXPORT_FONT,
-            size=11,
-            color="#1A1C1E",
-        ),
-        title_font=dict(
-            family=PLOTLY_EXPORT_FONT,
-            size=13,
-            color="#1A1C1E",
-        ),
-        legend_font=dict(
-            family=PLOTLY_EXPORT_FONT,
-            size=10,
-            color="#1A1C1E",
-        ),
-        margin=dict(l=55, r=30, t=35, b=45),
-    )
-
-    fig2.update_xaxes(
-        automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=10),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=11),
-    )
-    fig2.update_yaxes(
-        automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=10),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=11),
-    )
-
-    return fig2
-
-
-def fig_to_png_bytes(fig, width_px=1600, height_px=900, scale=2):
-    fig2 = prepare_fig_for_pdf(fig)
-    try:
-        return fig2.to_image(
-            format="png",
-            width=width_px,
-            height=height_px,
-            scale=scale,
-        )
-    except Exception as e:
-        raise RuntimeError(
-            "Не удалось собрать PDF-экспорт. Для экспорта нужны установленные kaleido, reportlab и браузер для kaleido."
-        ) from e
-
-
-def draw_round_rect(c, x, y, w, h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=14, stroke_width=1):
-    c.setFillColor(fill_color)
-    c.setStrokeColor(stroke_color)
-    c.setLineWidth(stroke_width)
-    c.roundRect(x, y, w, h, radius, fill=1, stroke=1)
-
-
-def draw_wrapped_text(c, text, x, y, max_chars, line_height=11, font_name=None, font_size=9, color=None):
-    if font_name:
-        c.setFont(font_name, font_size)
-    if color:
-        c.setFillColor(color)
-
-    lines = wrap(str(text), width=max_chars, break_long_words=False, replace_whitespace=False)
-    for line in lines:
-        c.drawString(x, y, line)
-        y -= line_height
-    return y
-
-
-def draw_page_header(c, page_w, page_h, title, subtitle_lines, page_num, total_pages):
-    margin = 24
-    y_top = page_h - margin
-
-    c.setFillColor(PDF_BG)
-    c.rect(0, 0, page_w, page_h, fill=1, stroke=0)
-
-    c.setFillColor(PDF_TEXT)
-    c.setFont(PDF_FONT_BOLD, 20)
-    c.drawString(margin, y_top - 8, title)
-
-    c.setFillColor(PDF_SUB)
-    y = y_top - 24
-    for line in subtitle_lines:
-        y = draw_wrapped_text(
-            c,
-            line,
-            margin,
-            y,
-            max_chars=135,
-            line_height=11,
-            font_name=PDF_FONT_REGULAR,
-            font_size=9,
-            color=PDF_SUB,
-        )
-        y -= 2
-
-    c.setFillColor(PDF_ACCENT)
-    c.roundRect(page_w - margin - 64, y_top - 22, 64, 18, 8, fill=1, stroke=0)
-    c.setFillColor(white)
-    c.setFont(PDF_FONT_BOLD, 9)
-    c.drawCentredString(page_w - margin - 32, y_top - 9, f"{page_num}/{total_pages}")
-
-    c.setStrokeColor(HexColor("#D8CDF4"))
-    c.setLineWidth(1)
-    c.line(margin, y - 2, page_w - margin, y - 2)
-
-    return y - 14
-
-
-def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=4):
-    margin = 24
-    gap = 8
-    card_h = 84
-    usable_w = page_w - 2 * margin
-    card_w = (usable_w - gap * (cols - 1)) / cols
-
-    y = y_top
-
-    for idx, card in enumerate(cards):
-        row = idx // cols
-        col = idx % cols
-
-        row_cards = cards[row * cols:(row + 1) * cols]
-        current_cols = len(row_cards)
-        current_row_w = current_cols * card_w + (current_cols - 1) * gap
-        start_x = margin + (usable_w - current_row_w) / 2 if current_cols < cols else margin
-
-        x = start_x + col * (card_w + gap)
-        yy = y - row * (card_h + gap) - card_h
-
-        draw_round_rect(c, x, yy, card_w, card_h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=12)
-
-        c.setFillColor(PDF_TEXT)
-        c.setFont(PDF_FONT_BOLD, 9)
-        c.drawString(x + 10, yy + card_h - 16, truncate_text(card["title"], 28))
-
-        c.setFillColor(HexColor(card.get("color", "#6244BB")))
-        c.setFont(PDF_FONT_BOLD, 17)
-        c.drawString(x + 10, yy + card_h - 40, str(card["value"]))
-
-        if card.get("subvalue"):
-            c.setFillColor(PDF_SUB)
-            c.setFont(PDF_FONT_REGULAR, 8)
-            c.drawString(x + 10, yy + 10, truncate_text(card["subvalue"], 32))
-
-    total_rows = (len(cards) + cols - 1) // cols
-    return y - total_rows * card_h - (total_rows - 1) * gap - 14
-
-
-def draw_chart_panel(c, x, y, w, h, title, fig):
-    draw_round_rect(c, x, y, w, h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=14)
-
-    c.setFillColor(PDF_TEXT)
-    c.setFont(PDF_FONT_BOLD, 10)
-    c.drawString(x + 12, y + h - 16, truncate_text(title, 70))
-
-    header_h = 28
-    img_pad_x = 10
-    img_pad_bottom = 10
-
-    inner_x = x + img_pad_x
-    inner_y = y + img_pad_bottom
-    inner_w = w - 2 * img_pad_x
-    inner_h = h - header_h - img_pad_bottom - 4
-
-    png = fig_to_png_bytes(
-        fig,
-        width_px=max(1400, int(inner_w * 2.6)),
-        height_px=max(850, int(inner_h * 2.6)),
-        scale=2,
-    )
-
-    reader = ImageReader(io.BytesIO(png))
-    img_w_px, img_h_px = reader.getSize()
-
-    scale = min(inner_w / img_w_px, inner_h / img_h_px)
-    draw_w = img_w_px * scale
-    draw_h = img_h_px * scale
-
-    draw_x = inner_x + (inner_w - draw_w) / 2
-    draw_y = inner_y + (inner_h - draw_h) / 2
-
-    c.drawImage(
-        reader,
-        draw_x,
-        draw_y,
-        width=draw_w,
-        height=draw_h,
-        preserveAspectRatio=True,
-        mask="auto",
-    )
-
-
-def build_overview_export_pdf(bundle, start_date, end_date, sel_teams, sel_res, sel_types):
-    f_df = bundle["f_df"]
-    fig_structure_sum = bundle["fig_structure_sum"]
-    fig_structure_wait = bundle["fig_structure_wait"]
-    fig_load = bundle["fig_load"]
-    fig_dynamics = bundle["fig_dynamics"]
-    fig_dist_ttm = bundle["fig_dist_ttm"]
-    fig_dist_cycle = bundle["fig_dist_cycle"]
-    fig_dist_wait = bundle["fig_dist_wait"]
-    fig_contacts = bundle["fig_contacts"]
-
-    buffer = io.BytesIO()
-    page_w, page_h = landscape(A3)
-    c = canvas.Canvas(buffer, pagesize=(page_w, page_h))
-    margin = 24
-    gap = 12
-    content_w = page_w - 2 * margin
-
-    avg_ttm = f_df["ttm_days"].mean() if len(f_df) else 0.0
-    med_ttm = f_df["ttm_days"].median() if len(f_df) else 0.0
-    avg_cycle = f_df["cycle_time"].mean() if len(f_df) else 0.0
-    med_cycle = f_df["cycle_time"].median() if len(f_df) else 0.0
-    avg_wait = f_df["wait_time_days"].mean() if len(f_df) else 0.0
-    med_wait = f_df["wait_time_days"].median() if len(f_df) else 0.0
-    late = ((f_df["Резолюция"] == "Позже").mean() * 100) if len(f_df) else 0.0
-    active = (f_df["cycle_time"].sum() / f_df["ttm_days"].sum() * 100) if f_df["ttm_days"].sum() > 0 else 0.0
-    pingpong_share = ((f_df["Пинг-понг обращения"] > 1).mean() * 100) if len(f_df) else 0.0
-    tasks_with_pingpong = (f_df["Пинг-понг обращения"] > 1).sum() if len(f_df) else 0
-
-    subtitle_lines = [
-        f"Период анализа: {pd.to_datetime(start_date).strftime('%d.%m.%Y')} - {pd.to_datetime(end_date).strftime('%d.%m.%Y')}",
-        format_filter_line("Команды", sel_teams),
-        format_filter_line("Резолюции", sel_res),
-        format_filter_line("Тип", sel_types),
-    ]
-
-    cards = [
-        {"title": "Всего задач", "value": f"{len(f_df)}", "subvalue": "", "color": "#6244BB"},
-        {"title": "TTM (дн)", "value": f"{avg_ttm:.2f}", "subvalue": f"медиана: {med_ttm:.2f}", "color": "#6244BB"},
-        {"title": "Cycle time (дн)", "value": f"{avg_cycle:.2f}", "subvalue": f"медиана: {med_cycle:.2f}", "color": "#6244BB"},
-        {"title": "Ожидание (дн)", "value": f"{avg_wait:.2f}", "subvalue": f"медиана: {med_wait:.2f}", "color": "#6244BB"},
-        {"title": "Позже", "value": f"{late:.1f}%", "subvalue": "", "color": "#E45757" if late > 50 else "#4CAF7D"},
-        {"title": "Flow Efficiency", "value": f"{active:.0f}%", "subvalue": "", "color": "#E45757" if active < 50 else "#4CAF7D"},
-        {"title": "Пинг-понг > 1", "value": f"{pingpong_share:.1f}%", "subvalue": f"задач: {tasks_with_pingpong}", "color": "#E45757" if pingpong_share > 20 else "#4CAF7D"},
-    ]
-
-    y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Общий обзор", subtitle_lines, 1, 2)
-    y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
-
-    col_w = (content_w - gap) / 2
-    row_h = 285
-
-    draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Структура времени задач по командам - суммарно", fig_structure_sum)
-    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "Нагрузка по командам", fig_load)
-
-    y_cursor = y_cursor - row_h - gap
-    draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Структура времени задач по командам - ожидание", fig_structure_wait)
-    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "Динамика поступления задач", fig_dynamics)
-
-    c.showPage()
-
-    y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Общий обзор (продолжение)", subtitle_lines, 2, 2)
-
-    row_h2 = 320
-    draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - TTM", fig_dist_ttm)
-    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - Cycle time", fig_dist_cycle)
-
-    y_cursor = y_cursor - row_h2 - gap
-    draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - ожидание", fig_dist_wait)
-    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Структура обращений", fig_contacts)
-
-    c.save()
-    buffer.seek(0)
-    return buffer.getvalue()
-
-
-def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
-    current_week_df = bundle["current_week_df"]
-    previous_week_df = bundle["previous_week_df"]
-    current_metrics = bundle["current_metrics"]
-    previous_metrics = bundle["previous_metrics"]
-    cw_start = bundle["cw_start"]
-    cw_end = bundle["cw_end"]
-    pw_start = bundle["pw_start"]
-    pw_end = bundle["pw_end"]
-
-    buffer = io.BytesIO()
-    page_w, page_h = landscape(A3)
-    c = canvas.Canvas(buffer, pagesize=(page_w, page_h))
-    margin = 24
-    gap = 12
-    content_w = page_w - 2 * margin
-
-    subtitle_lines = [
-        f"Текущая неделя: {cw_start.strftime('%d.%m.%Y')} - {cw_end.strftime('%d.%m.%Y')}",
-        f"Предыдущая неделя: {pw_start.strftime('%d.%m.%Y')} - {pw_end.strftime('%d.%m.%Y')}",
-        format_filter_line("Команды", sel_teams),
-        format_filter_line("Резолюции", sel_res),
-        format_filter_line("Тип", sel_types),
-    ]
-
-    cards = [
-        {
-            "title": "Всего задач",
-            "value": format_value(current_metrics["tasks_total"], as_int=True),
-            "subvalue": f"пред.: {format_value(previous_metrics['tasks_total'], as_int=True)}",
-            "color": "#6244BB",
-        },
-        {
-            "title": "TTM (дн)",
-            "value": format_value(current_metrics["ttm"]),
-            "subvalue": f"∆ {delta_text(current_metrics['ttm'], previous_metrics['ttm'])}",
-            "color": "#6244BB",
-        },
-        {
-            "title": "Cycle time (дн)",
-            "value": format_value(current_metrics["cycle"]),
-            "subvalue": f"∆ {delta_text(current_metrics['cycle'], previous_metrics['cycle'])}",
-            "color": "#6244BB",
-        },
-        {
-            "title": "Ожидание (дн)",
-            "value": format_value(current_metrics["wait"]),
-            "subvalue": f"∆ {delta_text(current_metrics['wait'], previous_metrics['wait'])}",
-            "color": "#6244BB",
-        },
-        {
-            "title": "Позже",
-            "value": format_value(current_metrics["later_pct"], is_percent=True),
-            "subvalue": f"∆ {delta_text(current_metrics['later_pct'], previous_metrics['later_pct'], is_percent=True)}",
-            "color": "#6244BB",
-        },
-        {
-            "title": "Flow Efficiency",
-            "value": format_value(current_metrics["active_pct"], is_percent=True),
-            "subvalue": f"∆ {delta_text(current_metrics['active_pct'], previous_metrics['active_pct'], is_percent=True)}",
-            "color": "#6244BB",
-        },
-        {
-            "title": "Пинг-понг > 1",
-            "value": format_value(current_metrics["pingpong_share"], is_percent=True),
-            "subvalue": f"∆ {delta_text(current_metrics['pingpong_share'], previous_metrics['pingpong_share'], is_percent=True)}",
-            "color": "#6244BB",
-        },
-    ]
-
-    if current_week_df.empty or previous_week_df.empty:
-        y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель", subtitle_lines, 1, 1)
-        draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
-        c.setFillColor(PDF_TEXT)
-        c.setFont(PDF_FONT_BOLD, 14)
-        c.drawString(margin, page_h / 2, "Недостаточно данных для сравнения текущей и предыдущей недели.")
-        c.save()
-        buffer.seek(0)
-        return buffer.getvalue()
-
-    fig_cnt_compare = bundle["fig_cnt_compare"]
-    fig_ttm_only = bundle["fig_ttm_only"]
-    fig_cycle_only = bundle["fig_cycle_only"]
-    fig_wait_only = bundle["fig_wait_only"]
-    fig_flow = bundle["fig_flow"]
-    fig_contacts_compare = bundle["fig_contacts_compare"]
-
-    y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель", subtitle_lines, 1, 2)
-    y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
-
-    col_w = (content_w - gap) / 2
-    row_h = 285
-
-    draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Количество задач", fig_cnt_compare)
-    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "TTM по командам", fig_ttm_only)
-
-    y_cursor = y_cursor - row_h - gap
-    draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Cycle time по командам", fig_cycle_only)
-    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "Ожидание по командам", fig_wait_only)
-
-    c.showPage()
-
-    y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель (продолжение)", subtitle_lines, 2, 2)
-    row_h2 = 340
-
-    draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Поступление задач", fig_flow)
-    draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Количество обращений", fig_contacts_compare)
-
-    c.save()
-    buffer.seek(0)
-    return buffer.getvalue()
-
-# ===================== DATA =====================
 
 df = st.session_state.get("data", pd.DataFrame())
-
 if df.empty:
     st.warning("После обработки данные пустые.")
     st.stop()
-
-# ===================== FILTERS =====================
 
 db_min = df["Дата создания"].min().date()
 db_max = df["Дата создания"].max().date()
@@ -1906,8 +1406,6 @@ if f_df.empty:
     st.warning("По выбранным фильтрам данных нет.")
     st.stop()
 
-# ===================== WEEKLY DATA =====================
-
 base_week_df = df[
     (df["Компоненты"].isin(sel_teams)) &
     (df["Резолюция"].isin(sel_res)) &
@@ -1941,17 +1439,6 @@ else:
     current_metrics = calc_metrics(current_week_df)
     previous_metrics = calc_metrics(previous_week_df)
 
-# ===================== VIEW SWITCHER =====================
-
-st.radio(
-    "Раздел",
-    ["Общий обзор", "Сравнение недель"],
-    horizontal=True,
-    key="active_view",
-    label_visibility="collapsed",
-)
-
-# ===================== VIEW BUNDLES =====================
 
 def get_overview_sig():
     return (
@@ -2056,31 +1543,19 @@ def get_weekly_bundle():
         "fig_cnt_compare": build_weekly_count_fig(current_week_df, previous_week_df, team_order_week),
         "fig_ttm_interactive": build_weekly_ttm_interactive_fig(curr_parts, prev_parts),
         "fig_ttm_only": build_weekly_metric_compare_fig(
-            curr_parts, prev_parts,
-            "ttm_days",
-            "TTM — текущая",
-            "TTM — предыдущая",
-            "#6244BB",
-            "#D6CCFF",
-            "TTM, дней",
+            curr_parts, prev_parts, "ttm_days",
+            "TTM — текущая", "TTM — предыдущая",
+            "#6244BB", "#D6CCFF", "TTM, дней",
         ),
         "fig_cycle_only": build_weekly_metric_compare_fig(
-            curr_parts, prev_parts,
-            "cycle_time",
-            "Cycle time — текущая",
-            "Cycle time — предыдущая",
-            "#6244BB",
-            "#D6CCFF",
-            "Cycle time, дней",
+            curr_parts, prev_parts, "cycle_time",
+            "Cycle time — текущая", "Cycle time — предыдущая",
+            "#6244BB", "#D6CCFF", "Cycle time, дней",
         ),
         "fig_wait_only": build_weekly_metric_compare_fig(
-            curr_parts, prev_parts,
-            "wait_time_days",
-            "Ожидание — текущая",
-            "Ожидание — предыдущая",
-            "#A485E0",
-            "#EEE8FF",
-            "Ожидание, дней",
+            curr_parts, prev_parts, "wait_time_days",
+            "Ожидание — текущая", "Ожидание — предыдущая",
+            "#A485E0", "#EEE8FF", "Ожидание, дней",
         ),
         "fig_flow": build_weekly_flow_fig(current_week_df, previous_week_df, cw_start, cw_end, pw_start, pw_end),
         "fig_contacts_compare": build_weekly_contacts_compare_fig(current_week_df, previous_week_df),
@@ -2089,29 +1564,6 @@ def get_weekly_bundle():
     st.session_state["weekly_bundle_cache"] = {"sig": sig, "bundle": bundle}
     return bundle
 
-# ===================== EXPORT STATE =====================
-
-def get_export_signature():
-    return (
-        st.session_state["data_version"],
-        st.session_state.get("active_view", "Общий обзор"),
-        str(start_date),
-        str(end_date),
-        tuple(sel_teams),
-        tuple(sel_res),
-        tuple(sel_types),
-        default_granularity,
-        weekly_ready,
-    )
-
-current_export_sig = get_export_signature()
-if st.session_state.get("_export_sig") != current_export_sig:
-    st.session_state["_export_sig"] = current_export_sig
-    st.session_state.pop("export_pdf_bytes", None)
-    st.session_state.pop("export_pdf_error", None)
-    st.session_state["export_pdf_ready"] = False
-
-# ===================== TOP BAR =====================
 
 def top_bar_fragment(export_filename="dashboard_export.pdf"):
     title_col, import_col, export_col = st.columns([8, 1, 1])
@@ -2127,49 +1579,36 @@ def top_bar_fragment(export_filename="dashboard_export.pdf"):
     with export_col:
         st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
-        if st.button("Подготовить PDF", key="prepare_export_pdf_btn"):
-            try:
-                active_view_name = st.session_state.get("active_view", "Общий обзор")
-                if active_view_name == "Общий обзор":
-                    bundle = get_overview_bundle()
-                    pdf_bytes = build_overview_export_pdf(
-                        bundle=bundle,
-                        start_date=start_date,
-                        end_date=end_date,
-                        sel_teams=sel_teams,
-                        sel_res=sel_res,
-                        sel_types=sel_types,
-                    )
-                else:
-                    bundle = get_weekly_bundle()
-                    pdf_bytes = build_weekly_export_pdf(
-                        bundle=bundle,
-                        sel_teams=sel_teams,
-                        sel_res=sel_res,
-                        sel_types=sel_types,
-                    )
+        def _build_pdf_on_click():
+            active_view_name = st.session_state.get("active_view", "Общий обзор")
 
-                st.session_state["export_pdf_bytes"] = pdf_bytes
-                st.session_state["export_pdf_error"] = None
-                st.session_state["export_pdf_ready"] = True
-            except Exception as e:
-                st.session_state["export_pdf_bytes"] = None
-                st.session_state["export_pdf_error"] = str(e)
-                st.session_state["export_pdf_ready"] = False
+            if active_view_name == "Общий обзор":
+                bundle = get_overview_bundle()
+                return build_overview_export_pdf(
+                    bundle=bundle,
+                    start_date=start_date,
+                    end_date=end_date,
+                    sel_teams=sel_teams,
+                    sel_res=sel_res,
+                    sel_types=sel_types,
+                )
 
-        if st.session_state.get("export_pdf_error"):
-            st.caption("Экспорт недоступен")
-            st.error(st.session_state["export_pdf_error"])
-
-        if st.session_state.get("export_pdf_ready") and st.session_state.get("export_pdf_bytes"):
-            st.download_button(
-                "Скачать PDF",
-                data=st.session_state["export_pdf_bytes"],
-                file_name=export_filename,
-                mime="application/pdf",
-                key="download_export_pdf_btn",
-                on_click="ignore",
+            bundle = get_weekly_bundle()
+            return build_weekly_export_pdf(
+                bundle=bundle,
+                sel_teams=sel_teams,
+                sel_res=sel_res,
+                sel_types=sel_types,
             )
+
+        st.download_button(
+            "Скачать PDF",
+            data=_build_pdf_on_click,
+            file_name=export_filename,
+            mime="application/pdf",
+            key="download_export_pdf_btn",
+            on_click="ignore",
+        )
 
     if st.session_state["show_upload_block"]:
         st.info(
@@ -2188,41 +1627,21 @@ def top_bar_fragment(export_filename="dashboard_export.pdf"):
             st.warning("Пожалуйста, загрузите ровно 2 файла.")
 
         if st.button("Обработать файлы", key="process_files_btn"):
-            if not uploaded_files or len(uploaded_files) != 2:
-                st.error("Нужно загрузить ровно 2 файла.")
-            else:
-                try:
-                    df_left = load_single_file(uploaded_files[0], uploaded_files[0].name)
-                    df_right = load_single_file(uploaded_files[1], uploaded_files[1].name)
+            try:
+                final_df, inserted_rows = process_uploaded_files(uploaded_files, POSTGRES_URL)
 
-                    prepared_merge = load_and_prepare_two_dataframes(df_left, df_right)
-                    prepared_df = prepare_dashboard_data(prepared_merge)
+                read_dashboard_cached.clear()
+                read_meta_cached.clear()
 
-                    inserted_rows = write_dashboard_to_postgres_append(
-                        prepared_df,
-                        postgres_url=POSTGRES_URL,
-                        source="manual_upload",
-                        file_names=f"{uploaded_files[0].name} | {uploaded_files[1].name}",
-                    )
+                st.session_state["data"] = final_df
+                st.session_state["data_version"] += 1
+                st.session_state["overview_bundle_cache"] = {}
+                st.session_state["weekly_bundle_cache"] = {}
 
-                    read_dashboard_cached.clear()
-                    read_meta_cached.clear()
-
-                    db_df = read_dashboard_cached(POSTGRES_URL)
-                    st.session_state["data"] = db_df if not db_df.empty else prepared_df
-                    st.session_state["data_version"] += 1
-
-                    st.session_state["overview_bundle_cache"] = {}
-                    st.session_state["weekly_bundle_cache"] = {}
-                    st.session_state["export_pdf_ready"] = False
-                    st.session_state.pop("export_pdf_bytes", None)
-                    st.session_state.pop("export_pdf_error", None)
-
-                    st.success(f"Файлы успешно загружены. В базу добавлено новых строк: {inserted_rows}")
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(str(e))
+                st.success(f"Файлы успешно загружены. В базу добавлено новых строк: {inserted_rows}")
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
 
 
 if not weekly_ready and st.session_state["active_view"] == "Сравнение недель":
@@ -2242,7 +1661,14 @@ if not meta_df.empty:
         f"Добавлено новых строк: {last_meta['inserted_rows']}"
     )
 
-# ===================== RENDERERS =====================
+st.radio(
+    "Раздел",
+    ["Общий обзор", "Сравнение недель"],
+    horizontal=True,
+    key="active_view",
+    label_visibility="collapsed",
+)
+
 
 def render_overview(bundle):
     f_df_local = bundle["f_df"]
@@ -2255,86 +1681,48 @@ def render_overview(bundle):
     with k2:
         med = f_df_local["ttm_days"].median() if len(f_df_local) else 0.0
         avg = f_df_local["ttm_days"].mean() if len(f_df_local) else 0.0
-        kpi_card(
-            "TTM (дн)",
-            f"{avg:.2f}",
-            "Сколько в среднем времени занимал путь задач по процессу целиком, считается в днях. Так же тут указана медиана, она показывает более типичное значение",
-            subvalue=f"медиана: {med:.2f}",
-        )
+        kpi_card("TTM (дн)", f"{avg:.2f}", "Сколько в среднем времени занимал путь задач по процессу целиком", subvalue=f"медиана: {med:.2f}")
 
     with k3:
         med = f_df_local["cycle_time"].median() if len(f_df_local) else 0.0
         avg = f_df_local["cycle_time"].mean() if len(f_df_local) else 0.0
-        kpi_card(
-            "Cycle time (дн)",
-            f"{avg:.2f}",
-            "Среднее время активной работы над задачами, считается в днях. Также тут указана медиана, она показывает более типичное значение",
-            subvalue=f"медиана: {med:.2f}",
-        )
+        kpi_card("Cycle time (дн)", f"{avg:.2f}", "Среднее время активной работы над задачами", subvalue=f"медиана: {med:.2f}")
 
     with k4:
         avg = f_df_local["wait_time_days"].mean() if len(f_df_local) else 0.0
         med = f_df_local["wait_time_days"].median() if len(f_df_local) else 0.0
-        kpi_card(
-            "Ожидание (дн)",
-            f"{avg:.2f}",
-            "Среднее время, которое задача проводила вне активной работы. Среднее ожидание = среднее значение разницы между TTM и Cycle time",
-            subvalue=f"медиана: {med:.2f}",
-        )
+        kpi_card("Ожидание (дн)", f"{avg:.2f}", "Среднее время вне активной работы", subvalue=f"медиана: {med:.2f}")
 
     with k5:
         late = ((f_df_local["Резолюция"] == "Позже").mean() * 100) if len(f_df_local) else 0
-        late_color = "#E45757" if late > 50 else "#4CAF7D"
-        kpi_card("Позже", f"{late:.1f}%", "Доля задач, которые решены позже", color=late_color)
+        kpi_card("Позже", f"{late:.1f}%", "Доля задач, которые решены позже", color="#E45757" if late > 50 else "#4CAF7D")
 
     with k6:
-        active = (
-            (f_df_local["cycle_time"].sum() / f_df_local["ttm_days"].sum()) * 100
-            if f_df_local["ttm_days"].sum() > 0 else 0
-        )
-        active_color = "#E45757" if active < 50 else "#4CAF7D"
-        kpi_card(
-            "Flow Efficiency",
-            f"{active:.0f}%",
-            "Доля активной работы в общем времени работы над задачей, то есть cycle time / TTM",
-            color=active_color,
-        )
+        active = (f_df_local["cycle_time"].sum() / f_df_local["ttm_days"].sum()) * 100 if f_df_local["ttm_days"].sum() > 0 else 0
+        kpi_card("Flow Efficiency", f"{active:.0f}%", "Cycle time / TTM", color="#E45757" if active < 50 else "#4CAF7D")
 
     with k7:
-        pingpong_share = (
-            (f_df_local["Пинг-понг обращения"] > 1).mean() * 100
-            if len(f_df_local) else 0.0
-        )
-        tasks_with_pingpong = (
-            (f_df_local["Пинг-понг обращения"] > 1).sum()
-            if len(f_df_local) else 0
-        )
-        pingpong_color = "#E45757" if pingpong_share > 20 else "#4CAF7D"
-
+        pingpong_share = ((f_df_local["Пинг-понг обращения"] > 1).mean() * 100) if len(f_df_local) else 0.0
+        tasks_with_pingpong = (f_df_local["Пинг-понг обращения"] > 1).sum() if len(f_df_local) else 0
         kpi_card(
             "Пинг-понг > 1",
             f"{pingpong_share:.1f}%",
-            "Доля задач, которые передавались между командами более одного раза, если была только одна команда, то стоит 1",
+            "Доля задач, которые передавались между командами более одного раза",
             subvalue=f"задач: {tasks_with_pingpong}",
-            color=pingpong_color,
+            color="#E45757" if pingpong_share > 20 else "#4CAF7D",
             hint_side="left",
         )
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     c1, c2 = st.columns(2, gap="small")
-
     with c1:
         st.markdown(
             '<div class="card-header">Структура времени задач по командам</div>'
             '<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_structure_interactive"],
-            use_container_width=True,
-            config={"displayModeBar": False},
-        )
+        st.plotly_chart(bundle["fig_structure_interactive"], use_container_width=True, config={"displayModeBar": False})
 
     with c2:
         st.markdown(
@@ -2342,25 +1730,16 @@ def render_overview(bundle):
             '<span class="hint-icon" data-hint="Количество задач, которые были взяты в работу по командам">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_load"],
-            use_container_width=True,
-            config={"displayModeBar": False},
-        )
+        st.plotly_chart(bundle["fig_load"], use_container_width=True, config={"displayModeBar": False})
 
     b1, b2, b3 = st.columns(3, gap="small")
-
     with b1:
         st.markdown(
             '<div class="card-header">Динамика поступления задач</div>'
             '<span class="hint-icon" data-hint="Количество новых задач по дням, неделям или месяцам">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_dynamics"],
-            use_container_width=True,
-            config={"displayModeBar": False, "scrollZoom": False},
-        )
+        st.plotly_chart(bundle["fig_dynamics"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
 
     with b2:
         st.markdown(
@@ -2368,11 +1747,7 @@ def render_overview(bundle):
             '<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_dist_interactive"],
-            use_container_width=True,
-            config={"displayModeBar": False, "scrollZoom": False},
-        )
+        st.plotly_chart(bundle["fig_dist_interactive"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
 
     with b3:
         st.markdown(
@@ -2380,11 +1755,7 @@ def render_overview(bundle):
             '<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_contacts"],
-            use_container_width=True,
-            config={"displayModeBar": False, "scrollZoom": False},
-        )
+        st.plotly_chart(bundle["fig_contacts"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
 
 
 def render_weekly(bundle):
@@ -2393,7 +1764,7 @@ def render_weekly(bundle):
         <div style="font-size:16px; font-weight:600; margin-bottom:8px;">
             Текущая неделя: {bundle['cw_start'].strftime('%d.%m.%Y')} — {bundle['cw_end'].strftime('%d.%m.%Y')}
             <span style="color:#7E8694; font-weight:400;">&nbsp;&nbsp;vs&nbsp;&nbsp;</span>
-            Предыдущая неделя: {bundle['pw_start'].strftime('%d.%m.%Y')} — {bundle['pw_end'].strftime('%d.%m.%Y')}
+            Предыдущая неделя: {bundle['pw_start'].strftime('%d.%м.%Y')} — {bundle['pw_end'].strftime('%d.%м.%Y')}
         </div>
         """,
         unsafe_allow_html=True,
@@ -2409,74 +1780,30 @@ def render_weekly(bundle):
     w1, w2, w3, w4, w5, w6, w7 = st.columns(7, gap="small")
 
     with w1:
-        kpi_compare_card(
-            "Всего задач",
-            current_metrics_local["tasks_total"],
-            previous_metrics_local["tasks_total"],
-            hint="Количество задач за текущую неделю",
-            as_int=True,
-        )
+        kpi_compare_card("Всего задач", current_metrics_local["tasks_total"], previous_metrics_local["tasks_total"], hint="Количество задач за текущую неделю", as_int=True)
     with w2:
-        kpi_compare_card(
-            "TTM (дн)",
-            current_metrics_local["ttm"],
-            previous_metrics_local["ttm"],
-            hint="Среднее время от открытия задачи до её закрытия за текущую неделю",
-        )
+        kpi_compare_card("TTM (дн)", current_metrics_local["ttm"], previous_metrics_local["ttm"], hint="Среднее время от открытия задачи до её закрытия")
     with w3:
-        kpi_compare_card(
-            "Cycle time (дн)",
-            current_metrics_local["cycle"],
-            previous_metrics_local["cycle"],
-            hint="Среднее время активной работы над задачей за текущую неделю",
-        )
+        kpi_compare_card("Cycle time (дн)", current_metrics_local["cycle"], previous_metrics_local["cycle"], hint="Среднее время активной работы")
     with w4:
-        kpi_compare_card(
-            "Ожидание (дн)",
-            current_metrics_local["wait"],
-            previous_metrics_local["wait"],
-            hint="Среднее время ожидания за текущую неделю",
-        )
+        kpi_compare_card("Ожидание (дн)", current_metrics_local["wait"], previous_metrics_local["wait"], hint="Среднее время ожидания")
     with w5:
-        kpi_compare_card(
-            "Позже",
-            current_metrics_local["later_pct"],
-            previous_metrics_local["later_pct"],
-            hint="Доля задач с резолюцией 'Позже'",
-            is_percent=True,
-        )
+        kpi_compare_card("Позже", current_metrics_local["later_pct"], previous_metrics_local["later_pct"], hint="Доля задач с резолюцией 'Позже'", is_percent=True)
     with w6:
-        kpi_compare_card(
-            "Flow Efficiency",
-            current_metrics_local["active_pct"],
-            previous_metrics_local["active_pct"],
-            hint="Доля активной работы в общем времени",
-            is_percent=True,
-        )
+        kpi_compare_card("Flow Efficiency", current_metrics_local["active_pct"], previous_metrics_local["active_pct"], hint="Доля активной работы в общем времени", is_percent=True)
     with w7:
-        kpi_compare_card(
-            "Пинг-понг > 1",
-            current_metrics_local["pingpong_share"],
-            previous_metrics_local["pingpong_share"],
-            hint="Доля задач, которые передавались между командами более одного раза",
-            is_percent=True,
-        )
+        kpi_compare_card("Пинг-понг > 1", current_metrics_local["pingpong_share"], previous_metrics_local["pingpong_share"], hint="Доля задач, которые передавались между командами более одного раза", is_percent=True)
 
     st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
     g1, g2 = st.columns(2, gap="small")
-
     with g1:
         st.markdown(
             '<div class="card-header">Количество задач</div>'
             '<span class="hint-icon" data-hint="Сравнение объёма задач по командам за две недели">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_cnt_compare"],
-            use_container_width=True,
-            config={"displayModeBar": False},
-        )
+        st.plotly_chart(bundle["fig_cnt_compare"], use_container_width=True, config={"displayModeBar": False})
 
     with g2:
         st.markdown(
@@ -2484,25 +1811,16 @@ def render_weekly(bundle):
             '<span class="hint-icon" data-hint="Можно посмотреть TTM, Cycle time или ожидание по командам за две недели">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_ttm_interactive"],
-            use_container_width=True,
-            config={"displayModeBar": False},
-        )
+        st.plotly_chart(bundle["fig_ttm_interactive"], use_container_width=True, config={"displayModeBar": False})
 
     g3, g4 = st.columns(2, gap="small")
-
     with g3:
         st.markdown(
             '<div class="card-header">Поступление задач</div>'
             '<span class="hint-icon" data-hint="Сравнение количества новых задач по дням для текущей недели и предыдущей">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_flow"],
-            use_container_width=True,
-            config={"displayModeBar": False},
-        )
+        st.plotly_chart(bundle["fig_flow"], use_container_width=True, config={"displayModeBar": False})
 
     with g4:
         st.markdown(
@@ -2510,13 +1828,8 @@ def render_weekly(bundle):
             '<span class="hint-icon" data-hint="Сравнение категорий количества обращений за две недели">?</span>',
             unsafe_allow_html=True,
         )
-        st.plotly_chart(
-            bundle["fig_contacts_compare"],
-            use_container_width=True,
-            config={"displayModeBar": False},
-        )
+        st.plotly_chart(bundle["fig_contacts_compare"], use_container_width=True, config={"displayModeBar": False})
 
-# ===================== UI =====================
 
 if st.session_state["active_view"] == "Общий обзор":
     overview_bundle = get_overview_bundle()
