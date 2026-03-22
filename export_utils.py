@@ -299,6 +299,12 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
     )
 
 
+def get_two_row_chart_height(page_bottom_y, current_top_y, gap, min_height=180, max_height=285):
+    available = current_top_y - page_bottom_y
+    row_h = (available - gap) / 2
+    return max(min_height, min(max_height, row_h))
+
+
 def build_overview_export_pdf(bundle, start_date, end_date, sel_teams, sel_res, sel_types):
     f_df = bundle["f_df"]
     fig_structure_sum = bundle["fig_structure_sum"]
@@ -349,7 +355,8 @@ def build_overview_export_pdf(bundle, start_date, end_date, sel_teams, sel_res, 
     y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
 
     col_w = (content_w - gap) / 2
-    row_h = 285
+    page_bottom_y = margin
+    row_h = get_two_row_chart_height(page_bottom_y, y_cursor, gap, min_height=180, max_height=270)
 
     draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Структура времени задач по командам - суммарно", fig_structure_sum)
     draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "Нагрузка по командам", fig_load)
@@ -362,7 +369,7 @@ def build_overview_export_pdf(bundle, start_date, end_date, sel_teams, sel_res, 
 
     y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Общий обзор (продолжение)", subtitle_lines, 2, 2)
 
-    row_h2 = 320
+    row_h2 = get_two_row_chart_height(margin, y_cursor, gap, min_height=190, max_height=300)
     draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - TTM", fig_dist_ttm)
     draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - Cycle time", fig_dist_cycle)
 
@@ -466,7 +473,8 @@ def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
     y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
 
     col_w = (content_w - gap) / 2
-    row_h = 285
+    page_bottom_y = margin
+    row_h = get_two_row_chart_height(page_bottom_y, y_cursor, gap, min_height=180, max_height=270)
 
     draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Количество задач", fig_cnt_compare)
     draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "TTM по командам", fig_ttm_only)
@@ -478,7 +486,7 @@ def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
     c.showPage()
 
     y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель (продолжение)", subtitle_lines, 2, 2)
-    row_h2 = 340
+    row_h2 = max(220, min(320, y_cursor - margin))
 
     draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Поступление задач", fig_flow)
     draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Количество обращений", fig_contacts_compare)
