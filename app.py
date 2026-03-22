@@ -60,7 +60,8 @@ st.markdown(
     }
 
     div[style*="position: fixed"][style*="bottom"] {
-        z-index: 0 !important;
+        display: none !important;
+        visibility: hidden !important;
     }
 
     div[style*="position: fixed"][style*="bottom"] button {
@@ -70,6 +71,11 @@ st.markdown(
 
     iframe[title*="Manage app"],
     iframe[title*="Streamlit"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    footer {
         display: none !important;
         visibility: hidden !important;
     }
@@ -374,8 +380,11 @@ if export_mode:
         [data-testid="stSidebar"],
         header,
         [data-testid="stToolbar"],
-        [data-testid="stStatusWidget"] {
+        [data-testid="stStatusWidget"],
+        footer,
+        div[style*="position: fixed"][style*="bottom"] {
             display: none !important;
+            visibility: hidden !important;
         }
 
         .block-container {
@@ -545,9 +554,7 @@ def make_dashboard_pdf(url: str) -> bytes:
     )
 
     if not chromium_path:
-        raise RuntimeError(
-            " "
-        )
+        raise RuntimeError("Chromium не найден в окружении.")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -565,8 +572,15 @@ def make_dashboard_pdf(url: str) -> bytes:
             device_scale_factor=1,
         )
 
-        page.goto(url, wait_until="networkidle", timeout=120000)
-        page.wait_for_timeout(2500)
+        page.goto(url, wait_until="domcontentloaded", timeout=120000)
+        page.emulate_media(media="screen")
+
+        page.wait_for_selector("#export-ready", timeout=120000)
+        page.wait_for_selector('[data-testid="stPlotlyChart"]', timeout=120000)
+        page.wait_for_timeout(2000)
+
+        page.evaluate("window.scrollTo(0, 0)")
+        page.wait_for_timeout(300)
 
         pdf_bytes = page.pdf(
             format="A3",
@@ -669,7 +683,7 @@ def top_bar_fragment(export_url=None):
                     st.error(str(e))
 
 
-df = st.session_state["data"]
+df = st.session_state.get("data", pd.DataFrame())
 
 if df.empty:
     top_bar_fragment(export_url=None)
@@ -1766,3 +1780,6 @@ if st.session_state["active_view"] == "Общий обзор":
     render_overview()
 else:
     render_weekly()
+
+if export_mode:
+    st.markdown('<div id="export-ready"></div>', unsafe_allow_html=True)
