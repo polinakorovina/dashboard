@@ -735,57 +735,68 @@ def build_dynamics_fig(f_df, default_granularity="D"):
     }
     init_visible = visible_map.get(default_granularity, visible_map["D"])
 
-    fig = px.line(
-        daily_df,
-        x="Дата создания",
-        y="Задач",
-        markers=True,
-        color_discrete_sequence=["#6244BB"],
-        template="plotly_white"
+    active_map = {
+        "D": 0,
+        "W": 1,
+        "M": 2,
+    }
+    active_button = active_map.get(default_granularity, 0)
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=daily_df["Дата создания"],
+            y=daily_df["Задач"],
+            mode="lines+markers",
+            name="D",
+            visible=init_visible[0],
+            line=dict(color="#6244BB"),
+            marker=dict(color="#6244BB", size=7),
+            hovertemplate="Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
+        )
     )
 
-    fig.update_traces(
-        visible=init_visible[0],
-        name="D",
-        line=dict(color="#6244BB"),
-        marker=dict(color="#6244BB", size=7),
-        hovertemplate="Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
+    fig.add_trace(
+        go.Scatter(
+            x=weekend_df["Дата создания"],
+            y=weekend_df["Задач"],
+            mode="markers",
+            name="Выходные",
+            visible=init_visible[1],
+            marker=dict(
+                color="#E45757",
+                size=8,
+                line=dict(color="white", width=1)
+            ),
+            hovertemplate="Выходной<br>Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
+        )
     )
 
-    fig.add_scatter(
-        x=weekend_df["Дата создания"],
-        y=weekend_df["Задач"],
-        mode="markers",
-        name="Выходные",
-        visible=init_visible[1],
-        marker=dict(
-            color="#E45757",
-            size=8,
-            line=dict(color="white", width=1)
-        ),
-        hovertemplate="Выходной<br>Дата: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
+    fig.add_trace(
+        go.Scatter(
+            x=weekly_df["Дата создания"],
+            y=weekly_df["Задач"],
+            mode="lines+markers",
+            name="W",
+            visible=init_visible[2],
+            line=dict(color="#6244BB"),
+            marker=dict(color="#6244BB", size=7),
+            hovertemplate="Неделя до: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
+        )
     )
 
-    fig.add_scatter(
-        x=weekly_df["Дата создания"],
-        y=weekly_df["Задач"],
-        mode="lines+markers",
-        name="W",
-        visible=init_visible[2],
-        line=dict(color="#6244BB"),
-        marker=dict(color="#6244BB", size=7),
-        hovertemplate="Неделя до: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>"
-    )
-
-    fig.add_scatter(
-        x=monthly_df["Дата создания"],
-        y=monthly_df["Задач"],
-        mode="lines+markers",
-        name="M",
-        visible=init_visible[3],
-        line=dict(color="#6244BB"),
-        marker=dict(color="#6244BB", size=7),
-        hovertemplate="Месяц: %{x|%m.%Y}<br>Задач: %{y}<extra></extra>"
+    fig.add_trace(
+        go.Scatter(
+            x=monthly_df["Дата создания"],
+            y=monthly_df["Задач"],
+            mode="lines+markers",
+            name="M",
+            visible=init_visible[3],
+            line=dict(color="#6244BB"),
+            marker=dict(color="#6244BB", size=7),
+            hovertemplate="Месяц: %{x|%m.%Y}<br>Задач: %{y}<extra></extra>"
+        )
     )
 
     fig.update_layout(
@@ -794,6 +805,7 @@ def build_dynamics_fig(f_df, default_granularity="D"):
         yaxis_title=None,
         margin=dict(l=20, r=20, t=8, b=10),
         showlegend=False,
+        template="plotly_white",
         updatemenus=[
             dict(
                 type="buttons",
@@ -803,19 +815,33 @@ def build_dynamics_fig(f_df, default_granularity="D"):
                 xanchor="left",
                 yanchor="top",
                 showactive=True,
+                active=active_button,
                 bgcolor="rgba(243,238,252,1)",
                 bordercolor="#E4DDF7",
                 borderwidth=1,
                 font=dict(size=10, color="#5D4AA8"),
                 pad=dict(r=0, t=0),
                 buttons=[
-                    dict(label="D", method="update", args=[{"visible": [True, True, False, False]}, {"title": None}]),
-                    dict(label="W", method="update", args=[{"visible": [False, False, True, False]}, {"title": None}]),
-                    dict(label="M", method="update", args=[{"visible": [False, False, False, True]}, {"title": None}]),
+                    dict(
+                        label="D",
+                        method="update",
+                        args=[{"visible": [True, True, False, False]}, {"title": None}],
+                    ),
+                    dict(
+                        label="W",
+                        method="update",
+                        args=[{"visible": [False, False, True, False]}, {"title": None}],
+                    ),
+                    dict(
+                        label="M",
+                        method="update",
+                        args=[{"visible": [False, False, False, True]}, {"title": None}],
+                    ),
                 ],
             )
         ],
     )
+
     return fig
 
 
