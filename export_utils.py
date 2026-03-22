@@ -111,37 +111,40 @@ def prepare_fig_for_pdf(fig):
         plot_bgcolor="white",
         font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=14,
+            size=18,
             color="#1A1C1E",
         ),
         title_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=17,
+            size=21,
             color="#1A1C1E",
         ),
         legend_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=13,
+            size=16,
             color="#1A1C1E",
         ),
-        margin=dict(l=70, r=35, t=45, b=55),
+        margin=dict(l=150, r=45, t=55, b=70),
+        uniformtext_minsize=16,
+        uniformtext_mode="show",
     )
 
     fig2.update_xaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=13),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=14),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=16),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=17),
     )
+
     fig2.update_yaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=13),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=14),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=16),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=17),
     )
 
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=13,
+            size=17,
             color="#1A1C1E",
         ),
         selector=dict(type="bar"),
@@ -150,7 +153,7 @@ def prepare_fig_for_pdf(fig):
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=13,
+            size=17,
             color="#1A1C1E",
         ),
         selector=dict(type="pie"),
@@ -284,12 +287,12 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
     draw_round_rect(c, x, y, w, h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=14)
 
     c.setFillColor(PDF_TEXT)
-    c.setFont(PDF_FONT_BOLD, 12)
+    c.setFont(PDF_FONT_BOLD, 13)
     c.drawString(x + 12, y + h - 18, truncate_text(title, 70))
 
-    header_h = 30
-    img_pad_x = 10
-    img_pad_bottom = 10
+    header_h = 32
+    img_pad_x = 8
+    img_pad_bottom = 8
 
     inner_x = x + img_pad_x
     inner_y = y + img_pad_bottom
@@ -298,8 +301,8 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
 
     png = fig_to_png_bytes(
         fig,
-        width_px=max(1600, int(inner_w * 2.8)),
-        height_px=max(950, int(inner_h * 2.8)),
+        width_px=max(2200, int(inner_w * 3.2)),
+        height_px=max(1300, int(inner_h * 3.2)),
         scale=2,
     )
 
