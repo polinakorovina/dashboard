@@ -546,7 +546,7 @@ def make_dashboard_pdf(url: str) -> bytes:
 
     if not chromium_path:
         raise RuntimeError(
-            "Не найден системный браузер Chromium. Проверь, что в packages.txt добавлен 'chromium'."
+            " "
         )
 
     with sync_playwright() as p:
@@ -668,11 +668,6 @@ def top_bar_fragment(export_url=None):
                 except Exception as e:
                     st.error(str(e))
 
-
-if "data" not in st.session_state:
-    top_bar_fragment(export_url=None)
-    st.info("Для начала анализа нажмите кнопку «Импорт» справа от заголовка и загрузите 2 файла.")
-    st.stop()
 
 df = st.session_state["data"]
 
@@ -836,8 +831,8 @@ if not meta_df.empty:
     st.caption(
         f"Последнее обновление: {last_meta['updated_at']} | "
         f"Источник: {last_meta['source']} | "
-        f"Строк в пакете: {last_meta['rows_count_in_batch']} | "
-        f"Добавлено новых: {last_meta['inserted_rows']}"
+        f"Строк в данных: {last_meta['rows_count_in_batch']} | "
+        f"Добавлено новых строк: {last_meta['inserted_rows']}"
     )
 
 # ===================== VIEW SWITCHER =====================
