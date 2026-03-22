@@ -111,40 +111,38 @@ def prepare_fig_for_pdf(fig):
         plot_bgcolor="white",
         font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=18,
+            size=14,
             color="#1A1C1E",
         ),
         title_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=21,
+            size=17,
             color="#1A1C1E",
         ),
         legend_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=16,
+            size=13,
             color="#1A1C1E",
         ),
-        margin=dict(l=150, r=45, t=55, b=70),
-        uniformtext_minsize=16,
-        uniformtext_mode="show",
+        margin=dict(l=90, r=35, t=45, b=55),
     )
 
     fig2.update_xaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=16),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=17),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=13),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=14),
     )
 
     fig2.update_yaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=16),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=17),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=13),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=14),
     )
 
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=17,
+            size=13,
             color="#1A1C1E",
         ),
         selector=dict(type="bar"),
@@ -153,7 +151,7 @@ def prepare_fig_for_pdf(fig):
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=17,
+            size=13,
             color="#1A1C1E",
         ),
         selector=dict(type="pie"),
@@ -246,7 +244,7 @@ def draw_page_header(c, page_w, page_h, title, subtitle_lines, page_num, total_p
 def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=4):
     margin = 24
     gap = 8
-    card_h = 84
+    card_h = 96
     usable_w = page_w - 2 * margin
     card_w = (usable_w - gap * (cols - 1)) / cols
 
@@ -277,7 +275,12 @@ def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=4):
         if card.get("subvalue"):
             c.setFillColor(PDF_SUB)
             c.setFont(PDF_FONT_REGULAR, 8)
-            c.drawString(x + 10, yy + 10, truncate_text(card["subvalue"], 32))
+            c.drawString(x + 10, yy + 20, truncate_text(card["subvalue"], 34))
+
+        if card.get("subvalue2"):
+            c.setFillColor(PDF_SUB)
+            c.setFont(PDF_FONT_REGULAR, 8)
+            c.drawString(x + 10, yy + 9, truncate_text(card["subvalue2"], 34))
 
     total_rows = (len(cards) + cols - 1) // cols
     return y - total_rows * card_h - (total_rows - 1) * gap - 14
@@ -287,12 +290,12 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
     draw_round_rect(c, x, y, w, h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=14)
 
     c.setFillColor(PDF_TEXT)
-    c.setFont(PDF_FONT_BOLD, 13)
+    c.setFont(PDF_FONT_BOLD, 12)
     c.drawString(x + 12, y + h - 18, truncate_text(title, 70))
 
-    header_h = 32
-    img_pad_x = 8
-    img_pad_bottom = 8
+    header_h = 30
+    img_pad_x = 10
+    img_pad_bottom = 10
 
     inner_x = x + img_pad_x
     inner_y = y + img_pad_bottom
@@ -301,8 +304,8 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
 
     png = fig_to_png_bytes(
         fig,
-        width_px=max(2200, int(inner_w * 3.2)),
-        height_px=max(1300, int(inner_h * 3.2)),
+        width_px=max(1800, int(inner_w * 2.8)),
+        height_px=max(1050, int(inner_h * 2.8)),
         scale=2,
     )
 
@@ -439,43 +442,50 @@ def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
         {
             "title": "Всего задач",
             "value": format_value(current_metrics["tasks_total"], as_int=True),
-            "subvalue": f"пред.: {format_value(previous_metrics['tasks_total'], as_int=True)}",
+            "subvalue": f"Пред. неделя: {format_value(previous_metrics['tasks_total'], as_int=True)}",
+            "subvalue2": f"Изменение: {delta_text(current_metrics['tasks_total'], previous_metrics['tasks_total'])}",
             "color": "#6244BB",
         },
         {
             "title": "TTM (дн)",
             "value": format_value(current_metrics["ttm"]),
-            "subvalue": f"∆ {delta_text(current_metrics['ttm'], previous_metrics['ttm'])}",
+            "subvalue": f"Пред. неделя: {format_value(previous_metrics['ttm'])}",
+            "subvalue2": f"Изменение: {delta_text(current_metrics['ttm'], previous_metrics['ttm'])}",
             "color": "#6244BB",
         },
         {
             "title": "Cycle time (дн)",
             "value": format_value(current_metrics["cycle"]),
-            "subvalue": f"∆ {delta_text(current_metrics['cycle'], previous_metrics['cycle'])}",
+            "subvalue": f"Пред. неделя: {format_value(previous_metrics['cycle'])}",
+            "subvalue2": f"Изменение: {delta_text(current_metrics['cycle'], previous_metrics['cycle'])}",
             "color": "#6244BB",
         },
         {
             "title": "Ожидание (дн)",
             "value": format_value(current_metrics["wait"]),
-            "subvalue": f"∆ {delta_text(current_metrics['wait'], previous_metrics['wait'])}",
+            "subvalue": f"Пред. неделя: {format_value(previous_metrics['wait'])}",
+            "subvalue2": f"Изменение: {delta_text(current_metrics['wait'], previous_metrics['wait'])}",
             "color": "#6244BB",
         },
         {
             "title": "Позже",
             "value": format_value(current_metrics["later_pct"], is_percent=True),
-            "subvalue": f"∆ {delta_text(current_metrics['later_pct'], previous_metrics['later_pct'], is_percent=True)}",
+            "subvalue": f"Пред. неделя: {format_value(previous_metrics['later_pct'], is_percent=True)}",
+            "subvalue2": f"Изменение: {delta_text(current_metrics['later_pct'], previous_metrics['later_pct'], is_percent=True)}",
             "color": "#6244BB",
         },
         {
             "title": "Flow Efficiency",
             "value": format_value(current_metrics["active_pct"], is_percent=True),
-            "subvalue": f"∆ {delta_text(current_metrics['active_pct'], previous_metrics['active_pct'], is_percent=True)}",
+            "subvalue": f"Пред. неделя: {format_value(previous_metrics['active_pct'], is_percent=True)}",
+            "subvalue2": f"Изменение: {delta_text(current_metrics['active_pct'], previous_metrics['active_pct'], is_percent=True)}",
             "color": "#6244BB",
         },
         {
             "title": "Пинг-понг > 1",
             "value": format_value(current_metrics["pingpong_share"], is_percent=True),
-            "subvalue": f"∆ {delta_text(current_metrics['pingpong_share'], previous_metrics['pingpong_share'], is_percent=True)}",
+            "subvalue": f"Пред. неделя: {format_value(previous_metrics['pingpong_share'], is_percent=True)}",
+            "subvalue2": f"Изменение: {delta_text(current_metrics['pingpong_share'], previous_metrics['pingpong_share'], is_percent=True)}",
             "color": "#6244BB",
         },
     ]
