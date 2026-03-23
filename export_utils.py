@@ -111,7 +111,7 @@ def prepare_fig_for_pdf(fig):
         plot_bgcolor="white",
         font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=30,
+            size=50,
             color="#1A1C1E",
         ),
         title_font=dict(
@@ -121,7 +121,7 @@ def prepare_fig_for_pdf(fig):
         ),
         legend_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=28,
+            size=50,
             color="#1A1C1E",
         ),
         margin=dict(l=150, r=70, t=80, b=100),
