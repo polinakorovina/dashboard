@@ -9,3 +9,5 @@ Pillow
 reportlab
 playwright
 requests
+pypdf
+PyMuPDF
