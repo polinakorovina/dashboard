@@ -301,7 +301,7 @@ def draw_page_header(c, page_w, page_h, title, subtitle_lines, page_num, total_p
 def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=7):
     margin = 24
     gap = 6
-    card_h = 92
+    card_h = 100
     usable_w = page_w - 2 * margin
     card_w = (usable_w - gap * (cols - 1)) / cols
 
@@ -317,22 +317,22 @@ def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=7):
         draw_round_rect(c, x, yy, card_w, card_h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=12)
 
         c.setFillColor(PDF_TEXT)
-        c.setFont(PDF_FONT_BOLD, 8)
-        c.drawString(x + 7, yy + card_h - 15, truncate_text(card["title"], 18))
+        c.setFont(PDF_FONT_BOLD, 10)
+        c.drawString(x + 7, yy + card_h - 16, truncate_text(card["title"], 18))
 
         c.setFillColor(HexColor(card.get("color", "#6244BB")))
-        c.setFont(PDF_FONT_BOLD, 14)
-        c.drawString(x + 7, yy + card_h - 36, str(card["value"]))
+        c.setFont(PDF_FONT_BOLD, 18)
+        c.drawString(x + 7, yy + card_h - 40, str(card["value"]))
 
         if card.get("subvalue"):
             c.setFillColor(PDF_SUB)
-            c.setFont(PDF_FONT_REGULAR, 7)
-            c.drawString(x + 7, yy + 17, truncate_text(card["subvalue"], 20))
+            c.setFont(PDF_FONT_REGULAR, 10)
+            c.drawString(x + 7, yy + 19, truncate_text(card["subvalue"], 20))
 
         if card.get("subvalue2"):
             c.setFillColor(PDF_SUB)
-            c.setFont(PDF_FONT_REGULAR, 7)
-            c.drawString(x + 7, yy + 8, truncate_text(card["subvalue2"], 20))
+            c.setFont(PDF_FONT_REGULAR, 10)
+            c.drawString(x + 7, yy + 9, truncate_text(card["subvalue2"], 20))
 
     total_rows = (len(cards) + cols - 1) // cols
     return y - total_rows * card_h - (total_rows - 1) * gap - 14
