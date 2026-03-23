@@ -300,7 +300,7 @@ def draw_page_header(c, page_w, page_h, title, subtitle_lines, page_num, total_p
     return y - 14
 
 
-def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=4):
+def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=7):
     margin = 24
     gap = 8
     card_h = 102
