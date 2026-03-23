@@ -134,7 +134,7 @@ def apply_smart_text_colors(fig):
 
             trace.textfont = dict(
                 family=PLOTLY_EXPORT_FONT,
-                size=28,
+                size=50,
                 color=text_color,
             )
 
@@ -148,30 +148,30 @@ def apply_smart_text_colors(fig):
                 ]
                 trace.insidetextfont = dict(
                     family=PLOTLY_EXPORT_FONT,
-                    size=28,
+                    size=50,
                     color=text_colors,
                 )
                 trace.outsidetextfont = dict(
                     family=PLOTLY_EXPORT_FONT,
-                    size=28,
+                    size=50,
                     color="#1A1C1E",
                 )
             else:
                 trace.insidetextfont = dict(
                     family=PLOTLY_EXPORT_FONT,
-                    size=28,
+                    size=50,
                     color="#1A1C1E",
                 )
                 trace.outsidetextfont = dict(
                     family=PLOTLY_EXPORT_FONT,
-                    size=28,
+                    size=50,
                     color="#1A1C1E",
                 )
 
         elif trace_type == "scatter":
             trace.textfont = dict(
                 family=PLOTLY_EXPORT_FONT,
-                size=28,
+                size=50,
                 color="#1A1C1E",
             )
 
