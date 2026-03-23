@@ -111,38 +111,38 @@ def prepare_fig_for_pdf(fig):
         plot_bgcolor="white",
         font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=14,
+            size=19,
             color="#1A1C1E",
         ),
         title_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=17,
+            size=24,
             color="#1A1C1E",
         ),
         legend_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=13,
+            size=18,
             color="#1A1C1E",
         ),
-        margin=dict(l=90, r=35, t=45, b=55),
+        margin=dict(l=125, r=55, t=65, b=85),
     )
 
     fig2.update_xaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=13),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=14),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=18),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=20),
     )
 
     fig2.update_yaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=13),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=14),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=18),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=20),
     )
 
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=13,
+            size=18,
             color="#1A1C1E",
         ),
         selector=dict(type="bar"),
@@ -151,16 +151,25 @@ def prepare_fig_for_pdf(fig):
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=13,
+            size=18,
             color="#1A1C1E",
         ),
         selector=dict(type="pie"),
     )
 
+    fig2.update_traces(
+        textfont=dict(
+            family=PLOTLY_EXPORT_FONT,
+            size=18,
+            color="#1A1C1E",
+        ),
+        selector=dict(type="scatter"),
+    )
+
     return fig2
 
 
-def fig_to_png_bytes(fig, width_px=1600, height_px=900, scale=2):
+def fig_to_png_bytes(fig, width_px=2400, height_px=1400, scale=2):
     fig2 = prepare_fig_for_pdf(fig)
     try:
         return fig2.to_image(
@@ -244,7 +253,7 @@ def draw_page_header(c, page_w, page_h, title, subtitle_lines, page_num, total_p
 def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=4):
     margin = 24
     gap = 8
-    card_h = 96
+    card_h = 102
     usable_w = page_w - 2 * margin
     card_w = (usable_w - gap * (cols - 1)) / cols
 
@@ -265,22 +274,22 @@ def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=4):
         draw_round_rect(c, x, yy, card_w, card_h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=12)
 
         c.setFillColor(PDF_TEXT)
-        c.setFont(PDF_FONT_BOLD, 9)
-        c.drawString(x + 10, yy + card_h - 16, truncate_text(card["title"], 28))
+        c.setFont(PDF_FONT_BOLD, 10)
+        c.drawString(x + 10, yy + card_h - 18, truncate_text(card["title"], 30))
 
         c.setFillColor(HexColor(card.get("color", "#6244BB")))
-        c.setFont(PDF_FONT_BOLD, 17)
-        c.drawString(x + 10, yy + card_h - 40, str(card["value"]))
+        c.setFont(PDF_FONT_BOLD, 19)
+        c.drawString(x + 10, yy + card_h - 45, str(card["value"]))
 
         if card.get("subvalue"):
             c.setFillColor(PDF_SUB)
-            c.setFont(PDF_FONT_REGULAR, 8)
-            c.drawString(x + 10, yy + 20, truncate_text(card["subvalue"], 34))
+            c.setFont(PDF_FONT_REGULAR, 8.5)
+            c.drawString(x + 10, yy + 22, truncate_text(card["subvalue"], 36))
 
         if card.get("subvalue2"):
             c.setFillColor(PDF_SUB)
-            c.setFont(PDF_FONT_REGULAR, 8)
-            c.drawString(x + 10, yy + 9, truncate_text(card["subvalue2"], 34))
+            c.setFont(PDF_FONT_REGULAR, 8.5)
+            c.drawString(x + 10, yy + 10, truncate_text(card["subvalue2"], 36))
 
     total_rows = (len(cards) + cols - 1) // cols
     return y - total_rows * card_h - (total_rows - 1) * gap - 14
@@ -290,12 +299,12 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
     draw_round_rect(c, x, y, w, h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=14)
 
     c.setFillColor(PDF_TEXT)
-    c.setFont(PDF_FONT_BOLD, 12)
-    c.drawString(x + 12, y + h - 18, truncate_text(title, 70))
+    c.setFont(PDF_FONT_BOLD, 13)
+    c.drawString(x + 12, y + h - 19, truncate_text(title, 70))
 
-    header_h = 30
-    img_pad_x = 10
-    img_pad_bottom = 10
+    header_h = 34
+    img_pad_x = 8
+    img_pad_bottom = 8
 
     inner_x = x + img_pad_x
     inner_y = y + img_pad_bottom
@@ -304,8 +313,8 @@ def draw_chart_panel(c, x, y, w, h, title, fig):
 
     png = fig_to_png_bytes(
         fig,
-        width_px=max(1800, int(inner_w * 2.8)),
-        height_px=max(1050, int(inner_h * 2.8)),
+        width_px=max(2600, int(inner_w * 4.2)),
+        height_px=max(1600, int(inner_h * 4.2)),
         scale=2,
     )
 
@@ -387,7 +396,7 @@ def build_overview_export_pdf(bundle, start_date, end_date, sel_teams, sel_res, 
 
     col_w = (content_w - gap) / 2
     page_bottom_y = margin
-    row_h = get_two_row_chart_height(page_bottom_y, y_cursor, gap, min_height=180, max_height=270)
+    row_h = get_two_row_chart_height(page_bottom_y, y_cursor, gap, min_height=185, max_height=280)
 
     draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Структура времени задач по командам - суммарно", fig_structure_sum)
     draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "Нагрузка по командам", fig_load)
@@ -400,7 +409,7 @@ def build_overview_export_pdf(bundle, start_date, end_date, sel_teams, sel_res, 
 
     y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Общий обзор (продолжение)", subtitle_lines, 2, 2)
 
-    row_h2 = get_two_row_chart_height(margin, y_cursor, gap, min_height=190, max_height=300)
+    row_h2 = get_two_row_chart_height(margin, y_cursor, gap, min_height=200, max_height=310)
     draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - TTM", fig_dist_ttm)
     draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Распределение времени задач - Cycle time", fig_dist_cycle)
 
@@ -512,7 +521,7 @@ def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
 
     col_w = (content_w - gap) / 2
     page_bottom_y = margin
-    row_h = get_two_row_chart_height(page_bottom_y, y_cursor, gap, min_height=180, max_height=270)
+    row_h = get_two_row_chart_height(page_bottom_y, y_cursor, gap, min_height=185, max_height=280)
 
     draw_chart_panel(c, margin, y_cursor - row_h, col_w, row_h, "Количество задач", fig_cnt_compare)
     draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h, col_w, row_h, "TTM по командам", fig_ttm_only)
@@ -524,7 +533,7 @@ def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
     c.showPage()
 
     y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель (продолжение)", subtitle_lines, 2, 2)
-    row_h2 = max(220, min(320, y_cursor - margin))
+    row_h2 = max(235, min(330, y_cursor - margin))
 
     draw_chart_panel(c, margin, y_cursor - row_h2, col_w, row_h2, "Поступление задач", fig_flow)
     draw_chart_panel(c, margin + col_w + gap, y_cursor - row_h2, col_w, row_h2, "Количество обращений", fig_contacts_compare)
