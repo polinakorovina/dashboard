@@ -116,7 +116,7 @@ def prepare_fig_for_pdf(fig):
         ),
         title_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=36,
+            size=55,
             color="#1A1C1E",
         ),
         legend_font=dict(
@@ -129,20 +129,20 @@ def prepare_fig_for_pdf(fig):
 
     fig2.update_xaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=28),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=30),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=55),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=55),
     )
 
     fig2.update_yaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=28),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=30),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=55),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=55),
     )
 
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=28,
+            size=55,
             color="#1A1C1E",
         ),
         selector=dict(type="bar"),
@@ -151,7 +151,7 @@ def prepare_fig_for_pdf(fig):
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=28,
+            size=55,
             color="#1A1C1E",
         ),
         selector=dict(type="pie"),
@@ -160,7 +160,7 @@ def prepare_fig_for_pdf(fig):
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=28,
+            size=55,
             color="#1A1C1E",
         ),
         selector=dict(type="scatter"),
