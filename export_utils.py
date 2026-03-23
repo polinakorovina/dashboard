@@ -201,7 +201,7 @@ def prepare_fig_for_pdf(fig):
             size=60,
             color="#1A1C1E",
         ),
-        margin=dict(l=150, r=70, t=80, b=100),
+        margin=dict(l=70, r=20, t=40, b=45),
     )
 
     fig2.update_xaxes(
