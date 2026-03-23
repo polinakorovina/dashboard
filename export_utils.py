@@ -111,38 +111,38 @@ def prepare_fig_for_pdf(fig):
         plot_bgcolor="white",
         font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=19,
+            size=30,
             color="#1A1C1E",
         ),
         title_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=24,
+            size=36,
             color="#1A1C1E",
         ),
         legend_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=18,
+            size=28,
             color="#1A1C1E",
         ),
-        margin=dict(l=125, r=55, t=65, b=85),
+        margin=dict(l=150, r=70, t=80, b=100),
     )
 
     fig2.update_xaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=18),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=20),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=28),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=30),
     )
 
     fig2.update_yaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=18),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=20),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=28),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=30),
     )
 
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=18,
+            size=28,
             color="#1A1C1E",
         ),
         selector=dict(type="bar"),
@@ -151,7 +151,7 @@ def prepare_fig_for_pdf(fig):
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=18,
+            size=28,
             color="#1A1C1E",
         ),
         selector=dict(type="pie"),
@@ -160,7 +160,7 @@ def prepare_fig_for_pdf(fig):
     fig2.update_traces(
         textfont=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=18,
+            size=28,
             color="#1A1C1E",
         ),
         selector=dict(type="scatter"),
@@ -169,7 +169,7 @@ def prepare_fig_for_pdf(fig):
     return fig2
 
 
-def fig_to_png_bytes(fig, width_px=2400, height_px=1400, scale=2):
+def fig_to_png_bytes(fig, width_px=3000, height_px=1800, scale=2):
     fig2 = prepare_fig_for_pdf(fig)
     try:
         return fig2.to_image(
