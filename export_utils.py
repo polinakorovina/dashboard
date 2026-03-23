@@ -101,8 +101,84 @@ def delta_text(curr, prev, is_percent=False, digits=2):
     return f"{sign}{diff:.{digits}f}"
 
 
-def prepare_fig_for_pdf(fig):
+def hex_to_rgb(hex_color: str):
+    hex_color = str(hex_color).strip().lstrip("#")
+    if len(hex_color) != 6:
+        return (0, 0, 0)
+    return tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def is_dark_color(hex_color: str) -> bool:
+    r, g, b = hex_to_rgb(hex_color)
+    brightness = 0.299 * r + 0.587 * g + 0.114 * b
+    return brightness < 160
+
+
+def apply_smart_text_colors(fig):
     fig2 = go.Figure(fig)
+
+    for trace in fig2.data:
+        trace_type = getattr(trace, "type", "")
+
+        if trace_type == "bar":
+            marker_color = getattr(trace.marker, "color", None)
+
+            if isinstance(marker_color, str):
+                text_color = "#FFFFFF" if is_dark_color(marker_color) else "#1A1C1E"
+                trace.textfont = dict(
+                    family=PLOTLY_EXPORT_FONT,
+                    size=55,
+                    color=text_color,
+                )
+            else:
+                trace.textfont = dict(
+                    family=PLOTLY_EXPORT_FONT,
+                    size=55,
+                    color="#1A1C1E",
+                )
+
+        elif trace_type == "pie":
+            marker_colors = getattr(trace.marker, "colors", None)
+
+            if marker_colors and isinstance(marker_colors, (list, tuple)):
+                text_colors = [
+                    "#FFFFFF" if is_dark_color(c) else "#1A1C1E"
+                    for c in marker_colors
+                ]
+                trace.insidetextfont = dict(
+                    family=PLOTLY_EXPORT_FONT,
+                    size=55,
+                    color=text_colors,
+                )
+                trace.outsidetextfont = dict(
+                    family=PLOTLY_EXPORT_FONT,
+                    size=55,
+                    color="#1A1C1E",
+                )
+            else:
+                trace.insidetextfont = dict(
+                    family=PLOTLY_EXPORT_FONT,
+                    size=55,
+                    color="#1A1C1E",
+                )
+                trace.outsidetextfont = dict(
+                    family=PLOTLY_EXPORT_FONT,
+                    size=55,
+                    color="#1A1C1E",
+                )
+
+        elif trace_type == "scatter":
+            trace.textfont = dict(
+                family=PLOTLY_EXPORT_FONT,
+                size=55,
+                color="#1A1C1E",
+            )
+
+    return fig2
+
+
+def prepare_fig_for_pdf(fig):
+    fig2 = apply_smart_text_colors(fig)
 
     fig2.update_layout(
         updatemenus=[],
@@ -111,17 +187,17 @@ def prepare_fig_for_pdf(fig):
         plot_bgcolor="white",
         font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=55,
+            size=60,
             color="#1A1C1E",
         ),
         title_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=55,
+            size=60,
             color="#1A1C1E",
         ),
         legend_font=dict(
             family=PLOTLY_EXPORT_FONT,
-            size=55,
+            size=60,
             color="#1A1C1E",
         ),
         margin=dict(l=150, r=70, t=80, b=100),
@@ -129,41 +205,14 @@ def prepare_fig_for_pdf(fig):
 
     fig2.update_xaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=55),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=55),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=60),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=60),
     )
 
     fig2.update_yaxes(
         automargin=True,
-        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=55),
-        title_font=dict(family=PLOTLY_EXPORT_FONT, size=55),
-    )
-
-    fig2.update_traces(
-        textfont=dict(
-            family=PLOTLY_EXPORT_FONT,
-            size=55,
-            color="#1A1C1E",
-        ),
-        selector=dict(type="bar"),
-    )
-
-    fig2.update_traces(
-        textfont=dict(
-            family=PLOTLY_EXPORT_FONT,
-            size=55,
-            color="#1A1C1E",
-        ),
-        selector=dict(type="pie"),
-    )
-
-    fig2.update_traces(
-        textfont=dict(
-            family=PLOTLY_EXPORT_FONT,
-            size=55,
-            color="#1A1C1E",
-        ),
-        selector=dict(type="scatter"),
+        tickfont=dict(family=PLOTLY_EXPORT_FONT, size=60),
+        title_font=dict(family=PLOTLY_EXPORT_FONT, size=60),
     )
 
     return fig2
