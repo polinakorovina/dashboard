@@ -123,19 +123,20 @@ def apply_smart_text_colors(fig):
         if trace_type == "bar":
             marker_color = getattr(trace.marker, "color", None)
 
+            # чтобы при экспорте Plotly не прятал часть подписей
+            trace.textposition = "auto"
+            trace.cliponaxis = False
+
             if isinstance(marker_color, str):
                 text_color = "#FFFFFF" if is_dark_color(marker_color) else "#1A1C1E"
-                trace.textfont = dict(
-                    family=PLOTLY_EXPORT_FONT,
-                    size=55,
-                    color=text_color,
-                )
             else:
-                trace.textfont = dict(
-                    family=PLOTLY_EXPORT_FONT,
-                    size=55,
-                    color="#1A1C1E",
-                )
+                text_color = "#1A1C1E"
+
+            trace.textfont = dict(
+                family=PLOTLY_EXPORT_FONT,
+                size=28,
+                color=text_color,
+            )
 
         elif trace_type == "pie":
             marker_colors = getattr(trace.marker, "colors", None)
@@ -147,30 +148,30 @@ def apply_smart_text_colors(fig):
                 ]
                 trace.insidetextfont = dict(
                     family=PLOTLY_EXPORT_FONT,
-                    size=55,
+                    size=28,
                     color=text_colors,
                 )
                 trace.outsidetextfont = dict(
                     family=PLOTLY_EXPORT_FONT,
-                    size=55,
+                    size=28,
                     color="#1A1C1E",
                 )
             else:
                 trace.insidetextfont = dict(
                     family=PLOTLY_EXPORT_FONT,
-                    size=55,
+                    size=28,
                     color="#1A1C1E",
                 )
                 trace.outsidetextfont = dict(
                     family=PLOTLY_EXPORT_FONT,
-                    size=55,
+                    size=28,
                     color="#1A1C1E",
                 )
 
         elif trace_type == "scatter":
             trace.textfont = dict(
                 family=PLOTLY_EXPORT_FONT,
-                size=55,
+                size=28,
                 color="#1A1C1E",
             )
 
