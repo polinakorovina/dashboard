@@ -122,8 +122,6 @@ def apply_smart_text_colors(fig):
 
         if trace_type == "bar":
             marker_color = getattr(trace.marker, "color", None)
-
-            # чтобы при экспорте Plotly не прятал часть подписей
             trace.textposition = "auto"
             trace.cliponaxis = False
 
@@ -302,8 +300,8 @@ def draw_page_header(c, page_w, page_h, title, subtitle_lines, page_num, total_p
 
 def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=7):
     margin = 24
-    gap = 8
-    card_h = 102
+    gap = 6
+    card_h = 92
     usable_w = page_w - 2 * margin
     card_w = (usable_w - gap * (cols - 1)) / cols
 
@@ -313,33 +311,28 @@ def draw_kpi_grid_pdf(c, page_w, y_top, cards, cols=7):
         row = idx // cols
         col = idx % cols
 
-        row_cards = cards[row * cols:(row + 1) * cols]
-        current_cols = len(row_cards)
-        current_row_w = current_cols * card_w + (current_cols - 1) * gap
-        start_x = margin + (usable_w - current_row_w) / 2 if current_cols < cols else margin
-
-        x = start_x + col * (card_w + gap)
+        x = margin + col * (card_w + gap)
         yy = y - row * (card_h + gap) - card_h
 
         draw_round_rect(c, x, yy, card_w, card_h, fill_color=PDF_CARD, stroke_color=PDF_BORDER, radius=12)
 
         c.setFillColor(PDF_TEXT)
-        c.setFont(PDF_FONT_BOLD, 10)
-        c.drawString(x + 10, yy + card_h - 18, truncate_text(card["title"], 30))
+        c.setFont(PDF_FONT_BOLD, 8)
+        c.drawString(x + 7, yy + card_h - 15, truncate_text(card["title"], 18))
 
         c.setFillColor(HexColor(card.get("color", "#6244BB")))
-        c.setFont(PDF_FONT_BOLD, 19)
-        c.drawString(x + 10, yy + card_h - 45, str(card["value"]))
+        c.setFont(PDF_FONT_BOLD, 14)
+        c.drawString(x + 7, yy + card_h - 36, str(card["value"]))
 
         if card.get("subvalue"):
             c.setFillColor(PDF_SUB)
-            c.setFont(PDF_FONT_REGULAR, 8.5)
-            c.drawString(x + 10, yy + 22, truncate_text(card["subvalue"], 36))
+            c.setFont(PDF_FONT_REGULAR, 7)
+            c.drawString(x + 7, yy + 17, truncate_text(card["subvalue"], 20))
 
         if card.get("subvalue2"):
             c.setFillColor(PDF_SUB)
-            c.setFont(PDF_FONT_REGULAR, 8.5)
-            c.drawString(x + 10, yy + 10, truncate_text(card["subvalue2"], 36))
+            c.setFont(PDF_FONT_REGULAR, 7)
+            c.drawString(x + 7, yy + 8, truncate_text(card["subvalue2"], 20))
 
     total_rows = (len(cards) + cols - 1) // cols
     return y - total_rows * card_h - (total_rows - 1) * gap - 14
@@ -442,7 +435,7 @@ def build_overview_export_pdf(bundle, start_date, end_date, sel_teams, sel_res, 
     ]
 
     y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Общий обзор", subtitle_lines, 1, 2)
-    y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
+    y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=7)
 
     col_w = (content_w - gap) / 2
     page_bottom_y = margin
@@ -551,7 +544,7 @@ def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
 
     if current_week_df.empty or previous_week_df.empty:
         y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель", subtitle_lines, 1, 1)
-        draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
+        draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=7)
         c.setFillColor(PDF_TEXT)
         c.setFont(PDF_FONT_BOLD, 14)
         c.drawString(margin, page_h / 2, "Недостаточно данных для сравнения текущей и предыдущей недели.")
@@ -567,7 +560,7 @@ def build_weekly_export_pdf(bundle, sel_teams, sel_res, sel_types):
     fig_contacts_compare = bundle["fig_contacts_compare"]
 
     y_cursor = draw_page_header(c, page_w, page_h, "Аналитика дежурств - Сравнение недель", subtitle_lines, 1, 2)
-    y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=4)
+    y_cursor = draw_kpi_grid_pdf(c, page_w, y_cursor, cards, cols=7)
 
     col_w = (content_w - gap) / 2
     page_bottom_y = margin
