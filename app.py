@@ -1573,15 +1573,6 @@ else:
 top_bar_fragment(current_active_view=current_active_view, export_filename=export_filename)
 
 meta_df = read_meta_cached(POSTGRES_URL)
-if not meta_df.empty:
-    last_meta = meta_df.iloc[0]
-    st.caption(
-        f"Последнее обновление: {last_meta['updated_at']} | "
-        f"Источник: {last_meta['source']} | "
-        f"Строк в данных: {last_meta['rows_count_in_batch']} | "
-        f"Добавлено новых строк: {last_meta['inserted_rows']}"
-    )
-
 
 def render_overview(bundle):
     f_df_local = bundle["f_df"]
