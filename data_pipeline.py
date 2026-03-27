@@ -164,12 +164,6 @@ def prepare_dashboard_data(df_):
     df_["cycle_time"] = df_[CYCLE_STAGES].sum(axis=1) / 1440
     df_["wait_time_days"] = (df_["ttm_days"] - df_["cycle_time"]).clip(lower=0)
 
-    df_["Резолюция"] = df_.get("Резолюция", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Компоненты"] = df_.get("Компоненты", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Приоритет"] = df_.get("Приоритет", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-    df_["Пинг-понг обращения"] = pd.to_numeric(df_.get("Пинг-понг обращения", 0), errors="coerce").fillna(0)
-    df_["Количество обращений"] = df_.get("Количество обращений", pd.Series(["Не указано"] * len(df_))).fillna("Не указано")
-
     if "Тип" not in df_.columns:
         df_["Тип"] = "Не указано"
     df_["Тип"] = df_["Тип"].fillna("Не указано").astype(str).str.strip()
