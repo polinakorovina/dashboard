@@ -11,4 +11,3 @@ playwright
 requests
 pypdf
 PyMuPDF
-streamlit
