@@ -123,7 +123,7 @@ def merge_two_dataframes(df_left, df_right):
         df_right,
         left_on=left_key,
         right_on=right_key,
-        how="left"
+        how="inner"
     )
     return merged_df
 
