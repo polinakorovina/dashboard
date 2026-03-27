@@ -8,10 +8,7 @@ import pandas as pd
 
 from data_pipeline import read_dashboard_from_postgres, prepare_dashboard_data
 from export_utils import build_overview_export_pdf, build_weekly_export_pdf
-
-# Импортируем функции построения из основного приложения
-# ВАЖНО: если твой файл с дашбордом называется не app.py, поменяй import
-from app import (
+from dashboard_utils import (
     get_week_bounds,
     calc_metrics,
     get_default_granularity,
@@ -58,16 +55,6 @@ def measure_many(name, fn, runs=5):
         "avg_sec": round(statistics.mean(times), 4),
         "median_sec": round(statistics.median(times), 4),
     }, result
-
-
-def load_and_prepare_data():
-    df = read_dashboard_from_postgres(POSTGRES_URL)
-    if df.empty:
-        raise ValueError("В PostgreSQL нет данных для тестирования.")
-    df = prepare_dashboard_data(df)
-    if df.empty:
-        raise ValueError("После prepare_dashboard_data данные пустые.")
-    return df
 
 
 def build_overview_bundle_local(df: pd.DataFrame):
@@ -197,7 +184,6 @@ def build_weekly_bundle_local(df: pd.DataFrame):
 def main():
     results = []
 
-    # 1. Чтение данных из PostgreSQL
     read_result, raw_df = measure_many(
         "read_dashboard_from_postgres",
         lambda: read_dashboard_from_postgres(POSTGRES_URL),
@@ -208,7 +194,6 @@ def main():
     if raw_df.empty:
         raise ValueError("В PostgreSQL нет данных.")
 
-    # 2. Подготовка данных для дашборда
     prep_result, prepared_df = measure_many(
         "prepare_dashboard_data",
         lambda: prepare_dashboard_data(raw_df),
@@ -216,7 +201,6 @@ def main():
     )
     results.append(prep_result)
 
-    # 3. Формирование общего overview bundle
     overview_result, overview_bundle = measure_many(
         "build_overview_bundle",
         lambda: build_overview_bundle_local(prepared_df),
@@ -224,7 +208,6 @@ def main():
     )
     results.append(overview_result)
 
-    # 4. Формирование weekly bundle
     weekly_result, weekly_bundle = measure_many(
         "build_weekly_bundle",
         lambda: build_weekly_bundle_local(prepared_df),
@@ -232,7 +215,6 @@ def main():
     )
     results.append(weekly_result)
 
-    # 5. Экспорт PDF общего обзора
     overview_pdf_result, _ = measure_many(
         "build_overview_export_pdf",
         lambda: build_overview_export_pdf(
@@ -247,7 +229,6 @@ def main():
     )
     results.append(overview_pdf_result)
 
-    # 6. Экспорт PDF недельного сравнения
     weekly_pdf_result, _ = measure_many(
         "build_weekly_export_pdf",
         lambda: build_weekly_export_pdf(
@@ -260,7 +241,6 @@ def main():
     )
     results.append(weekly_pdf_result)
 
-    # 7. Первый и повторный запуск overview
     first_overview_time, _ = measure_once(lambda: build_overview_bundle_local(prepared_df))
     second_overview_time, _ = measure_once(lambda: build_overview_bundle_local(prepared_df))
 
@@ -270,7 +250,6 @@ def main():
         "second_run_sec": round(second_overview_time, 4),
     })
 
-    # 8. Первый и повторный запуск weekly
     first_weekly_time, _ = measure_once(lambda: build_weekly_bundle_local(prepared_df))
     second_weekly_time, _ = measure_once(lambda: build_weekly_bundle_local(prepared_df))
 
@@ -282,7 +261,6 @@ def main():
 
     print(json.dumps(results, ensure_ascii=False, indent=2))
 
-    # Сохраняем в файл
     with open("perf_results.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
