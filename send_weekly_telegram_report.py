@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-import fitz  # PyMuPDF
+import fitz
 import requests
 import yadisk
 
@@ -16,15 +16,14 @@ DASHBOARD_URL = os.getenv("DASHBOARD_URL", "")
 STATE_REMOTE_PATH = os.getenv("TELEGRAM_STATE_PATH", "/bot_state/subscribers_state.json")
 STATE_LOCAL_PATH = "subscribers_state.json"
 
-y = yadisk.YaDisk(token=YANDEX_TOKEN)
 
-
-def download_state():
+def download_state(y):
     if not y.exists(STATE_REMOTE_PATH):
         return {"subscribers": []}
 
-    if Path(STATE_LOCAL_PATH).exists():
-        Path(STATE_LOCAL_PATH).unlink()
+    local_path = Path(STATE_LOCAL_PATH)
+    if local_path.exists():
+        local_path.unlink()
 
     y.download(STATE_REMOTE_PATH, STATE_LOCAL_PATH)
 
@@ -89,7 +88,9 @@ def send_album(chat_id, image_bytes_list, caption):
         ftuple[1].close()
 
     if not response.ok:
-        raise RuntimeError(f"Telegram send failed for {chat_id}: {response.status_code} {response.text}")
+        raise RuntimeError(
+            f"Telegram send failed for {chat_id}: {response.status_code} {response.text}"
+        )
 
 
 def main():
@@ -97,10 +98,13 @@ def main():
         raise RuntimeError("Не задан TELEGRAM_BOT_TOKEN")
     if not YANDEX_TOKEN:
         raise RuntimeError("Не задан YANDEX_TOKEN")
+
+    y = yadisk.YaDisk(token=YANDEX_TOKEN)
+
     if not y.check_token():
         raise RuntimeError("YANDEX_TOKEN невалидный")
 
-    state = download_state()
+    state = download_state(y)
     subscribers = state.get("subscribers", [])
     if not subscribers:
         raise RuntimeError("Нет подписчиков для рассылки.")
@@ -121,8 +125,9 @@ def main():
         except Exception as e:
             print(f"Failed for {chat_id}: {e}")
 
-    if Path(STATE_LOCAL_PATH).exists():
-        Path(STATE_LOCAL_PATH).unlink()
+    local_path = Path(STATE_LOCAL_PATH)
+    if local_path.exists():
+        local_path.unlink()
 
 
 if __name__ == "__main__":
