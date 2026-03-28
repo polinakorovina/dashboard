@@ -31,14 +31,13 @@ def _get_postgres_url(postgres_url=None):
     if env_url:
         return env_url
 
-def build_report_payloads_for_period(
-    start_date,
-    end_date,
-    postgres_url=None,
-    sel_teams=None,
-    sel_res=None,
-    sel_types=None,
-):
+    raise RuntimeError(
+        "Не найден POSTGRES_URL. Передай postgres_url аргументом "
+        "или задай переменную окружения POSTGRES_URL."
+    )
+
+
+def _read_dashboard_df(postgres_url=None):
     postgres_url = _get_postgres_url(postgres_url)
 
     df = read_dashboard_from_postgres(postgres_url)
@@ -47,6 +46,19 @@ def build_report_payloads_for_period(
 
     if "Дата создания" not in df.columns:
         raise RuntimeError("В данных нет колонки 'Дата создания'.")
+
+    return df, postgres_url
+
+
+def build_report_payloads_for_period(
+    start_date,
+    end_date,
+    postgres_url=None,
+    sel_teams=None,
+    sel_res=None,
+    sel_types=None,
+):
+    df, postgres_url = _read_dashboard_df(postgres_url)
 
     db_min = df["Дата создания"].min().date()
     db_max = df["Дата создания"].max().date()
@@ -197,4 +209,23 @@ def build_report_payloads_for_period(
         "end_date": end_date,
         "db_min": db_min,
         "db_max": db_max,
+        "postgres_url": postgres_url,
     }
+
+
+def build_last_week_report_payloads(postgres_url=None, sel_teams=None, sel_res=None, sel_types=None):
+    df, postgres_url = _read_dashboard_df(postgres_url)
+
+    db_max = df["Дата создания"].max().date()
+    start_date = db_max - pd.Timedelta(days=6)
+    start_date = start_date.date() if hasattr(start_date, "date") else start_date
+    end_date = db_max
+
+    return build_report_payloads_for_period(
+        start_date=start_date,
+        end_date=end_date,
+        postgres_url=postgres_url,
+        sel_teams=sel_teams,
+        sel_res=sel_res,
+        sel_types=sel_types,
+    )
