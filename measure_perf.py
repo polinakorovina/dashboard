@@ -181,6 +181,24 @@ def build_weekly_bundle_local(df: pd.DataFrame):
     return bundle
 
 
+def build_overview_dashboard_total_local():
+    raw_df = read_dashboard_from_postgres(POSTGRES_URL)
+    if raw_df.empty:
+        raise ValueError("В PostgreSQL нет данных.")
+
+    prepared_df = prepare_dashboard_data(raw_df)
+    return build_overview_bundle_local(prepared_df)
+
+
+def build_weekly_dashboard_total_local():
+    raw_df = read_dashboard_from_postgres(POSTGRES_URL)
+    if raw_df.empty:
+        raise ValueError("В PostgreSQL нет данных.")
+
+    prepared_df = prepare_dashboard_data(raw_df)
+    return build_weekly_bundle_local(prepared_df)
+
+
 def main():
     results = []
 
@@ -214,6 +232,20 @@ def main():
         runs=3,
     )
     results.append(weekly_result)
+
+    overview_total_result, _ = measure_many(
+        "build_overview_dashboard_total",
+        build_overview_dashboard_total_local,
+        runs=3,
+    )
+    results.append(overview_total_result)
+
+    weekly_total_result, _ = measure_many(
+        "build_weekly_dashboard_total",
+        build_weekly_dashboard_total_local,
+        runs=3,
+    )
+    results.append(weekly_total_result)
 
     overview_pdf_result, _ = measure_many(
         "build_overview_export_pdf",
