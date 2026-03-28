@@ -23,8 +23,7 @@ def download_file_to_memory(y, remote_path: str):
 
 def get_files_from_folder(y, folder_path: str):
     items = list(y.listdir(folder_path))
-    files = [item for item in items if not item.is_dir()]
-    return files
+    return [item for item in items if not item.is_dir()]
 
 
 def main():
@@ -35,7 +34,7 @@ def main():
 
     files = get_files_from_folder(y, YANDEX_FOLDER_PATH)
 
-    if len(files) == 0:
+    if not files:
         print("В папке нет файлов. Обновление не требуется.")
         return
 
@@ -44,8 +43,7 @@ def main():
             f"В папке должно быть ровно 2 файла. Сейчас найдено: {len(files)}"
         )
 
-    file1 = files[0]
-    file2 = files[1]
+    file1, file2 = files
 
     file1_obj = download_file_to_memory(y, file1.path)
     file2_obj = download_file_to_memory(y, file2.path)
@@ -59,8 +57,6 @@ def main():
     inserted_rows = write_dashboard_to_postgres_append(
         dashboard_df,
         postgres_url=POSTGRES_URL,
-        source="yadisk",
-        file_names=f"{file1.name} | {file2.name}",
     )
 
     y.remove(file1.path, permanently=True)
