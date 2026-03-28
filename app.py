@@ -232,14 +232,11 @@ st.markdown(
         border: 1px solid #ECEAF3;
         overflow: hidden;
     }
-
-    th {
-        background-color: #6244BB !important;
-        color: white !important;
-        font-weight: 600 !important;
-        text-align: left !important;
+    
+    div[role="radiogroup"] > label > div:first-child {
+        display: none !important;
     }
-
+    
     div[role="radiogroup"] label {
         background: #F3EEFC !important;
         border: 1px solid #E4DDF7 !important;
