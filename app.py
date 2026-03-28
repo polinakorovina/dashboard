@@ -63,32 +63,6 @@ st.markdown(
         min-height: 1.6rem !important;
     }
 
-    [data-testid="stStatusWidget"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    div[style*="position: fixed"][style*="bottom"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    div[style*="position: fixed"][style*="bottom"] button {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    iframe[title*="Manage app"],
-    iframe[title*="Streamlit"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    footer {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
     .stApp { background-color: #F7F2FA; }
 
     [data-testid="stSidebar"] {
@@ -131,34 +105,6 @@ st.markdown(
     [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 2px #6244BB inset !important; }
 
     [data-testid="stDateInput"] p { display: none !important; }
-
-    .react-datepicker__day--selected,
-    .react-datepicker__day--keyboard-selected,
-    .react-datepicker__day--range-start,
-    .react-datepicker__day--range-end {
-        background-color: #6244BB !important;
-        color: #ffffff !important;
-        border-radius: 999px !important;
-    }
-
-    .react-datepicker__day--in-range,
-    .react-datepicker__day--in-selecting-range {
-        background-color: rgba(98, 68, 187, 0.22) !important;
-        color: #1A1C1E !important;
-        border-radius: 10px !important;
-    }
-
-    .rdp-day_selected,
-    .rdp-day_range_start,
-    .rdp-day_range_end {
-        background-color: #6244BB !important;
-        color: #ffffff !important;
-    }
-
-    .rdp-day_range_middle {
-        background-color: rgba(98, 68, 187, 0.22) !important;
-        color: #1A1C1E !important;
-    }
 
     [data-testid="stDateInput"] [aria-selected="true"] {
         background-color: #6244BB !important;
@@ -285,24 +231,6 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0,0,0,0.04);
         border: 1px solid #ECEAF3;
         overflow: hidden;
-    }
-
-    th {
-        background-color: #6244BB !important;
-        color: white !important;
-        font-weight: 600 !important;
-        text-align: left !important;
-    }
-
-    thead tr th:first-child { display:none; }
-    tbody tr th:first-child { display:none; }
-
-    div[role="radiogroup"] {
-        gap: 8px;
-    }
-
-    div[role="radiogroup"] > label > div:first-child {
-        display: none !important;
     }
 
     div[role="radiogroup"] label {
@@ -495,9 +423,9 @@ if df_in_range.empty:
     st.sidebar.warning("За выбранный период данных нет.")
     st.stop()
 
-teams_in_range = sorted(df_in_range["Компоненты"].dropna().unique().tolist())
-res_in_range = sorted(df_in_range["Резолюция"].dropna().unique().tolist())
-types_in_range = sorted(df_in_range["Тип"].dropna().unique().tolist())
+teams_in_range = sorted(df_in_range["Компоненты"].unique().tolist())
+res_in_range = sorted(df_in_range["Резолюция"].unique().tolist())
+types_in_range = sorted(df_in_range["Тип"].unique().tolist())
 
 period_sig = (start_date, end_date)
 if st.session_state.get("_period_sig") != period_sig:
