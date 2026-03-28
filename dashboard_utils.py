@@ -43,15 +43,12 @@ def calc_metrics(df_):
             "pingpong_share": 0.0,
         }
 
-    ttm_mean = df_["ttm_days"].mean() if "ttm_days" in df_.columns else 0.0
-    cycle_mean = df_["cycle_time"].mean() if "cycle_time" in df_.columns else 0.0
-    wait_mean = df_["wait_time_days"].mean() if "wait_time_days" in df_.columns else 0.0
-    later_pct = (df_["Резолюция"] == "Позже").mean() * 100 if "Резолюция" in df_.columns else 0.0
+    ttm_mean = df_["ttm_days"].mean()
+    cycle_mean = df_["cycle_time"].mean()
+    wait_mean = df_["wait_time_days"].mean()
+    later_pct = (df_["Резолюция"] == "Позже").mean() * 100
     active_pct = (cycle_mean / ttm_mean * 100) if ttm_mean > 0 else 0.0
-    pingpong_share = (
-        (df_["Пинг-понг обращения"] > 1).mean() * 100
-        if "Пинг-понг обращения" in df_.columns else 0.0
-    )
+    pingpong_share = (df_["Пинг-понг обращения"] > 1).mean() * 100
 
     return {
         "tasks_total": len(df_),
@@ -317,7 +314,7 @@ def build_dynamics_fig(f_df, default_granularity="D"):
         visible=init_visible[2],
         line=dict(color="#6244BB"),
         marker=dict(color="#6244BB", size=7),
-        hovertemplate="Неделя до: %{x|%d.%м.%Y}<br>Задач: %{y}<extra></extra>",
+        hovertemplate="Неделя до: %{x|%d.%m.%Y}<br>Задач: %{y}<extra></extra>",
     ))
 
     fig.add_trace(go.Scatter(
@@ -369,9 +366,32 @@ def build_distribution_interactive_fig(f_df):
 
     fig = go.Figure()
 
-    fig.add_trace(go.Histogram(x=dist_df["ttm_days"], name="TTM", marker_color="#6244BB", opacity=0.85, nbinsx=20, visible=True))
-    fig.add_trace(go.Histogram(x=dist_df["cycle_time"], name="Cycle time", marker_color="#6244BB", opacity=0.85, nbinsx=20, visible=False))
-    fig.add_trace(go.Histogram(x=dist_df["wait_time_days"], name="Ожидание", marker_color="#A485E0", opacity=0.85, nbinsx=20, visible=False))
+    fig.add_trace(go.Histogram(
+        x=dist_df["ttm_days"],
+        name="TTM",
+        marker_color="#6244BB",
+        opacity=0.85,
+        nbinsx=20,
+        visible=True,
+    ))
+
+    fig.add_trace(go.Histogram(
+        x=dist_df["cycle_time"],
+        name="Cycle time",
+        marker_color="#6244BB",
+        opacity=0.85,
+        nbinsx=20,
+        visible=False,
+    ))
+
+    fig.add_trace(go.Histogram(
+        x=dist_df["wait_time_days"],
+        name="Ожидание",
+        marker_color="#A485E0",
+        opacity=0.85,
+        nbinsx=20,
+        visible=False,
+    ))
 
     fig.update_layout(
         height=250,
@@ -398,9 +418,21 @@ def build_distribution_interactive_fig(f_df):
                 font=dict(size=10, color="#5D4AA8"),
                 pad=dict(r=0, t=0),
                 buttons=[
-                    dict(label="TTM", method="update", args=[{"visible": [True, False, False]}, {"xaxis": {"title": "TTM, дни"}, "yaxis": {"title": "Количество задач"}}]),
-                    dict(label="Cycle time", method="update", args=[{"visible": [False, True, False]}, {"xaxis": {"title": "Cycle time, дни"}, "yaxis": {"title": "Количество задач"}}]),
-                    dict(label="Ожидание", method="update", args=[{"visible": [False, False, True]}, {"xaxis": {"title": "Ожидание, дни"}, "yaxis": {"title": "Количество задач"}}]),
+                    dict(
+                        label="TTM",
+                        method="update",
+                        args=[{"visible": [True, False, False]}, {"xaxis": {"title": "TTM, дни"}, "yaxis": {"title": "Количество задач"}}],
+                    ),
+                    dict(
+                        label="Cycle time",
+                        method="update",
+                        args=[{"visible": [False, True, False]}, {"xaxis": {"title": "Cycle time, дни"}, "yaxis": {"title": "Количество задач"}}],
+                    ),
+                    dict(
+                        label="Ожидание",
+                        method="update",
+                        args=[{"visible": [False, False, True]}, {"xaxis": {"title": "Ожидание, дни"}, "yaxis": {"title": "Количество задач"}}],
+                    ),
                 ],
             )
         ],
@@ -410,8 +442,16 @@ def build_distribution_interactive_fig(f_df):
 
 def build_distribution_single_fig(f_df, metric_col, title_label, color):
     dist_df = f_df[[metric_col]].dropna().copy()
+
     fig = go.Figure()
-    fig.add_trace(go.Histogram(x=dist_df[metric_col], name=title_label, marker_color=color, opacity=0.85, nbinsx=20))
+    fig.add_trace(go.Histogram(
+        x=dist_df[metric_col],
+        name=title_label,
+        marker_color=color,
+        opacity=0.85,
+        nbinsx=20,
+    ))
+
     fig.update_layout(
         height=250,
         xaxis_title=f"{title_label}, дни",
@@ -503,18 +543,71 @@ def build_weekly_count_fig(current_week_df, previous_week_df, team_order_week):
 def build_weekly_ttm_interactive_fig(curr_parts, prev_parts):
     fig = go.Figure()
 
-    fig.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["ttm_days"], name="TTM — текущая", marker_color="#6244BB",
-                         text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["ttm_days"]], textposition="outside", cliponaxis=False, visible=True))
-    fig.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["ttm_days"], name="TTM — предыдущая", marker_color="#D6CCFF",
-                         text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["ttm_days"]], textposition="outside", cliponaxis=False, visible=True))
-    fig.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["cycle_time"], name="Cycle time — текущая", marker_color="#6244BB",
-                         text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["cycle_time"]], textposition="outside", cliponaxis=False, visible=False))
-    fig.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["cycle_time"], name="Cycle time — предыдущая", marker_color="#D6CCFF",
-                         text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["cycle_time"]], textposition="outside", cliponaxis=False, visible=False))
-    fig.add_trace(go.Bar(x=curr_parts["Компоненты"], y=curr_parts["wait_time_days"], name="Ожидание — текущая", marker_color="#A485E0",
-                         text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["wait_time_days"]], textposition="outside", cliponaxis=False, visible=False))
-    fig.add_trace(go.Bar(x=prev_parts["Компоненты"], y=prev_parts["wait_time_days"], name="Ожидание — предыдущая", marker_color="#EEE8FF",
-                         text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["wait_time_days"]], textposition="outside", cliponaxis=False, visible=False))
+    fig.add_trace(go.Bar(
+        x=curr_parts["Компоненты"],
+        y=curr_parts["ttm_days"],
+        name="TTM — текущая",
+        marker_color="#6244BB",
+        text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["ttm_days"]],
+        textposition="outside",
+        cliponaxis=False,
+        visible=True,
+    ))
+
+    fig.add_trace(go.Bar(
+        x=prev_parts["Компоненты"],
+        y=prev_parts["ttm_days"],
+        name="TTM — предыдущая",
+        marker_color="#D6CCFF",
+        text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["ttm_days"]],
+        textposition="outside",
+        cliponaxis=False,
+        visible=True,
+    ))
+
+    fig.add_trace(go.Bar(
+        x=curr_parts["Компоненты"],
+        y=curr_parts["cycle_time"],
+        name="Cycle time — текущая",
+        marker_color="#6244BB",
+        text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["cycle_time"]],
+        textposition="outside",
+        cliponaxis=False,
+        visible=False,
+    ))
+
+    fig.add_trace(go.Bar(
+        x=prev_parts["Компоненты"],
+        y=prev_parts["cycle_time"],
+        name="Cycle time — предыдущая",
+        marker_color="#D6CCFF",
+        text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["cycle_time"]],
+        textposition="outside",
+        cliponaxis=False,
+        visible=False,
+    ))
+
+    fig.add_trace(go.Bar(
+        x=curr_parts["Компоненты"],
+        y=curr_parts["wait_time_days"],
+        name="Ожидание — текущая",
+        marker_color="#A485E0",
+        text=[f"{v:.2f}" if v > 0 else "" for v in curr_parts["wait_time_days"]],
+        textposition="outside",
+        cliponaxis=False,
+        visible=False,
+    ))
+
+    fig.add_trace(go.Bar(
+        x=prev_parts["Компоненты"],
+        y=prev_parts["wait_time_days"],
+        name="Ожидание — предыдущая",
+        marker_color="#EEE8FF",
+        text=[f"{v:.2f}" if v > 0 else "" for v in prev_parts["wait_time_days"]],
+        textposition="outside",
+        cliponaxis=False,
+        visible=False,
+    ))
 
     fig.update_layout(
         height=260,
@@ -607,7 +700,7 @@ def build_weekly_flow_fig(current_week_df, previous_week_df, cw_start, cw_end, p
     curr_daily["Период"] = "Текущая неделя"
 
     prev_daily = (
-        previous_week_df.assign(Дата=current_week_df["Дата создания"].dt.normalize())
+        previous_week_df.assign(Дата=previous_week_df["Дата создания"].dt.normalize())
         .groupby("Дата")
         .size()
         .reindex(previous_dates, fill_value=0)
