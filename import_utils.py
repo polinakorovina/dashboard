@@ -1,5 +1,3 @@
-import pandas as pd
-
 from data_pipeline import (
     load_single_file,
     load_and_prepare_two_dataframes,
@@ -22,8 +20,6 @@ def process_uploaded_files(uploaded_files, postgres_url: str):
     inserted_rows = write_dashboard_to_postgres_append(
         prepared_df,
         postgres_url=postgres_url,
-        source="manual_upload",
-        file_names=f"{uploaded_files[0].name} | {uploaded_files[1].name}",
     )
 
     db_df = read_dashboard_from_postgres(postgres_url)
