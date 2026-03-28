@@ -1,8 +1,8 @@
 import pandas as pd
 import sqlalchemy as sa
-from sqlalchemy import text, inspect, MetaData, Table
+from sqlalchemy import inspect, MetaData, Table
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from datetime import datetime
+
 
 TTM_STAGES = [
     "Сбор данных",
@@ -155,7 +155,7 @@ def prepare_dashboard_data(df_):
     df_["Дата создания"] = pd.to_datetime(df_["Дата создания"], errors="coerce")
     df_ = df_.dropna(subset=["Дата создания"])
 
-    for col in set(TTM_STAGES + CYCLE_STAGES):
+    for col in TTM_STAGES:
         if col not in df_.columns:
             df_[col] = 0
         df_[col] = pd.to_numeric(df_[col], errors="coerce").fillna(0)
@@ -191,20 +191,9 @@ def ensure_dashboard_table_exists(engine, df: pd.DataFrame):
         df.head(0).to_sql("dashboard_tasks", engine, if_exists="fail", index=False)
 
 
-def cleanup_existing_duplicates(engine):
-    with engine.begin() as conn:
-        conn.execute(text("""
-            DELETE FROM dashboard_tasks a
-            USING dashboard_tasks b
-            WHERE a.ctid < b.ctid
-              AND a."Ключ" = b."Ключ"
-              AND a."Ключ" IS NOT NULL
-        """))
-
-
 def ensure_unique_constraint(engine):
     with engine.begin() as conn:
-        conn.execute(text("""
+        conn.exec_driver_sql("""
             DO $$
             BEGIN
                 IF NOT EXISTS (
@@ -219,30 +208,15 @@ def ensure_unique_constraint(engine):
                 WHEN duplicate_object THEN NULL;
             END
             $$;
-        """))
+        """)
 
 
-def ensure_meta_table_exists(engine):
-    with engine.begin() as conn:
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS dashboard_meta (
-                updated_at TIMESTAMP,
-                source TEXT,
-                file_names TEXT,
-                rows_count_in_batch INTEGER,
-                inserted_rows INTEGER
-            )
-        """))
-
-
-def write_dashboard_to_postgres_append(df, postgres_url: str, source: str, file_names: str = ""):
+def write_dashboard_to_postgres_append(df, postgres_url: str, source: str = "", file_names: str = ""):
     engine = get_engine(postgres_url)
 
     df = normalize_key_column(df)
     ensure_dashboard_table_exists(engine, df)
-    cleanup_existing_duplicates(engine)
     ensure_unique_constraint(engine)
-    ensure_meta_table_exists(engine)
 
     metadata = MetaData()
     dashboard_table = Table("dashboard_tasks", metadata, autoload_with=engine)
@@ -258,17 +232,6 @@ def write_dashboard_to_postgres_append(df, postgres_url: str, source: str, file_
             result = conn.execute(stmt)
             inserted_rows = result.rowcount if result.rowcount is not None else 0
 
-    meta_df = pd.DataFrame([
-        {
-            "updated_at": datetime.utcnow(),
-            "source": source,
-            "file_names": file_names,
-            "rows_count_in_batch": len(df),
-            "inserted_rows": inserted_rows,
-        }
-    ])
-    meta_df.to_sql("dashboard_meta", engine, if_exists="replace", index=False)
-
     return inserted_rows
 
 
@@ -276,13 +239,5 @@ def read_dashboard_from_postgres(postgres_url: str):
     engine = get_engine(postgres_url)
     try:
         return pd.read_sql('SELECT * FROM dashboard_tasks', engine)
-    except Exception:
-        return pd.DataFrame()
-
-
-def read_meta_from_postgres(postgres_url: str):
-    engine = get_engine(postgres_url)
-    try:
-        return pd.read_sql('SELECT * FROM dashboard_meta', engine)
     except Exception:
         return pd.DataFrame()
