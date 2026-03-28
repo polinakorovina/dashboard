@@ -12,10 +12,8 @@ SECRET_CODE = os.getenv("TELEGRAM_START_CODE", "duty2026")
 STATE_REMOTE_PATH = os.getenv("TELEGRAM_STATE_PATH", "/bot_state/subscribers_state.json")
 STATE_LOCAL_PATH = "subscribers_state.json"
 
-y = yadisk.YaDisk(token=YANDEX_TOKEN)
 
-
-def ensure_remote_dir(remote_dir: str):
+def ensure_remote_dir(y, remote_dir: str):
     remote_dir = remote_dir.strip()
     if not remote_dir or remote_dir == "/":
         return
@@ -28,10 +26,11 @@ def ensure_remote_dir(remote_dir: str):
             y.mkdir(current)
 
 
-def load_state():
+def load_state(y):
     if y.exists(STATE_REMOTE_PATH):
-        if Path(STATE_LOCAL_PATH).exists():
-            Path(STATE_LOCAL_PATH).unlink()
+        local_path = Path(STATE_LOCAL_PATH)
+        if local_path.exists():
+            local_path.unlink()
 
         y.download(STATE_REMOTE_PATH, STATE_LOCAL_PATH)
 
@@ -44,12 +43,12 @@ def load_state():
     }
 
 
-def save_state(state):
+def save_state(y, state):
     with open(STATE_LOCAL_PATH, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
 
     folder = os.path.dirname(STATE_REMOTE_PATH)
-    ensure_remote_dir(folder)
+    ensure_remote_dir(y, folder)
 
     if y.exists(STATE_REMOTE_PATH):
         y.remove(STATE_REMOTE_PATH, permanently=True)
@@ -101,7 +100,6 @@ def process_message(state, message):
     title = chat.get("title", "")
     text = message.get("text", "") or ""
 
-    # Личка: /start <код>
     if chat_type == "private":
         parts = text.strip().split(maxsplit=1)
 
@@ -114,7 +112,6 @@ def process_message(state, message):
             else:
                 send_message(chat_id, "Доступ ограничен.")
 
-    # Группа / супергруппа: /register <код>
     elif chat_type in ("group", "supergroup"):
         parts = text.strip().split(maxsplit=1)
 
@@ -132,10 +129,12 @@ def main():
     if not YANDEX_TOKEN or not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("Не заданы YANDEX_TOKEN или TELEGRAM_BOT_TOKEN")
 
+    y = yadisk.YaDisk(token=YANDEX_TOKEN)
+
     if not y.check_token():
         raise RuntimeError("YANDEX_TOKEN невалидный")
 
-    state = load_state()
+    state = load_state(y)
     offset = state.get("last_update_id", 0) + 1
 
     updates = get_updates(offset)
@@ -149,7 +148,11 @@ def main():
             process_message(state, upd["message"])
 
     state["last_update_id"] = max_update_id
-    save_state(state)
+    save_state(y, state)
+
+    local_path = Path(STATE_LOCAL_PATH)
+    if local_path.exists():
+        local_path.unlink()
 
     print("Subscribers synced.")
 
