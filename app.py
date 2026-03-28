@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import timedelta, date
 
-from data_pipeline import read_dashboard_from_postgres, read_meta_from_postgres
+from data_pipeline import read_dashboard_from_postgres
 from import_utils import process_uploaded_files
 from export_utils import build_overview_export_pdf, build_weekly_export_pdf
 from dashboard_utils import (
@@ -62,32 +62,40 @@ st.markdown(
         height: 1.6rem !important;
         min-height: 1.6rem !important;
     }
+
     [data-testid="stStatusWidget"] {
         display: none !important;
         visibility: hidden !important;
     }
+
     div[style*="position: fixed"][style*="bottom"] {
         display: none !important;
         visibility: hidden !important;
     }
+
     div[style*="position: fixed"][style*="bottom"] button {
         display: none !important;
         visibility: hidden !important;
     }
+
     iframe[title*="Manage app"],
     iframe[title*="Streamlit"] {
         display: none !important;
         visibility: hidden !important;
     }
+
     footer {
         display: none !important;
         visibility: hidden !important;
     }
+
     .stApp { background-color: #F7F2FA; }
+
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #A485E0 0%, #8E6EDB 100%);
         color: white;
     }
+
     [data-testid="stSidebar"] h1,
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3,
@@ -96,13 +104,16 @@ st.markdown(
     [data-testid="stSidebar"] span {
         color: white !important;
     }
+
     [data-baseweb="select"] > div {
         background-color: white !important;
         border-radius: 14px !important;
         border: none !important;
         min-height: 48px !important;
     }
+
     [data-baseweb="select"] input { color: #1A1C1E !important; }
+
     [data-baseweb="tag"] {
         background-color: #6244BB !important;
         color: white !important;
@@ -111,12 +122,16 @@ st.markdown(
         padding: 2px 6px !important;
         font-size: 13px !important;
     }
+
     [data-baseweb="tag"] span { color: white !important; font-weight: 500 !important; }
     [data-baseweb="tag"] svg { fill: white !important; }
     [data-baseweb="select"] svg { fill: #6244BB !important; }
+
     [data-baseweb="select"] > div:hover { box-shadow: 0 0 0 1px #6244BB inset !important; }
     [data-baseweb="select"] > div:focus-within { box-shadow: 0 0 0 2px #6244BB inset !important; }
+
     [data-testid="stDateInput"] p { display: none !important; }
+
     .react-datepicker__day--selected,
     .react-datepicker__day--keyboard-selected,
     .react-datepicker__day--range-start,
@@ -125,27 +140,32 @@ st.markdown(
         color: #ffffff !important;
         border-radius: 999px !important;
     }
+
     .react-datepicker__day--in-range,
     .react-datepicker__day--in-selecting-range {
         background-color: rgba(98, 68, 187, 0.22) !important;
         color: #1A1C1E !important;
         border-radius: 10px !important;
     }
+
     .rdp-day_selected,
     .rdp-day_range_start,
     .rdp-day_range_end {
         background-color: #6244BB !important;
         color: #ffffff !important;
     }
+
     .rdp-day_range_middle {
         background-color: rgba(98, 68, 187, 0.22) !important;
         color: #1A1C1E !important;
     }
+
     [data-testid="stDateInput"] [aria-selected="true"] {
         background-color: #6244BB !important;
         color: #ffffff !important;
         border-radius: 999px !important;
     }
+
     .block-container {
         padding-top: 0.45rem !important;
         padding-bottom: 0.25rem !important;
@@ -153,9 +173,11 @@ st.markdown(
         padding-right: 0.45rem !important;
         max-width: 100% !important;
     }
+
     div[data-testid="stVerticalBlock"] > div {
         gap: 0.6rem;
     }
+
     .main-header {
         font-size: 24px;
         font-weight: 800;
@@ -163,12 +185,14 @@ st.markdown(
         margin: 0;
         padding-top: 6px;
     }
+
     .card-header {
         font-size: 14px;
         font-weight: 700;
         color: #1A1C1E;
         display: inline-block;
     }
+
     .kpi-card {
         background: #ffffff;
         border: 1px solid #E6E9EF;
@@ -181,6 +205,7 @@ st.markdown(
         grid-template-rows: auto 1fr auto;
         align-items: stretch;
     }
+
     .kpi-title {
         font-size: 15px;
         font-weight: 650;
@@ -192,6 +217,7 @@ st.markdown(
         min-height: 0;
         margin: 0;
     }
+
     .kpi-value {
         font-size: 26px;
         font-weight: 650;
@@ -201,6 +227,7 @@ st.markdown(
         display: flex;
         align-items: center;
     }
+
     .hint-icon {
         display: inline-flex;
         justify-content: center;
@@ -217,6 +244,7 @@ st.markdown(
         margin-left: 8px;
         flex: 0 0 auto;
     }
+
     .hint-icon:hover::after {
         content: attr(data-hint);
         position: absolute;
@@ -237,16 +265,19 @@ st.markdown(
         font-weight: normal;
         pointer-events: none;
     }
+
     [data-testid="column"]:first-child .hint-icon:hover::after {
         left: 0;
         right: auto;
         transform: none;
     }
+
     [data-testid="column"]:last-child .hint-icon:hover::after {
         right: 0;
         left: auto;
         transform: none;
     }
+
     [data-testid="stPlotlyChart"] {
         background: white;
         border-radius: 18px;
@@ -255,20 +286,25 @@ st.markdown(
         border: 1px solid #ECEAF3;
         overflow: hidden;
     }
+
     th {
         background-color: #6244BB !important;
         color: white !important;
         font-weight: 600 !important;
         text-align: left !important;
     }
+
     thead tr th:first-child { display:none; }
     tbody tr th:first-child { display:none; }
+
     div[role="radiogroup"] {
         gap: 8px;
     }
+
     div[role="radiogroup"] > label > div:first-child {
         display: none !important;
     }
+
     div[role="radiogroup"] label {
         background: #F3EEFC !important;
         border: 1px solid #E4DDF7 !important;
@@ -276,11 +312,13 @@ st.markdown(
         padding: 6px 12px !important;
         margin-right: 6px !important;
     }
+
     div[role="radiogroup"] label[data-checked="true"] {
         background: white !important;
         border: 1px solid #D8CDF4 !important;
         box-shadow: 0 1px 4px rgba(98, 68, 187, 0.06);
     }
+
     div.stButton > button,
     div[data-testid="stDownloadButton"] > button {
         border-radius: 9px !important;
@@ -294,6 +332,7 @@ st.markdown(
         width: auto !important;
         white-space: nowrap !important;
     }
+
     .compare-card {
         background: #ffffff;
         border: 1px solid #E6E9EF;
@@ -305,6 +344,7 @@ st.markdown(
         flex-direction: column;
         justify-content: space-between;
     }
+
     .compare-title {
         font-size: 13px;
         font-weight: 650;
@@ -312,6 +352,7 @@ st.markdown(
         line-height: 1.1;
         margin: 0;
     }
+
     .compare-value {
         font-size: 20px;
         font-weight: 700;
@@ -319,12 +360,14 @@ st.markdown(
         line-height: 1;
         margin: 0;
     }
+
     .compare-sub {
         font-size: 12px;
         color: #7E8694;
         line-height: 1.1;
         margin: 0;
     }
+
     .compare-delta {
         font-size: 12px;
         font-weight: 700;
@@ -341,11 +384,6 @@ st.markdown(
 @st.cache_data(ttl=300, show_spinner=False)
 def read_dashboard_cached(postgres_url: str) -> pd.DataFrame:
     return read_dashboard_from_postgres(postgres_url)
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def read_meta_cached(postgres_url: str) -> pd.DataFrame:
-    return read_meta_from_postgres(postgres_url)
 
 
 if st.session_state["data"].empty:
@@ -562,8 +600,6 @@ def get_weekly_sig():
 
 
 def get_overview_bundle():
-    init_session_state()
-
     sig = get_overview_sig()
     cache = st.session_state.get("overview_bundle_cache", {})
 
@@ -598,8 +634,6 @@ def get_overview_bundle():
 
 
 def get_weekly_bundle():
-    init_session_state()
-
     sig = get_weekly_sig()
     cache = st.session_state.get("weekly_bundle_cache", {})
 
@@ -688,8 +722,6 @@ def top_bar_fragment(current_active_view, export_filename="dashboard_export.pdf"
         st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
 
         def _build_pdf_on_click():
-            init_session_state()
-
             if current_active_view == "Общий обзор":
                 bundle = get_overview_bundle()
                 return build_overview_export_pdf(
@@ -739,7 +771,6 @@ def top_bar_fragment(current_active_view, export_filename="dashboard_export.pdf"
                 final_df, inserted_rows = process_uploaded_files(uploaded_files, POSTGRES_URL)
 
                 read_dashboard_cached.clear()
-                read_meta_cached.clear()
 
                 st.session_state["data"] = final_df
                 st.session_state["data_version"] = st.session_state.get("data_version", 0) + 1
@@ -759,8 +790,6 @@ else:
 
 top_bar_fragment(current_active_view=current_active_view, export_filename=export_filename)
 
-meta_df = read_meta_cached(POSTGRES_URL)
-
 
 def render_overview(bundle):
     f_df_local = bundle["f_df"]
@@ -773,17 +802,32 @@ def render_overview(bundle):
     with k2:
         med = f_df_local["ttm_days"].median() if len(f_df_local) else 0.0
         avg = f_df_local["ttm_days"].mean() if len(f_df_local) else 0.0
-        kpi_card("TTM (дн)", f"{avg:.2f}", "Сколько в среднем времени занимал путь задач по процессу целиком", subvalue=f"медиана: {med:.2f}")
+        kpi_card(
+            "TTM (дн)",
+            f"{avg:.2f}",
+            "Сколько в среднем времени занимал путь задач по процессу целиком",
+            subvalue=f"медиана: {med:.2f}",
+        )
 
     with k3:
         med = f_df_local["cycle_time"].median() if len(f_df_local) else 0.0
         avg = f_df_local["cycle_time"].mean() if len(f_df_local) else 0.0
-        kpi_card("Cycle time (дн)", f"{avg:.2f}", "Среднее время активной работы над задачами", subvalue=f"медиана: {med:.2f}")
+        kpi_card(
+            "Cycle time (дн)",
+            f"{avg:.2f}",
+            "Среднее время активной работы над задачами",
+            subvalue=f"медиана: {med:.2f}",
+        )
 
     with k4:
         avg = f_df_local["wait_time_days"].mean() if len(f_df_local) else 0.0
         med = f_df_local["wait_time_days"].median() if len(f_df_local) else 0.0
-        kpi_card("Ожидание (дн)", f"{avg:.2f}", "Среднее время вне активной работы", subvalue=f"медиана: {med:.2f}")
+        kpi_card(
+            "Ожидание (дн)",
+            f"{avg:.2f}",
+            "Среднее время вне активной работы",
+            subvalue=f"медиана: {med:.2f}",
+        )
 
     with k5:
         late = ((f_df_local["Резолюция"] == "Позже").mean() * 100) if len(f_df_local) else 0
