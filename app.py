@@ -737,7 +737,7 @@ def render_overview(bundle):
         kpi_card(
             "TTM (дн)",
             f"{avg:.2f}",
-            "Сколько в среднем времени занимал путь задач по процессу целиком",
+            "Первое значение отвечат за показ среднего TTM (TTM метрика, показывающая суvму всех этапов, которые задача проходит от поступления до решения, показывается в днях), второе значение отвечает за показ медианного значения и показывает наиболее типичное значение",
             subvalue=f"медиана: {med:.2f}",
         )
 
@@ -747,7 +747,7 @@ def render_overview(bundle):
         kpi_card(
             "Cycle time (дн)",
             f"{avg:.2f}",
-            "Среднее время активной работы над задачами",
+            "Первое значение отвечат за показ среднего Cycle Time (Cycle Time метрика, показывающая сумму всех этапов, которые задача проходит в активном решении, когда команда работает над решением, показывается в днях), второе значение отвечает за показ медианного значения и показывает наиболее типичное значение",
             subvalue=f"медиана: {med:.2f}",
         )
 
@@ -757,13 +757,13 @@ def render_overview(bundle):
         kpi_card(
             "Ожидание (дн)",
             f"{avg:.2f}",
-            "Среднее время вне активной работы",
+            "Первое значение отвечат за показ среднего Ожидания (Ожидание метрика, показыывающая сумму всех этапов, которые задача проходит от поступления до начала активной работы, показывается в днях), второе значение отвечает за показ медианного значения и показывает наиболее типичное значение",
             subvalue=f"медиана: {med:.2f}",
         )
 
     with k5:
         late = ((f_df_local["Резолюция"] == "Позже").mean() * 100) if len(f_df_local) else 0
-        kpi_card("Позже", f"{late:.1f}%", "Доля задач, которые решены позже", color="#E45757" if late > 50 else "#4CAF7D")
+        kpi_card("Позже", f"{late:.1f}%", "Доля задач, которые были решены позже из всех задач", color="#E45757" if late > 50 else "#4CAF7D")
 
     with k6:
         active = (f_df_local["cycle_time"].sum() / f_df_local["ttm_days"].sum()) * 100 if f_df_local["ttm_days"].sum() > 0 else 0
@@ -775,7 +775,7 @@ def render_overview(bundle):
         kpi_card(
             "Пинг-понг > 1",
             f"{pingpong_share:.1f}%",
-            "Доля задач, которые передавались между командами более одного раза",
+            "Доля задач, которые передавались между командами более одного раза, то есть были переданы от одной команды к другой какое-то количество раз",
             subvalue=f"задач: {tasks_with_pingpong}",
             color="#E45757" if pingpong_share > 20 else "#4CAF7D",
             hint_side="left",
@@ -788,7 +788,7 @@ def render_overview(bundle):
     with c1:
         st.markdown(
             '<div class="card-header">Структура времени задач по командам</div>'
-            '<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания">?</span>',
+            '<span class="hint-icon" data-hint="Можно посмотреть суммарно Cycle time + ожидание или только этапы ожидания, показывается среднее для каждой команды">?</span>',
             unsafe_allow_html=True,
         )
         st.plotly_chart(bundle["fig_structure_interactive"], use_container_width=True, config={"displayModeBar": False})
@@ -806,7 +806,7 @@ def render_overview(bundle):
     with b1:
         st.markdown(
             '<div class="card-header">Динамика поступления задач</div>'
-            '<span class="hint-icon" data-hint="Количество новых задач по дням, неделям или месяцам">?</span>',
+            '<span class="hint-icon" data-hint="Количество задач, поступивших в работу за выбранный период по дням, неделям или месяцам, изначально стоит логика группировки: если период менее 2 месяцев, показывается по дням, если более 2, но менее 6, то по неделям, а более 6, то по месяцам">?</span>',
             unsafe_allow_html=True,
         )
         st.plotly_chart(bundle["fig_dynamics"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
@@ -814,7 +814,7 @@ def render_overview(bundle):
     with b2:
         st.markdown(
             '<div class="card-header">Распределение времени задач</div>'
-            '<span class="hint-icon" data-hint="Можно посмотреть распределение TTM, Cycle time или ожидания по задачам">?</span>',
+            '<span class="hint-icon" data-hint="Можно посмотреть, как распределяется время задач: сколько задач решается быстро, сколько — дольше, и как это выглядит отдельно для TTM, активной работы и ожидания">?</span>',
             unsafe_allow_html=True,
         )
         st.plotly_chart(bundle["fig_dist_interactive"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
@@ -822,7 +822,7 @@ def render_overview(bundle):
     with b3:
         st.markdown(
             '<div class="card-header">Структура обращений</div>'
-            '<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений">?</span>',
+            '<span class="hint-icon" data-hint="Распределение задач по категориям количества обращений, показано в процентах, но точное количество можно посмотреть при наведение на график">?</span>',
             unsafe_allow_html=True,
         )
         st.plotly_chart(bundle["fig_contacts"], use_container_width=True, config={"displayModeBar": False, "scrollZoom": False})
@@ -850,19 +850,19 @@ def render_weekly(bundle):
     w1, w2, w3, w4, w5, w6, w7 = st.columns(7, gap="small")
 
     with w1:
-        kpi_compare_card("Всего задач", current_metrics_local["tasks_total"], previous_metrics_local["tasks_total"], hint="Количество задач за текущую неделю", as_int=True)
+        kpi_compare_card("Всего задач", current_metrics_local["tasks_total"], previous_metrics_local["tasks_total"], hint="Количество задач, взятых в работу за текущую и предыдущую недели, а также разница значений", as_int=True)
     with w2:
-        kpi_compare_card("TTM (дн)", current_metrics_local["ttm"], previous_metrics_local["ttm"], hint="Среднее время от открытия задачи до её закрытия")
+        kpi_compare_card("TTM (дн)", current_metrics_local["ttm"], previous_metrics_local["ttm"], hint="Среднее время от поступления задачи до её закрытия за текущую и предыдущую недели, а также разница в значениях")
     with w3:
-        kpi_compare_card("Cycle time (дн)", current_metrics_local["cycle"], previous_metrics_local["cycle"], hint="Среднее время активной работы")
+        kpi_compare_card("Cycle time (дн)", current_metrics_local["cycle"], previous_metrics_local["cycle"], hint="Среднее время активной работы команды на задачми за текущую и предыдущую недели, а также разница этих значений")
     with w4:
-        kpi_compare_card("Ожидание (дн)", current_metrics_local["wait"], previous_metrics_local["wait"], hint="Среднее время ожидания")
+        kpi_compare_card("Ожидание (дн)", current_metrics_local["wait"], previous_metrics_local["wait"], hint="Среднее время от поступления задачи дог взятия её в работу командами за екущую и предыдущую недели, а также разница")
     with w5:
-        kpi_compare_card("Позже", current_metrics_local["later_pct"], previous_metrics_local["later_pct"], hint="Доля задач с резолюцией 'Позже'", is_percent=True)
+        kpi_compare_card("Позже", current_metrics_local["later_pct"], previous_metrics_local["later_pct"], hint="Доля задач, которые были решены не сразу, а отложены за текущую и предыдущую недели, а также разница", is_percent=True)
     with w6:
-        kpi_compare_card("Flow Efficiency", current_metrics_local["active_pct"], previous_metrics_local["active_pct"], hint="Доля активной работы в общем времени", is_percent=True)
+        kpi_compare_card("Flow Efficiency", current_metrics_local["active_pct"], previous_metrics_local["active_pct"], hint="Доля активной работы в общем времени за сравниваемые недели, а также разница", is_percent=True)
     with w7:
-        kpi_compare_card("Пинг-понг > 1", current_metrics_local["pingpong_share"], previous_metrics_local["pingpong_share"], hint="Доля задач, которые передавались между командами более одного раза", is_percent=True)
+        kpi_compare_card("Пинг-понг > 1", current_metrics_local["pingpong_share"], previous_metrics_local["pingpong_share"], hint="Доля задач, которые передавались между командами более одного раза, то есть были переданы от одной команды к другой, значения за две недели, а также разница между этими значениями", is_percent=True)
 
     st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
@@ -878,8 +878,8 @@ def render_weekly(bundle):
 
     with g2:
         st.markdown(
-            '<div class="card-header">TTM по командам</div>'
-            '<span class="hint-icon" data-hint="Можно посмотреть TTM, Cycle time или ожидание по командам за две недели">?</span>',
+            '<div class="card-header">Метрики времени по командам</div>'
+            '<span class="hint-icon" data-hint="Можно посмотреть средние значения TTM, Cycle time или ожидание по командам за две недели">?</span>',
             unsafe_allow_html=True,
         )
         st.plotly_chart(bundle["fig_ttm_interactive"], use_container_width=True, config={"displayModeBar": False})
